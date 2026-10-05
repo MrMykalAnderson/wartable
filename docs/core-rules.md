@@ -98,11 +98,24 @@ A unit is either at **full strength** or **half strength**.
 - A half-strength unit that takes a hit is **destroyed** and removed from the map.
 - A half-strength unit has **−1 to every stat** except Cost (minimum 0).
 
-### 3.3 Standard units
+### 3.3 Unit tokens
+
+Each unit is shown as a hex token:
+
+- **Symbol:** a box with a military-style symbol for the unit type. Infantry is a box with a cross (X), cavalry a box with a single diagonal line, artillery a box containing a rounded dot.
+- **Front edge** marked **red**, **flank edges** marked **green**, rear edges unmarked. This shows facing at a glance.
+- **Order markers:** **?** means the unit has special orders; **!** means it has passive orders.
+- A half-strength unit's token is turned over (or otherwise marked as damaged).
+
+Example token art is in [docs/images](images/). The stat tables in those images are from an earlier draft (they still show Size); the tables in these rules take precedence.
+
+### 3.4 Standard units
 
 These are the three standard unit templates. Other units are usually variations on them.
 
 #### Infantry
+
+![Infantry token](images/infantry.png)
 
 The most basic unit: no ranged attack and a short move. On its own it can only damage an enemy by attacking a flank or the rear.
 
@@ -114,6 +127,8 @@ The most basic unit: no ranged attack and a short move. On its own it can only d
 
 #### Cavalry
 
+![Cavalry token](images/cavalry.png)
+
 Fast shock troops with both melee and a short-ranged attack.
 
 | Cost | Move | Def | Range | RngDmg | Attack | AttDmg |
@@ -123,6 +138,8 @@ Fast shock troops with both melee and a short-ranged attack.
 *"Move swiftly and unleash hell!"*
 
 #### Artillery
+
+![Artillery token](images/artillery.png)
 
 Long-ranged guns that must be set up before they can fire, and are vulnerable while moving.
 

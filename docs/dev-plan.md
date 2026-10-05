@@ -162,6 +162,8 @@ Each milestone ends with passing tests, a short note in `docs/CHANGELOG.md`, and
 | M6 | Web viewer | Local web server: draws the hex map with units and facing, loads a saved game, steps through a turn's events one at a time. |
 | M7 | Web play and sandbox | Enter orders for both players in the browser (hot-seat), and edit rules data in the browser to replay a turn under different values. |
 
+For M6 onward, draw units as described in core-rules.md 3.3 and shown in `docs/images/`: a type symbol in a box, the front edge red, the flank edges green, half-strength units visibly marked. Draw them as SVG (don't embed the PNGs) so tokens can rotate to any facing and scale cleanly.
+
 Don't start M6 until the engine (M1–M5) is solid; the point of the web tools is to explore rules, which only works if the engine is trustworthy.
 
 ## 8. Definition of done (every change)
