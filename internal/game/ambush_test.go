@@ -40,13 +40,14 @@ func TestAmbushEndsWhenKnockbackWouldBeAdjacentToAnotherEnemy(t *testing.T) {
 	third := UnitInstance{ID: "C", Side: "south", Template: templates["infantry"], Pos: thirdPos, Facing: hex.N, Strength: Full}
 	board := starterBoard(ambushed, attacker, third)
 
-	board, results := resolveAmbush(board, core, "X")
+	board, events := resolveAmbush(board, core, "X")
 
-	if len(results) != 1 {
-		t.Fatalf("resolveAmbush: got %d combat(s), want exactly 1 (losing always ends the ambush)", len(results))
+	if len(events) != 1 {
+		t.Fatalf("resolveAmbush: got %d combat(s), want exactly 1 (losing always ends the ambush)", len(events))
 	}
-	if results[0].Knockback == nil || !results[0].Knockback.Destroyed {
-		t.Errorf("Knockback = %+v, want a blocked (Destroyed) knockback to %s", results[0].Knockback, knockbackHex)
+	result := events[0].Melee
+	if result.Knockback == nil || !result.Knockback.Destroyed {
+		t.Errorf("Knockback = %+v, want a blocked (Destroyed) knockback to %s", result.Knockback, knockbackHex)
 	}
 	if _, ok := board.Unit("X"); ok {
 		t.Errorf("X should have been destroyed rather than knocked back next to C")

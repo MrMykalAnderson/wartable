@@ -9,15 +9,11 @@ import (
 )
 
 // applyAmbush resolves an ambush of ambushedID and converts the result
-// into events.
+// into events, each carrying the board as it stood right after it.
 func applyAmbush(board Board, core rules.CoreRules, ambushedID string) (Board, []Event) {
-	board, results := resolveAmbush(board, core, ambushedID)
-	events := make([]Event, 0, len(results)+1)
-	for _, r := range results {
-		events = append(events, Event{Kind: "melee", Unit: r.AttackerID, Detail: "ambush attack", Melee: &r})
-	}
+	board, events := resolveAmbush(board, core, ambushedID)
 	if _, ok := board.Unit(ambushedID); !ok {
-		events = append(events, Event{Kind: "unit-destroyed", Unit: ambushedID, Detail: "destroyed during ambush"})
+		events = append(events, Event{Kind: "unit-destroyed", Unit: ambushedID, Detail: "destroyed during ambush", Board: board})
 	}
 	return board, events
 }
@@ -26,11 +22,11 @@ func applyAmbush(board Board, core rules.CoreRules, ambushedID string) (Board, [
 // to its full Move, stopping on contact with any enemy, which ambushes it.
 func executeMove(state GameState, core rules.CoreRules, mover UnitInstance, o orders.Order) (GameState, []Event) {
 	if !mover.CanMove() {
-		return state, []Event{{Kind: "order-skipped", Unit: mover.ID, Detail: "cannot move in its current state"}}
+		return state, []Event{{Kind: "order-skipped", Unit: mover.ID, Detail: "cannot move in its current state", Board: state.Board}}
 	}
 	dest, ok := resolveHexTarget(state.Board, o)
 	if !ok {
-		return state, []Event{{Kind: "order-skipped", Unit: mover.ID, Detail: "move target not found"}}
+		return state, []Event{{Kind: "order-skipped", Unit: mover.ID, Detail: "move target not found", Board: state.Board}}
 	}
 
 	startPos, startFacing := mover.Pos, mover.Facing
@@ -45,7 +41,7 @@ func executeMove(state GameState, core rules.CoreRules, mover UnitInstance, o or
 	}
 	state.Board = state.Board.WithUnit(mover)
 
-	events := []Event{{Kind: "moved", Unit: mover.ID, Detail: fmt.Sprintf("moved to %s", mover.Pos)}}
+	events := []Event{{Kind: "moved", Unit: mover.ID, Detail: fmt.Sprintf("moved to %s", mover.Pos), Board: state.Board}}
 	if outcome.Contact {
 		var ambushEvents []Event
 		state.Board, ambushEvents = applyAmbush(state.Board, core, mover.ID)
@@ -60,27 +56,27 @@ func executeMove(state GameState, core rules.CoreRules, mover UnitInstance, o or
 // it, or being ambushed if it contacts a different enemy first.
 func executeCloseAndAttack(state GameState, core rules.CoreRules, mover UnitInstance, o orders.Order) (GameState, []Event) {
 	if !mover.Template.Melee {
-		return state, []Event{{Kind: "order-skipped", Unit: mover.ID, Detail: "cannot make melee attacks"}}
+		return state, []Event{{Kind: "order-skipped", Unit: mover.ID, Detail: "cannot make melee attacks", Board: state.Board}}
 	}
 	target, ok := state.Board.Unit(o.TargetUnit)
 	if !ok {
-		return state, []Event{{Kind: "order-skipped", Unit: mover.ID, Detail: "target not found"}}
+		return state, []Event{{Kind: "order-skipped", Unit: mover.ID, Detail: "target not found", Board: state.Board}}
 	}
 
 	fight := func(s GameState) (GameState, []Event) {
 		result, err := ResolveMelee(s.Board, core, mover.ID, target.ID, false)
 		if err != nil {
-			return s, []Event{{Kind: "order-skipped", Unit: mover.ID, Detail: err.Error()}}
+			return s, []Event{{Kind: "order-skipped", Unit: mover.ID, Detail: err.Error(), Board: s.Board}}
 		}
 		s.Board = applyMelee(s.Board, result)
-		return s, []Event{{Kind: "melee", Unit: mover.ID, Detail: "close and attack", Melee: &result}}
+		return s, []Event{{Kind: "melee", Unit: mover.ID, Detail: "close and attack", Board: s.Board, Melee: &result}}
 	}
 
 	if hex.Distance(mover.Pos, target.Pos) == 1 {
 		return fight(state)
 	}
 	if !mover.CanMove() {
-		return state, []Event{{Kind: "order-skipped", Unit: mover.ID, Detail: "cannot move in its current state"}}
+		return state, []Event{{Kind: "order-skipped", Unit: mover.ID, Detail: "cannot move in its current state", Board: state.Board}}
 	}
 
 	startPos := mover.Pos
@@ -99,7 +95,7 @@ func executeCloseAndAttack(state GameState, core rules.CoreRules, mover UnitInst
 
 	events := []Event{}
 	if len(outcome.Path) > 0 {
-		events = append(events, Event{Kind: "moved", Unit: mover.ID, Detail: fmt.Sprintf("closed to %s", mover.Pos)})
+		events = append(events, Event{Kind: "moved", Unit: mover.ID, Detail: fmt.Sprintf("closed to %s", mover.Pos), Board: state.Board})
 	}
 
 	if hex.Distance(mover.Pos, target.Pos) == 1 {
@@ -119,18 +115,18 @@ func executeCloseAndAttack(state GameState, core rules.CoreRules, mover UnitInst
 // nothing if the target is out of range or outside the firing arc.
 func executeFire(state GameState, core rules.CoreRules, shooter UnitInstance, o orders.Order) (GameState, []Event) {
 	if !shooter.CanFire() {
-		return state, []Event{{Kind: "order-skipped", Unit: shooter.ID, Detail: "cannot fire in its current state"}}
+		return state, []Event{{Kind: "order-skipped", Unit: shooter.ID, Detail: "cannot fire in its current state", Board: state.Board}}
 	}
 	target, ok := state.Board.Unit(o.TargetUnit)
 	if !ok {
-		return state, []Event{{Kind: "order-skipped", Unit: shooter.ID, Detail: "target not found"}}
+		return state, []Event{{Kind: "order-skipped", Unit: shooter.ID, Detail: "target not found", Board: state.Board}}
 	}
 	result, err := ResolveRanged(state.Board, core, shooter.ID, target.ID)
 	if err != nil {
-		return state, []Event{{Kind: "order-skipped", Unit: shooter.ID, Detail: err.Error()}}
+		return state, []Event{{Kind: "order-skipped", Unit: shooter.ID, Detail: err.Error(), Board: state.Board}}
 	}
 	state.Board = applyRanged(state.Board, result)
-	return state, []Event{{Kind: "ranged", Unit: shooter.ID, Detail: "fire", Ranged: &result}}
+	return state, []Event{{Kind: "ranged", Unit: shooter.ID, Detail: "fire", Board: state.Board, Ranged: &result}}
 }
 
 // executeCloseAndFire executes a Close and Fire order (docs/core-rules.md
@@ -139,11 +135,11 @@ func executeFire(state GameState, core rules.CoreRules, shooter UnitInstance, o 
 // and firing as soon as it can. Artillery can never use this order.
 func executeCloseAndFire(state GameState, core rules.CoreRules, mover UnitInstance, o orders.Order) (GameState, []Event) {
 	if len(mover.Template.States) > 0 {
-		return state, []Event{{Kind: "order-skipped", Unit: mover.ID, Detail: "artillery cannot use Close and Fire"}}
+		return state, []Event{{Kind: "order-skipped", Unit: mover.ID, Detail: "artillery cannot use Close and Fire", Board: state.Board}}
 	}
 	target, ok := state.Board.Unit(o.TargetUnit)
 	if !ok {
-		return state, []Event{{Kind: "order-skipped", Unit: mover.ID, Detail: "target not found"}}
+		return state, []Event{{Kind: "order-skipped", Unit: mover.ID, Detail: "target not found", Board: state.Board}}
 	}
 
 	startPos, startFacing := mover.Pos, mover.Facing
@@ -187,11 +183,11 @@ func executeCloseAndFire(state GameState, core rules.CoreRules, mover UnitInstan
 
 	var events []Event
 	if len(path) > 0 {
-		events = append(events, Event{Kind: "moved", Unit: mover.ID, Detail: fmt.Sprintf("closed to %s", mover.Pos)})
+		events = append(events, Event{Kind: "moved", Unit: mover.ID, Detail: fmt.Sprintf("closed to %s", mover.Pos), Board: state.Board})
 	}
 	if fired {
 		state.Board = applyRanged(state.Board, result)
-		events = append(events, Event{Kind: "ranged", Unit: mover.ID, Detail: "close and fire", Ranged: &result})
+		events = append(events, Event{Kind: "ranged", Unit: mover.ID, Detail: "close and fire", Board: state.Board, Ranged: &result})
 		return state, events
 	}
 	if contact {
@@ -210,7 +206,7 @@ func ExecuteOrder(state GameState, core rules.CoreRules, scenario rules.Scenario
 	}
 	mover, ok := state.Board.Unit(o.Unit)
 	if !ok {
-		return state, []Event{{Kind: "order-skipped", Unit: o.Unit, Detail: "unit destroyed or not on the map"}}
+		return state, []Event{{Kind: "order-skipped", Unit: o.Unit, Detail: "unit destroyed or not on the map", Board: state.Board}}
 	}
 	switch o.Type {
 	case orders.Move:
@@ -224,15 +220,17 @@ func ExecuteOrder(state GameState, core rules.CoreRules, scenario rules.Scenario
 	case orders.Ready, orders.Mobilise:
 		return executeReadyMobilise(state, mover, o)
 	default:
-		return state, []Event{{Kind: "order-skipped", Unit: o.Unit, Detail: fmt.Sprintf("unhandled order type %q", o.Type)}}
+		return state, []Event{{Kind: "order-skipped", Unit: o.Unit, Detail: fmt.Sprintf("unhandled order type %q", o.Type), Board: state.Board}}
 	}
 }
 
 // ExecuteTurn resolves initiative (advancing tieBreak if it was tied),
-// builds the alternating execution sequence, and executes every order in
-// it (docs/core-rules.md sections 5.2-5.3). An order whose unit is no
-// longer on the map (destroyed earlier this turn) is skipped but still
-// uses its place in the sequence.
+// resolves the passive Barrage phase, builds the alternating execution
+// order, and executes every order in it (docs/core-rules.md sections
+// 5.2-5.3). An order whose unit is no longer on the map (destroyed
+// earlier this turn) is skipped but still uses its place in the
+// sequence. Every returned event's Board is the board exactly as it
+// stood right after that event, for step-by-step replay.
 func ExecuteTurn(state GameState, core rules.CoreRules, scenario rules.Scenario, tieBreak *TieBreak, northOrders, southOrders []orders.Order) (GameState, []Event, error) {
 	northTotal, err := Initiative(state.Board, core, northOrders)
 	if err != nil {
@@ -255,7 +253,7 @@ func ExecuteTurn(state GameState, core rules.CoreRules, scenario rules.Scenario,
 	state.Board = newBoard
 	for _, shot := range barrageShots {
 		r := shot.Result
-		events = append(events, Event{Kind: "barrage", Unit: r.ShooterID, Detail: "barrage", Ranged: &r})
+		events = append(events, Event{Kind: "barrage", Unit: r.ShooterID, Detail: "barrage", Board: shot.Board, Ranged: &r})
 	}
 
 	for _, step := range steps {

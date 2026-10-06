@@ -87,6 +87,39 @@ func TestExecuteMoveAmbush(t *testing.T) {
 	}
 }
 
+// TestExecuteMoveAmbushEventBoardsAreIncremental checks that each event's
+// Board reflects the board exactly as it stood right after that event,
+// not the final state of the whole order (docs/dev-plan.md section 7.3:
+// step-by-step map replay).
+func TestExecuteMoveAmbushEventBoardsAreIncremental(t *testing.T) {
+	templates, core := loadTestRules(t)
+	mover := newUnit(t, templates, "Rider", "north", "cavalry", "F8", hex.N)
+	enemy := newUnit(t, templates, "Watcher", "south", "infantry", "G6", hex.SW)
+	state := GameState{Board: starterBoard(mover, enemy)}
+
+	o := orders.Order{Unit: "Rider", Type: orders.Move, HasTargetHex: true, TargetHex: mustParse(t, "F2")}
+	_, events := executeMove(state, core, mover, o)
+
+	if len(events) != 2 {
+		t.Fatalf("events = %+v, want exactly 2 (moved, then the ambush melee)", events)
+	}
+	if events[0].Kind != "moved" {
+		t.Fatalf("events[0].Kind = %q, want moved", events[0].Kind)
+	}
+	moveBoardRider, ok := events[0].Board.Unit("Rider")
+	if !ok || moveBoardRider.Pos != mustParse(t, "F6") || moveBoardRider.Strength != Full {
+		t.Errorf("events[0].Board's Rider = %+v, %v, want full strength at F6 (contact, before the ambush resolves)", moveBoardRider, ok)
+	}
+
+	if events[1].Kind != "melee" {
+		t.Fatalf("events[1].Kind = %q, want melee", events[1].Kind)
+	}
+	meleeBoardRider, ok := events[1].Board.Unit("Rider")
+	if !ok || meleeBoardRider.Pos != mustParse(t, "E7") || meleeBoardRider.Strength != Half {
+		t.Errorf("events[1].Board's Rider = %+v, %v, want half strength at E7 (after the ambush)", meleeBoardRider, ok)
+	}
+}
+
 func TestExecuteCloseAndAttackAlreadyAdjacent(t *testing.T) {
 	templates, core := loadTestRules(t)
 	attacker := newUnit(t, templates, "A", "south", "cavalry", "F7", hex.N)

@@ -48,23 +48,25 @@ func applyRanged(board Board, r RangedResult) Board {
 // enemy currently adjacent to the ambushed unit attacks it in melee, one
 // at a time in clockwise order from N, rechecking adjacency after each
 // combat (an attacker knocked out of adjacency doesn't get its attack),
-// and stopping once the ambushed unit is destroyed.
-func resolveAmbush(board Board, core rules.CoreRules, ambushedID string) (Board, []MeleeResult) {
-	var results []MeleeResult
+// and stopping once the ambushed unit is destroyed. Each returned event's
+// Board is the board exactly as it stood after that one combat, for
+// step-by-step replay.
+func resolveAmbush(board Board, core rules.CoreRules, ambushedID string) (Board, []Event) {
+	var events []Event
 	for {
 		ambushed, ok := board.Unit(ambushedID)
 		if !ok {
-			return board, results
+			return board, events
 		}
 		enemies := board.AdjacentEnemies(ambushed.Side, ambushed.Pos)
 		if len(enemies) == 0 {
-			return board, results
+			return board, events
 		}
 		result, err := ResolveMelee(board, core, enemies[0].ID, ambushedID, true)
 		if err != nil {
-			return board, results
+			return board, events
 		}
-		results = append(results, result)
 		board = applyMelee(board, result)
+		events = append(events, Event{Kind: "melee", Unit: result.AttackerID, Detail: "ambush attack", Board: board, Melee: &result})
 	}
 }

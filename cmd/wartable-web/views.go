@@ -63,6 +63,50 @@ func newUnitView(u game.UnitInstance, core rules.CoreRules) UnitView {
 	}
 }
 
+// BoardView is a board's units at one point in time: the live board (as
+// part of GameView) or the board immediately after one event (as part of
+// EventView), for step-by-step map replay (docs/dev-plan.md section
+// 7.3).
+type BoardView struct {
+	Columns int        `json:"columns"`
+	Rows    int        `json:"rows"`
+	Units   []UnitView `json:"units"`
+}
+
+func newBoardView(b game.Board, core rules.CoreRules) BoardView {
+	units := make([]UnitView, len(b.Units))
+	for i, u := range b.Units {
+		units[i] = newUnitView(u, core)
+	}
+	return BoardView{Columns: b.Columns, Rows: b.Rows, Units: units}
+}
+
+// CoreRulesView is the subset of core rule numbers the frontend needs to
+// label a calculation breakdown (docs/dev-plan.md section 7.3) without
+// ever deciding a rule itself.
+type CoreRulesView struct {
+	PositionBonus struct {
+		Front int `json:"front"`
+		Flank int `json:"flank"`
+		Rear  int `json:"rear"`
+	} `json:"positionBonus"`
+	AmbushDefPenalty    int `json:"ambushDefPenalty"`
+	HalfStrengthPenalty int `json:"halfStrengthPenalty"`
+	SupportPerAlly      int `json:"supportPerAlly"`
+}
+
+func newCoreRulesView(core rules.CoreRules) CoreRulesView {
+	v := CoreRulesView{
+		AmbushDefPenalty:    core.AmbushDefPenalty,
+		HalfStrengthPenalty: core.HalfStrengthPenalty,
+		SupportPerAlly:      core.SupportPerAlly,
+	}
+	v.PositionBonus.Front = core.PositionBonus.Front
+	v.PositionBonus.Flank = core.PositionBonus.Flank
+	v.PositionBonus.Rear = core.PositionBonus.Rear
+	return v
+}
+
 // GameView is a saved game as seen by the web viewer.
 type GameView struct {
 	ScenarioID     string              `json:"scenarioId"`
@@ -72,13 +116,11 @@ type GameView struct {
 	Rows           int                 `json:"rows"`
 	Units          []UnitView          `json:"units"`
 	Reserves       map[string][]string `json:"reserves"`
+	CoreRules      CoreRulesView       `json:"coreRules"`
 }
 
 func newGameView(f save.File, core rules.CoreRules) GameView {
-	units := make([]UnitView, len(f.State.Board.Units))
-	for i, u := range f.State.Board.Units {
-		units[i] = newUnitView(u, core)
-	}
+	board := newBoardView(f.State.Board, core)
 	reserves := make(map[string][]string, len(f.State.Reserves))
 	for side, us := range f.State.Reserves {
 		ids := make([]string, len(us))
@@ -91,24 +133,131 @@ func newGameView(f save.File, core rules.CoreRules) GameView {
 		ScenarioID:     f.ScenarioID,
 		Turn:           f.Turn,
 		TieBreakHolder: f.TieBreak.Holder,
-		Columns:        f.State.Board.Columns,
-		Rows:           f.State.Board.Rows,
-		Units:          units,
+		Columns:        board.Columns,
+		Rows:           board.Rows,
+		Units:          board.Units,
 		Reserves:       reserves,
+		CoreRules:      newCoreRulesView(core),
+	}
+}
+
+// MeleeView is a melee combat's full, auditable record (docs/core-rules.md
+// section 8), broken into every number used, for a detailed step-by-step
+// view (docs/dev-plan.md section 7.3) rather than just the final totals.
+type MeleeView struct {
+	AttackerID      string `json:"attackerId"`
+	DefenderID      string `json:"defenderId"`
+	Edge            string `json:"edge"`
+	PositionBonus   int    `json:"positionBonus"`
+	AttackerSupport int    `json:"attackerSupport"`
+	DefenderSupport int    `json:"defenderSupport"`
+	Ambushed        bool   `json:"ambushed"`
+
+	AttackerTotal int  `json:"attackerTotal"`
+	DefenderTotal int  `json:"defenderTotal"`
+	AttackerWins  bool `json:"attackerWins"`
+
+	WinnerID  string `json:"winnerId"`
+	LoserID   string `json:"loserId"`
+	Damage    int    `json:"damage"`
+	DamageDef int    `json:"damageDef"`
+	DamageHit bool   `json:"damageHit"`
+
+	LoserDestroyed   bool     `json:"loserDestroyed"`
+	KnockbackTo      *HexView `json:"knockbackTo,omitempty"`
+	KnockbackBlocked bool     `json:"knockbackBlocked,omitempty"`
+}
+
+func newMeleeView(m *game.MeleeResult) *MeleeView {
+	if m == nil {
+		return nil
+	}
+	v := &MeleeView{
+		AttackerID:      m.AttackerID,
+		DefenderID:      m.DefenderID,
+		Edge:            m.Edge.String(),
+		PositionBonus:   m.PositionBonus,
+		AttackerSupport: m.AttackerSupport,
+		DefenderSupport: m.DefenderSupport,
+		Ambushed:        m.Ambushed,
+		AttackerTotal:   m.Hit.AttackerTotal,
+		DefenderTotal:   m.Hit.DefenderTotal,
+		AttackerWins:    m.Hit.AttackerWins,
+		WinnerID:        m.WinnerID,
+		LoserID:         m.LoserID,
+		Damage:          m.Damage.Damage,
+		DamageDef:       m.Damage.Def,
+		DamageHit:       m.Damage.Hit,
+		LoserDestroyed:  m.LoserDestroyed,
+	}
+	if m.Knockback != nil {
+		v.KnockbackTo = &HexView{Col: m.Knockback.To.Col, Row: m.Knockback.To.Row}
+		v.KnockbackBlocked = m.Knockback.Destroyed
+	}
+	return v
+}
+
+// RangedView is a ranged attack's full, auditable record (docs/core-
+// rules.md section 9), broken into every number used.
+type RangedView struct {
+	ShooterID string `json:"shooterId"`
+	TargetID  string `json:"targetId"`
+	InRange   bool   `json:"inRange"`
+	InArc     bool   `json:"inArc"`
+
+	ShooterSupport int  `json:"shooterSupport"`
+	TargetSupport  int  `json:"targetSupport"`
+	ShooterTotal   int  `json:"shooterTotal"`
+	TargetTotal    int  `json:"targetTotal"`
+	Hit            bool `json:"hit"`
+
+	RngDmg    int  `json:"rngDmg"`
+	DamageDef int  `json:"damageDef"`
+	DamageHit bool `json:"damageHit"`
+}
+
+func newRangedView(r *game.RangedResult) *RangedView {
+	if r == nil {
+		return nil
+	}
+	return &RangedView{
+		ShooterID:      r.ShooterID,
+		TargetID:       r.TargetID,
+		InRange:        r.InRange,
+		InArc:          r.InArc,
+		ShooterSupport: r.ShooterSupport,
+		TargetSupport:  r.TargetSupport,
+		ShooterTotal:   r.HitCheck.ShooterTotal,
+		TargetTotal:    r.HitCheck.TargetTotal,
+		Hit:            r.HitCheck.Hit,
+		RngDmg:         r.Damage.RngDmg,
+		DamageDef:      r.Damage.Def,
+		DamageHit:      r.Damage.Hit,
 	}
 }
 
 // EventView is one turn-execution event as seen by the web viewer: Kind
 // and Unit for programmatic use (e.g. highlighting Unit on the map),
-// Summary for display.
+// Summary for a one-line display, Board for replaying the map at this
+// exact step, and Melee/Ranged for a full calculation breakdown.
 type EventView struct {
-	Kind    string `json:"kind"`
-	Unit    string `json:"unit"`
-	Summary string `json:"summary"`
+	Kind    string      `json:"kind"`
+	Unit    string      `json:"unit"`
+	Summary string      `json:"summary"`
+	Board   BoardView   `json:"board"`
+	Melee   *MeleeView  `json:"melee,omitempty"`
+	Ranged  *RangedView `json:"ranged,omitempty"`
 }
 
-func newEventView(e game.Event) EventView {
-	return EventView{Kind: e.Kind, Unit: e.Unit, Summary: e.Summary()}
+func newEventView(e game.Event, core rules.CoreRules) EventView {
+	return EventView{
+		Kind:    e.Kind,
+		Unit:    e.Unit,
+		Summary: e.Summary(),
+		Board:   newBoardView(e.Board, core),
+		Melee:   newMeleeView(e.Melee),
+		Ranged:  newRangedView(e.Ranged),
+	}
 }
 
 // OutcomeView is a win-condition check as seen by the web viewer.

@@ -13,11 +13,14 @@ type GameState struct {
 }
 
 // Event is one auditable step of turn execution (docs/dev-plan.md section
-// 4): Melee/Ranged carry the exact numbers used when set.
+// 4): Melee/Ranged carry the exact numbers used when set, and Board is
+// the board exactly as it stood immediately after this event, for
+// replaying a turn step by step (docs/dev-plan.md section 7.3).
 type Event struct {
 	Kind   string
 	Unit   string
 	Detail string
+	Board  Board
 	Melee  *MeleeResult
 	Ranged *RangedResult
 }

@@ -74,9 +74,83 @@ func TestNewGameView(t *testing.T) {
 }
 
 func TestNewEventView(t *testing.T) {
-	e := game.Event{Kind: "moved", Unit: "A", Detail: "moved to B2"}
-	got := newEventView(e)
+	core := rules.CoreRules{HalfStrengthPenalty: 1}
+	board := game.Board{Columns: 12, Rows: 10, Units: []game.UnitInstance{
+		{ID: "A", Side: "north", Template: rules.Unit{ID: "infantry"}, Pos: hex.Offset{Col: 1, Row: 1}, Facing: hex.S, Strength: game.Full},
+	}}
+	e := game.Event{Kind: "moved", Unit: "A", Detail: "moved to B2", Board: board}
+	got := newEventView(e, core)
 	if got.Kind != "moved" || got.Unit != "A" || got.Summary != "[moved] A: moved to B2" {
-		t.Errorf("newEventView = %+v", got)
+		t.Errorf("newEventView header fields = %+v", got)
+	}
+	if len(got.Board.Units) != 1 || got.Board.Units[0].ID != "A" {
+		t.Errorf("newEventView.Board = %+v, want the one unit A", got.Board)
+	}
+	if got.Melee != nil || got.Ranged != nil {
+		t.Errorf("newEventView.Melee/Ranged = %+v/%+v, want both nil (no combat result given)", got.Melee, got.Ranged)
+	}
+}
+
+func TestNewMeleeView(t *testing.T) {
+	m := &game.MeleeResult{
+		AttackerID: "A", DefenderID: "B", Edge: hex.Flank,
+		PositionBonus: 1, AttackerSupport: 1, DefenderSupport: 0, Ambushed: false,
+		Hit:      game.HitCheck{AttackerTotal: 3, DefenderTotal: 2, AttackerWins: true},
+		Damage:   game.DamageCheck{Damage: 3, Def: 2, Hit: true},
+		WinnerID: "A", LoserID: "B",
+		Knockback: &game.Knockback{To: hex.Offset{Col: 4, Row: 6}, Destroyed: false},
+	}
+	got := newMeleeView(m)
+	if got == nil {
+		t.Fatalf("newMeleeView returned nil")
+	}
+	if got.AttackerID != "A" || got.DefenderID != "B" || got.Edge != "flank" {
+		t.Errorf("newMeleeView identity fields = %+v", got)
+	}
+	if got.AttackerTotal != 3 || got.DefenderTotal != 2 || !got.AttackerWins {
+		t.Errorf("newMeleeView hit check = %+v", got)
+	}
+	if got.Damage != 3 || got.DamageDef != 2 || !got.DamageHit {
+		t.Errorf("newMeleeView damage check = %+v", got)
+	}
+	if got.KnockbackTo == nil || *got.KnockbackTo != (HexView{Col: 4, Row: 6}) || got.KnockbackBlocked {
+		t.Errorf("newMeleeView knockback = %+v", got.KnockbackTo)
+	}
+}
+
+func TestNewMeleeViewNil(t *testing.T) {
+	if got := newMeleeView(nil); got != nil {
+		t.Errorf("newMeleeView(nil) = %+v, want nil", got)
+	}
+}
+
+func TestNewRangedView(t *testing.T) {
+	r := &game.RangedResult{
+		ShooterID: "A", TargetID: "B", InRange: true, InArc: true,
+		ShooterSupport: 0, TargetSupport: 1,
+		HitCheck: game.RangedHitCheck{ShooterTotal: 3, TargetTotal: 3, Hit: false},
+	}
+	got := newRangedView(r)
+	if got == nil {
+		t.Fatalf("newRangedView returned nil")
+	}
+	if got.ShooterTotal != 3 || got.TargetTotal != 3 || got.Hit {
+		t.Errorf("newRangedView = %+v, want a miss at 3/3", got)
+	}
+}
+
+func TestNewCoreRulesView(t *testing.T) {
+	core := rules.CoreRules{
+		PositionBonus:       rules.PositionBonus{Front: 0, Flank: 1, Rear: 3},
+		AmbushDefPenalty:    1,
+		HalfStrengthPenalty: 1,
+		SupportPerAlly:      1,
+	}
+	got := newCoreRulesView(core)
+	if got.PositionBonus.Front != 0 || got.PositionBonus.Flank != 1 || got.PositionBonus.Rear != 3 {
+		t.Errorf("newCoreRulesView.PositionBonus = %+v", got.PositionBonus)
+	}
+	if got.AmbushDefPenalty != 1 || got.HalfStrengthPenalty != 1 || got.SupportPerAlly != 1 {
+		t.Errorf("newCoreRulesView = %+v", got)
 	}
 }

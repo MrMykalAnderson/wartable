@@ -7,8 +7,11 @@ import (
 
 // BarrageShot is one unit's passive Barrage attack against one enemy
 // inside its range band and firing arc (docs/core-rules.md section 3.3).
+// Board is the board exactly as it stood immediately after this shot's
+// hit (if any) was applied, for step-by-step replay.
 type BarrageShot struct {
 	Result RangedResult
+	Board  Board
 }
 
 // ResolveBarragePhase resolves the Execution Phase's passive Barrage step
@@ -48,8 +51,9 @@ func ResolveBarragePhase(board Board, core rules.CoreRules) (Board, []BarrageSho
 		}
 	}
 
-	for _, shot := range shots {
-		board = applyRanged(board, shot.Result)
+	for i := range shots {
+		board = applyRanged(board, shots[i].Result)
+		shots[i].Board = board
 	}
 	return board, shots
 }

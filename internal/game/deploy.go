@@ -21,20 +21,20 @@ func executeDeploy(state GameState, scenario rules.Scenario, side string, o orde
 		}
 	}
 	if idx == -1 {
-		return state, []Event{{Kind: "order-skipped", Unit: o.Unit, Detail: "not in reserves"}}
+		return state, []Event{{Kind: "order-skipped", Unit: o.Unit, Detail: "not in reserves", Board: state.Board}}
 	}
 	unit := reserves[idx]
 
 	dz, ok := scenario.DeploymentZones[side]
 	row := o.TargetHex.Row + 1 // scenario deployment zone rows are 1-based.
 	if !ok || row < dz.Rows.From || row > dz.Rows.To {
-		return state, []Event{{Kind: "deploy-failed", Unit: o.Unit, Detail: fmt.Sprintf("%s is outside %s's deployment zone", o.TargetHex, side)}}
+		return state, []Event{{Kind: "deploy-failed", Unit: o.Unit, Detail: fmt.Sprintf("%s is outside %s's deployment zone", o.TargetHex, side), Board: state.Board}}
 	}
 	if _, occupied := state.Board.UnitAt(o.TargetHex); occupied {
-		return state, []Event{{Kind: "deploy-failed", Unit: o.Unit, Detail: fmt.Sprintf("%s is occupied", o.TargetHex)}}
+		return state, []Event{{Kind: "deploy-failed", Unit: o.Unit, Detail: fmt.Sprintf("%s is occupied", o.TargetHex), Board: state.Board}}
 	}
 	if state.Board.AdjacentEnemy(side, o.TargetHex) {
-		return state, []Event{{Kind: "deploy-failed", Unit: o.Unit, Detail: fmt.Sprintf("%s is adjacent to an enemy", o.TargetHex)}}
+		return state, []Event{{Kind: "deploy-failed", Unit: o.Unit, Detail: fmt.Sprintf("%s is adjacent to an enemy", o.TargetHex), Board: state.Board}}
 	}
 
 	facing, _ := orders.ParseDirection(scenario.DefaultFacing[side])
@@ -50,7 +50,7 @@ func executeDeploy(state GameState, scenario rules.Scenario, side string, o orde
 	state = state.withReserve(side, newReserves)
 	state.Board = state.Board.WithUnit(unit)
 
-	return state, []Event{{Kind: "deployed", Unit: o.Unit, Detail: fmt.Sprintf("deployed to %s facing %s", o.TargetHex, facing)}}
+	return state, []Event{{Kind: "deployed", Unit: o.Unit, Detail: fmt.Sprintf("deployed to %s facing %s", o.TargetHex, facing), Board: state.Board}}
 }
 
 // executeReadyMobilise executes a Ready or Mobilise order
@@ -65,7 +65,7 @@ func executeReadyMobilise(state GameState, mover UnitInstance, o orders.Order) (
 		newState = "mobilised"
 	}
 	if _, ok := mover.Template.States[newState]; !ok {
-		return state, []Event{{Kind: "order-skipped", Unit: mover.ID, Detail: fmt.Sprintf("%s has no %s state", mover.ID, newState)}}
+		return state, []Event{{Kind: "order-skipped", Unit: mover.ID, Detail: fmt.Sprintf("%s has no %s state", mover.ID, newState), Board: state.Board}}
 	}
 
 	from := mover.State
@@ -75,5 +75,5 @@ func executeReadyMobilise(state GameState, mover UnitInstance, o orders.Order) (
 	}
 	state.Board = state.Board.WithUnit(mover)
 
-	return state, []Event{{Kind: "state-changed", Unit: mover.ID, Detail: fmt.Sprintf("%s -> %s", from, newState)}}
+	return state, []Event{{Kind: "state-changed", Unit: mover.ID, Detail: fmt.Sprintf("%s -> %s", from, newState), Board: state.Board}}
 }

@@ -11,6 +11,49 @@ section 11 (EX-3, EX-4) and the direction table in section 2.1.
 
 `go vet ./...` and `go test ./...` pass.
 
+## Web viewer: step-by-step map replay, turn history, calculation breakdowns
+
+Four interface fixes requested after playing through a real game in the
+viewer: the map only ever showed the final post-turn state while
+stepping through events; North's and South's orders were stacked
+instead of side by side; there was no way to look back at a previous
+turn; and combat events only showed the final hit-check totals, not the
+bonuses that made them up.
+
+**Engine:** added a `Board` field to `game.Event`, set to the board
+exactly as it stood right after that event (not the turn's final
+board), threaded through every event-construction site in
+`move_orders.go`, `deploy.go`, `ambush.go`, and `barrage.go` — including
+each ambush round and each barrage shot getting its own incremental
+snapshot, even though a barrage's shots are conceptually simultaneous.
+
+**Web views:** added `BoardView` (an event's board snapshot),
+`CoreRulesView` (the position-bonus/ambush-penalty/support numbers
+needed to label a breakdown), and `MeleeView`/`RangedView` (every
+component of a combat result — support, position bonus, ambush penalty,
+totals, damage, knockback — broken out instead of just the final
+numbers). `GameView` now carries `coreRules`; `EventView` now carries
+`board` and the new `melee`/`ranged` views.
+
+**Frontend:** the map now replays the board at whichever step is
+selected, using each event's own snapshot; North's and South's order
+lists/text sit in a two-column layout; a new turn-history nav
+("« Turn"/"Turn »") lets the viewer step back through previously-run
+turns independently of the current event-step controls, with a "Live"
+state for building the next turn's orders; and each melee/ranged event
+now renders a plain-language breakdown (e.g. "Attack 3 + Support 2 +
+Position bonus 1 = 6 vs Def 1 = 1 → attacker wins") computed by simple
+arithmetic on the server's own numbers — never re-deciding a rule
+client-side. Selecting a unit to build an order always jumps back to
+the live state first, so the highlighted hexes/enemies match what's
+on screen.
+
+`go vet ./...` and `go test ./...` pass. Verified end-to-end in a real
+browser via claude-in-chrome against the user's own saved game: ran a
+turn, stepped through its events watching the map update each time
+(including a unit being destroyed), confirmed the melee breakdown's
+numbers, and navigated back to the turn's start and forward to "Live".
+
 ## M5: CLI
 
 Added `cmd/wartable` (`new`, `turn`, `show`) and `internal/game`'s

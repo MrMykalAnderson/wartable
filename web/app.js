@@ -8,10 +8,13 @@
 // asks the engine. This file only turns clicks into order objects and
 // renders what the server already decided.
 //
-// The map always shows the board's current state (as loaded, or as
-// returned after running a turn) — stepping through events narrates
-// what happened and highlights the unit involved, rather than replaying
-// each hex-by-hex position change.
+// The map replays the board exactly as the engine saw it: each event
+// from /api/turn carries its own board snapshot (taken right after that
+// event), and the viewer can step through both the events of a turn and
+// past turns themselves. Combat events (melee/ranged) also carry every
+// number the engine used, broken out, so stepping through shows the
+// full calculation rather than just the final hit/miss — again, never
+// recomputed here, only formatted.
 
 const HEX_SIZE = 28;
 const MARGIN = HEX_SIZE * 2;
@@ -31,9 +34,10 @@ const TYPE_SYMBOLS = {
 };
 
 let state = {
-  game: null,
-  events: [],
-  stepIndex: -1,
+  game: null, // always the live/current state, used for order-building.
+  turnHistory: [], // [{turn, boardBefore, events}], oldest first.
+  historyIndex: -1, // index into turnHistory being viewed, or -1 for "live".
+  stepIndex: -1, // -1 = before the viewed turn's first event.
   activeSide: "north",
   orders: { north: [], south: [] },
   selection: null, // unit ID currently being given an order, or null.
@@ -353,8 +357,13 @@ async function selectUnit(unitId) {
     state.selection = unitId;
     state.options = body;
     state.pendingOrder = null;
+    // Order-building always targets the live state: jump back to it if a
+    // past turn was being reviewed, so the highlighted hexes/enemies match
+    // what's actually drawn.
+    state.historyIndex = -1;
+    state.stepIndex = -1;
+    renderStep(); // redraws the (now live) map, highlights, and ghosts.
     renderAvailableUnits();
-    renderHighlights();
     renderBuilder();
     showUnitCard(unitId);
   } catch (err) {
@@ -583,7 +592,33 @@ document.getElementById("side-toggle").addEventListener("click", (e) => {
   clearSelection();
 });
 
-// ---- event stepping -------------------------------------------------------
+// ---- turn history and step playback --------------------------------------
+//
+// Each played turn is kept client-side as {turn, boardBefore, events}:
+// boardBefore is a snapshot of the live board taken right before the turn
+// ran, and events[i].board (from the server) is the board exactly as it
+// stood right after that event. "Viewing" a turn means historyIndex points
+// at one of these; historyIndex === -1 means "live" (state.game, the
+// current/actual state, used for order-building) rather than history.
+
+function currentTurnEntry() {
+  if (state.historyIndex < 0 || state.historyIndex >= state.turnHistory.length) return null;
+  return state.turnHistory[state.historyIndex];
+}
+
+function currentEvents() {
+  const entry = currentTurnEntry();
+  return entry ? entry.events : [];
+}
+
+function currentDisplayBoard() {
+  const entry = currentTurnEntry();
+  if (!entry) return state.game;
+  if (state.stepIndex >= 0 && state.stepIndex < entry.events.length) {
+    return entry.events[state.stepIndex].board;
+  }
+  return entry.boardBefore;
+}
 
 function highlightUnit(unitId) {
   document.querySelectorAll("#map .unit").forEach((g) => g.classList.remove("selected"));
@@ -599,7 +634,7 @@ function highlightUnit(unitId) {
 function renderEventList() {
   const list = document.getElementById("event-list");
   list.innerHTML = "";
-  state.events.forEach((e, i) => {
+  currentEvents().forEach((e, i) => {
     const li = document.createElement("li");
     li.textContent = e.summary;
     if (i === state.stepIndex) li.classList.add("current");
@@ -607,21 +642,140 @@ function renderEventList() {
   });
 }
 
+// describeMelee turns a MeleeView into plain-language breakdown lines
+// (docs/dev-plan.md section 7.3, latest interface pass: show bonuses, not
+// just the final hit-check totals). Every number comes from the server;
+// this only subtracts already-known components back out for display.
+function describeMelee(core, m) {
+  const lines = [`${m.attackerId} attacks ${m.defenderId}'s ${m.edge}${m.ambushed ? " (ambush)" : ""}`];
+
+  const rawAttack = m.attackerTotal - m.attackerSupport - m.positionBonus;
+  const ambushPenalty = m.ambushed ? core.ambushDefPenalty : 0;
+  const rawDefense = m.defenderTotal - m.defenderSupport + ambushPenalty;
+  let hit = `Hit check: Attack ${rawAttack}`;
+  if (m.attackerSupport) hit += ` + Support ${m.attackerSupport}`;
+  if (m.positionBonus) hit += ` + Position bonus ${m.positionBonus}`;
+  hit += ` = ${m.attackerTotal}  vs  Def ${rawDefense}`;
+  if (m.defenderSupport) hit += ` + Support ${m.defenderSupport}`;
+  if (ambushPenalty) hit += ` - Ambush penalty ${ambushPenalty}`;
+  hit += ` = ${m.defenderTotal}  →  ${m.attackerWins ? "attacker wins" : "defender wins"}`;
+  lines.push(hit);
+
+  const rawDamage = m.attackerWins ? m.damage - m.positionBonus : m.damage;
+  let dmg = `Damage check: AttDmg ${rawDamage}`;
+  if (m.attackerWins && m.positionBonus) dmg += ` + Position bonus ${m.positionBonus}`;
+  dmg += ` = ${m.damage}  vs  Def ${m.damageDef}  →  ${m.damageHit ? `hit (${m.loserId} takes a hit)` : "no hit"}`;
+  lines.push(dmg);
+
+  if (m.loserDestroyed) {
+    lines.push(`${m.loserId} was already at half strength: destroyed.`);
+  } else if (m.knockbackTo) {
+    lines.push(
+      m.knockbackBlocked
+        ? `Knockback to ${hexName(m.knockbackTo.col, m.knockbackTo.row)} blocked: ${m.loserId} destroyed.`
+        : `${m.loserId} knocked back to ${hexName(m.knockbackTo.col, m.knockbackTo.row)}.`
+    );
+  }
+  return lines;
+}
+
+// describeRanged turns a RangedView into the same kind of breakdown for a
+// Fire/Close and Fire/Barrage shot.
+function describeRanged(r) {
+  const lines = [`${r.shooterId} fires at ${r.targetId}`];
+  if (!r.inRange || !r.inArc) {
+    lines.push(`Out of range or arc (in range: ${r.inRange}, in arc: ${r.inArc}) → no effect.`);
+    return lines;
+  }
+  const rawAttack = r.shooterTotal - r.shooterSupport;
+  const rawDefense = r.targetTotal - r.targetSupport;
+  let hit = `Hit check: Attack ${rawAttack}`;
+  if (r.shooterSupport) hit += ` + Support ${r.shooterSupport}`;
+  hit += ` = ${r.shooterTotal}  vs  Def ${rawDefense}`;
+  if (r.targetSupport) hit += ` + Support ${r.targetSupport}`;
+  hit += ` = ${r.targetTotal}  →  ${r.hit ? "hit" : "miss"}`;
+  lines.push(hit);
+  if (r.hit) {
+    lines.push(`Damage check: RngDmg ${r.rngDmg}  vs  Def ${r.damageDef}  →  ${r.damageHit ? `hit (${r.targetId} takes a hit)` : "no hit"}`);
+  }
+  return lines;
+}
+
+function renderStepDetail(e) {
+  const detail = document.getElementById("step-detail");
+  detail.innerHTML = "";
+  if (!e) return;
+  const lines = e.melee ? describeMelee(state.game.coreRules, e.melee) : e.ranged ? describeRanged(e.ranged) : [];
+  lines.forEach((line) => {
+    const div = document.createElement("div");
+    div.textContent = line;
+    detail.appendChild(div);
+  });
+}
+
+// renderTurnNav reflects whether a past turn is being reviewed or the
+// viewer is live (building the next turn's orders), and enables/disables
+// the "« Turn"/"Turn »" buttons accordingly.
+function renderTurnNav() {
+  const label = document.getElementById("turn-nav-label");
+  const entry = currentTurnEntry();
+  if (entry) {
+    label.textContent = `Viewing turn ${entry.turn} (${state.historyIndex + 1} / ${state.turnHistory.length})`;
+  } else {
+    label.textContent = state.turnHistory.length ? "Live (building next turn)" : "No turns played yet";
+  }
+  document.getElementById("turn-nav-prev").disabled = state.historyIndex === 0 || (state.historyIndex === -1 && state.turnHistory.length === 0);
+  document.getElementById("turn-nav-next").disabled = state.historyIndex === -1;
+}
+
 function renderStep() {
+  const events = currentEvents();
   const counter = document.getElementById("step-counter");
+  counter.textContent = `${events.length ? state.stepIndex + 1 : 0} / ${events.length}`;
+
+  renderMap(currentDisplayBoard());
+  if (!currentTurnEntry()) {
+    // Live: re-apply order-building highlights/ghosts on top of the map
+    // that renderMap() just redrew from scratch.
+    renderHighlights();
+    renderOrderGhosts();
+  }
+
   const summary = document.getElementById("step-summary");
-  counter.textContent = `${state.events.length ? state.stepIndex + 1 : 0} / ${state.events.length}`;
-  if (state.stepIndex >= 0 && state.stepIndex < state.events.length) {
-    const e = state.events[state.stepIndex];
+  if (state.stepIndex >= 0 && state.stepIndex < events.length) {
+    const e = events[state.stepIndex];
     summary.textContent = e.summary;
+    renderStepDetail(e);
     highlightUnit(e.unit);
   } else {
-    summary.textContent = "";
+    summary.textContent = currentTurnEntry() ? "(start of turn)" : "";
+    renderStepDetail(null);
     highlightUnit(null);
   }
   renderEventList();
   const current = document.querySelector("#event-list li.current");
   if (current) current.scrollIntoView({ block: "nearest" });
+  renderTurnNav();
+}
+
+function turnNavPrev() {
+  if (state.historyIndex === -1) {
+    if (state.turnHistory.length === 0) return;
+    state.historyIndex = state.turnHistory.length - 1;
+  } else if (state.historyIndex > 0) {
+    state.historyIndex--;
+  } else {
+    return;
+  }
+  state.stepIndex = -1;
+  renderStep();
+}
+
+function turnNavNext() {
+  if (state.historyIndex === -1) return; // already live.
+  state.historyIndex = state.historyIndex < state.turnHistory.length - 1 ? state.historyIndex + 1 : -1;
+  state.stepIndex = -1;
+  renderStep();
 }
 
 // ---- API calls --------------------------------------------------------
@@ -640,10 +794,10 @@ async function loadGame(path) {
     const body = await res.json();
     if (!res.ok) throw new Error(body.error || res.statusText);
     state.game = body;
-    state.events = [];
+    state.turnHistory = [];
+    state.historyIndex = -1;
     state.stepIndex = -1;
     resetOrders();
-    renderMap(state.game);
     renderGameInfo(state.game);
     renderAvailableUnits();
     renderStep();
@@ -655,6 +809,8 @@ async function loadGame(path) {
 async function runTurn(path) {
   const status = document.getElementById("turn-status");
   status.textContent = "";
+  const turnNumber = state.game.turn;
+  const boardBeforeTurn = state.game; // live board, right before this turn runs.
   const north = state.orders.north.map(orderLine).join("\n");
   const south = state.orders.south.map(orderLine).join("\n");
   try {
@@ -666,10 +822,10 @@ async function runTurn(path) {
     const body = await res.json();
     if (!res.ok) throw new Error(body.error || res.statusText);
     state.game = body.game;
-    state.events = body.events || [];
-    state.stepIndex = state.events.length ? 0 : -1;
+    state.turnHistory.push({ turn: turnNumber, boardBefore: boardBeforeTurn, events: body.events || [] });
+    state.historyIndex = state.turnHistory.length - 1;
+    state.stepIndex = -1;
     resetOrders();
-    renderMap(state.game);
     renderGameInfo(state.game);
     renderAvailableUnits();
     if (body.outcome && body.outcome.over) {
@@ -691,15 +847,18 @@ document.getElementById("run-turn").addEventListener("click", () => {
 });
 
 document.getElementById("step-prev").addEventListener("click", () => {
-  if (state.stepIndex > 0) {
+  if (state.stepIndex > -1) {
     state.stepIndex--;
     renderStep();
   }
 });
 
 document.getElementById("step-next").addEventListener("click", () => {
-  if (state.stepIndex < state.events.length - 1) {
+  if (state.stepIndex < currentEvents().length - 1) {
     state.stepIndex++;
     renderStep();
   }
 });
+
+document.getElementById("turn-nav-prev").addEventListener("click", turnNavPrev);
+document.getElementById("turn-nav-next").addEventListener("click", turnNavNext);

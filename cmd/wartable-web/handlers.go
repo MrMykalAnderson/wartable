@@ -104,7 +104,7 @@ func handleTurn(w http.ResponseWriter, r *http.Request) {
 
 	eventViews := make([]EventView, len(events))
 	for i, e := range events {
-		eventViews[i] = newEventView(e)
+		eventViews[i] = newEventView(e, core)
 	}
 	writeJSON(w, turnResponse{
 		Game:    newGameView(f, core),

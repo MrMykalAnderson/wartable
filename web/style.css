@@ -220,6 +220,23 @@ button {
   font-size: 0.8rem;
 }
 
+/* North/South orders side by side (docs/dev-plan.md section 7.3). */
+.orders-columns {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+}
+
+.orders-column {
+  flex: 1;
+  min-width: 0;
+}
+
+.orders-column h3 {
+  margin: 0 0 0.3rem;
+  font-size: 0.9rem;
+}
+
 .order-list {
   margin: 0 0 0.4rem;
   padding-left: 1.2rem;
@@ -330,4 +347,54 @@ button {
 }
 #event-list li.current {
   scroll-margin: 2em;
+}
+
+/* Turn history navigation and calculation breakdown (latest round of
+   interface requests: per-step map replay, turn history, detailed
+   combat breakdowns). */
+.turn-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.turn-nav button {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.85rem;
+  border: 1px solid var(--border);
+  background: #efe9db;
+  border-radius: 3px;
+}
+
+.turn-nav button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+#turn-nav-label {
+  font-size: 0.85rem;
+  font-weight: bold;
+  flex: 1;
+}
+
+.step-detail {
+  font-size: 0.82rem;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  background: #f3efe3;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0.3rem 0.5rem;
+  margin-bottom: 0.5rem;
+  min-height: 1.2em;
+}
+
+.step-detail div {
+  margin: 0.15rem 0;
+}
+
+.step-detail:empty {
+  display: none;
 }

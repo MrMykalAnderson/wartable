@@ -53,13 +53,18 @@
         <button id="cancel-order">Cancel</button>
       </div>
 
-      <h3>North's orders</h3>
-      <ol id="order-list-north" class="order-list"></ol>
-      <pre id="order-text-north" class="order-text"></pre>
-
-      <h3>South's orders</h3>
-      <ol id="order-list-south" class="order-list"></ol>
-      <pre id="order-text-south" class="order-text"></pre>
+      <div class="orders-columns">
+        <div class="orders-column">
+          <h3>North's orders</h3>
+          <ol id="order-list-north" class="order-list"></ol>
+          <pre id="order-text-north" class="order-text"></pre>
+        </div>
+        <div class="orders-column">
+          <h3>South's orders</h3>
+          <ol id="order-list-south" class="order-list"></ol>
+          <pre id="order-text-south" class="order-text"></pre>
+        </div>
+      </div>
 
       <button id="run-turn">Run turn</button>
       <span id="turn-status"></span>
@@ -67,12 +72,20 @@
 
     <div class="events-box">
       <h2>Events</h2>
+
+      <div class="turn-nav">
+        <button id="turn-nav-prev">&laquo; Turn</button>
+        <span id="turn-nav-label">No turns played yet</span>
+        <button id="turn-nav-next">Turn &raquo;</button>
+      </div>
+
       <div class="step-controls">
         <button id="step-prev">&larr; Prev</button>
         <span id="step-counter">0 / 0</span>
         <button id="step-next">Next &rarr;</button>
       </div>
       <div id="step-summary"></div>
+      <div id="step-detail" class="step-detail"></div>
       <ol id="event-list"></ol>
     </div>
   </section>
