@@ -212,6 +212,22 @@ From `Playthrough notes 1.md`. Rules first, then interface.
 
 Don't start M6 until the engine (M1–M5) is solid; the point of the web tools is to explore rules, which only works if the engine is trustworthy.
 
+### 7.5 Playtest round 2 changes (do next)
+
+**Combat rewrite (core-rules.md 8.3 and 9, already updated).** Combat is now one comparison, and the margin is the damage:
+
+- Margin = attacker's total (Attack + support + position bonus) − defender's total (Def + support, −1 if ambushed). Ranged: no position bonus.
+- Margin ≤ 0: melee attacker repelled (knocked back, no damage); ranged miss. 1–2: one hit (melee defender then knocked back if it survives). 3+: two hits (destroyed).
+- The defender no longer deals damage when it wins.
+- Remove `att_dmg` and `rng_dmg` from the data, the code and the interface. Update EX-2 to EX-7 tests and regenerate the golden replays (results will change); note it in the changelog.
+- Add a test that computes **Appendix A (combat tables)** from the engine for the standard units and checks it matches the doc exactly. If they ever disagree, the test should fail.
+- Event log lines should state the totals and the margin, e.g. "1st Horse (3 +3 rear) vs 2nd Foot (2): margin 4, destroyed".
+
+**Interface.**
+
+- When a Close and Attack or Close and Fire order is being made, the movement highlight shows the **half-move** reach, clearly different from a full Move (e.g. a different shade and a label "Close: 2 hexes").
+- Before an attack or Fire order is confirmed, show the **predicted result** if the target stays put (margin and Repelled/Hit/Destroyed, from the engine). Label it as a prediction, since the target may move first.
+
 ### 7.4 Parked (don't start without being asked)
 
 - **Map-first layout.** The map should be the main focus and fill the screen. All panels (orders, unit details, event playback, sandbox) become either docked strips around the map edges or floating, movable windows. A large layout change; do it as one piece of work when asked, not piecemeal.

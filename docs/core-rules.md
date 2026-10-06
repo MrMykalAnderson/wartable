@@ -25,7 +25,8 @@ Rules marked **(Provisional)** were filled in so the game can be played and code
 13. [Creating units](#13-creating-units)
 14. [Glossary](#14-glossary)
 15. [Licence](#15-licence)
-16. [Appendix: orders sheet](#appendix-orders-sheet)
+16. [Appendix A: combat tables](#appendix-a-combat-tables)
+17. [Appendix B: orders sheet](#appendix-b-orders-sheet)
 
 ---
 
@@ -82,11 +83,9 @@ Every unit has these stats:
 | --- | --- |
 | **Cost** | How much of the army's capacity the unit uses (also called capacity cost). |
 | **Move** | The most hexes the unit can move with one order. |
-| **Def** | Defence. Resists being hit and damaged. |
+| **Def** | Defence. Resists attacks. |
 | **Range** | The distances, in hexes, at which the unit can make ranged attacks, written as minimum–maximum (e.g. 3–5). A single number means a minimum of 1. "—" means no ranged attack. |
-| **RngDmg** | Ranged damage. Compared against the target's Defence. |
-| **Attack** | Used to win melee combat, and to hit with ranged attacks. |
-| **AttDmg** | Attack damage. Compared against the loser's Defence after melee. |
+| **Attack** | Used for melee and ranged attacks. How far it beats the target's Defence decides the damage. |
 
 A stat shown as "—" counts as **0**.
 
@@ -119,9 +118,9 @@ These are the three standard unit templates. Other units are usually variations 
 
 The most basic unit: no ranged attack and a short move. On its own it can only damage an enemy by attacking a flank or the rear.
 
-| Cost | Move | Def | Range | RngDmg | Attack | AttDmg |
-| --- | --- | --- | --- | --- | --- | --- |
-| 10 | 4 | 2 | — | — | 2 | 2 |
+| Cost | Move | Def | Range | Attack |
+| --- | --- | --- | --- | --- |
+| 10 | 4 | 2 | — | 2 |
 
 *"Stand and fight!"*
 
@@ -131,9 +130,9 @@ The most basic unit: no ranged attack and a short move. On its own it can only d
 
 Fast shock troops with both melee and a short-ranged attack.
 
-| Cost | Move | Def | Range | RngDmg | Attack | AttDmg |
-| --- | --- | --- | --- | --- | --- | --- |
-| 20 | 7 | 3 | 2 | 2 | 3 | 3 |
+| Cost | Move | Def | Range | Attack |
+| --- | --- | --- | --- | --- |
+| 20 | 7 | 3 | 2 | 3 |
 
 *"Move swiftly and unleash hell!"*
 
@@ -143,9 +142,9 @@ Fast shock troops with both melee and a short-ranged attack.
 
 Long-ranged guns that must be set up before they can fire, and are vulnerable while moving.
 
-| Cost | Move | Def | Range | RngDmg | Attack | AttDmg |
-| --- | --- | --- | --- | --- | --- | --- |
-| 15 | 4 | 4 Ready / 2 Mobilised | 3–5 | 3 | 3 *(ranged only, Provisional)* | — |
+| Cost | Move | Def | Range | Attack |
+| --- | --- | --- | --- | --- |
+| 15 | 4 | 4 Ready / 2 Mobilised | 3–5 | 3 *(ranged only, Provisional)* |
 
 *"We will rain fire from the sky!"*
 
@@ -218,7 +217,7 @@ The player with the **lower total has initiative** and their first order is carr
 
 **Step 1: passive orders.** First, all passive orders take effect (for the standard units, that is the artillery [Barrage](#artillery)). Passive fire from **both** sides happens at the same moment:
 
-1. Work out every passive attack using the positions at the start of the phase: which targets are in range and arc, and each hit and damage check, including support.
+1. Work out every passive attack using the positions at the start of the phase: which targets are in range and arc, and each attack's result, including support.
 2. Then apply all the hits together. A unit hit by more than one gun takes a hit from each, so a full-strength unit hit twice is destroyed.
 
 Because everything is worked out before anything is applied, it never matters whose guns fire first, and a unit destroyed in the barrage still counts as support for that barrage.
@@ -325,7 +324,7 @@ Melee always has one **attacker** and one **defender**.
 
 ### 8.1 Support
 
-A unit gets **+1 support for each friendly unit adjacent to it**, from any side, including units that are themselves in contact with enemies. There is no limit. Support applies to the attacker and the defender, but **only in the hit check**.
+A unit gets **+1 support for each friendly unit adjacent to it**, from any side, including units that are themselves in contact with enemies. There is no limit. Support applies to both the attacker and the defender.
 
 ### 8.2 Position bonus
 
@@ -337,37 +336,42 @@ The attacker gets a bonus based on which of the defender's edges it is attacking
 | Flank | +1 |
 | Rear | +3 |
 
-The position bonus applies to the attacker's **hit check and damage check**.
+Facing doesn't matter for ranged attacks.
 
 ### 8.3 Resolving melee
 
-**Step 1: hit check.** Compare:
+Melee is **one comparison**. Work out the two totals:
 
 - Attacker: **Attack + support + position bonus**
 - Defender: **Def + support** (−1 if ambushed)
 
-If the attacker's total is **higher**, the attacker wins. Otherwise (**including a tie**) the defender wins.
+The **margin** is the attacker's total minus the defender's total.
 
-**Step 2: damage check.** Compare the winner's damage with the loser's Def (no support):
+| Margin | Result |
+| --- | --- |
+| 0 or less (**ties go to the defender**) | **Repelled.** The attacker is knocked back. No damage. |
+| 1 or 2 | **Hit.** The defender takes one hit, then is knocked back. |
+| 3 or more | **Destroyed.** The defender takes two hits, which destroys any unit. |
 
-- Attacker won: **AttDmg + position bonus** vs the defender's Def (−1 if ambushed).
-- Defender won: **AttDmg** vs the attacker's Def.
+A half-strength unit that takes any hit is destroyed (see [3.2](#32-strength)).
 
-If the damage is **higher**, the loser takes a hit (see [3.2](#32-strength)).
+**Knockback.** The loser (the repelled attacker, or a defender that survives a hit) is knocked back one hex **directly away from the winner** (continuing the line from the winner through the loser). It keeps its facing. If that hex is off the map, occupied, or adjacent to any enemy, the loser can't retreat and is **destroyed**.
 
-**Step 3: knockback.** If the loser is still on the map, it is knocked back one hex **directly away from the winner** (continuing the line from the winner through the loser). It keeps its facing.
-
-If that hex is off the map, occupied, or adjacent to any enemy, the loser can't retreat and is **destroyed**.
+[Appendix A](#appendix-a-combat-tables) has every matchup worked out.
 
 ## 9. Ranged combat
 
 A ranged attack needs the target to be within the shooter's **Range** (no closer than the minimum and no further than the maximum) and inside its **firing arc** (see [Section 4](#4-facing)). Nothing blocks line of sight on open ground.
 
-**Hit check.** Compare the shooter's **Attack + support** with the target's **Def + support**. If the shooter's total is **higher**, the attack hits. Otherwise it misses and nothing happens.
+Ranged attacks use the same single comparison as melee: the shooter's **Attack + support** against the target's **Def + support**. The margin decides the result:
 
-**Damage check.** If it hit, compare the shooter's **RngDmg** with the target's **Def** (no support). If RngDmg is **higher**, the target takes a hit.
+| Margin | Result |
+| --- | --- |
+| 0 or less | **Miss.** Nothing happens. |
+| 1 or 2 | **Hit.** The target takes one hit. |
+| 3 or more | **Destroyed.** The target takes two hits. |
 
-The target's facing doesn't matter, and there is no knockback from ranged attacks.
+There is no position bonus (the target's facing doesn't matter) and no knockback from ranged attacks.
 
 ## 10. Deployment and capacity
 
@@ -396,44 +400,40 @@ Execution order: South 1, North 1, South 2, North 2, South 3, North 3.
 
 Infantry A attacks Infantry B across B's front. B has one friendly unit adjacent.
 
-- Hit check: A 2 + 0 = **2** vs B 2 + 1 = **3**. The defender wins.
-- Damage check: B's AttDmg **2** vs A's Def **2**. Not higher, so no hit.
-- Knockback: A is pushed one hex directly away from B.
+- A 2 + 0 = **2** vs B 2 + 1 = **3**. Margin −1: **repelled**.
+- No damage. A is knocked back one hex directly away from B.
 
 ### EX-3: Flank attack
 
 Infantry B is at **F6 facing N**. Infantry A is at **G6**, which is B's NE neighbour, so A is attacking B's flank.
 
-- Hit check: A 2 + 1 = **3** vs B **2**. The attacker wins.
-- Damage check: A's AttDmg 2 + 1 = **3** vs B's Def **2**. B takes a hit and drops to half strength.
+- A 2 + 1 = **3** vs B **2**. Margin 1: a **hit**. B drops to half strength.
 - Knockback: the line from G6 through F6 runs SW, so B is pushed to **E7**, still facing N.
 
 ### EX-4: Rear attack
 
 Infantry B is at **F6 facing N**. Cavalry A is at **F7**, directly S of B, attacking B's rear.
 
-- Hit check: A 3 + 3 = **6** vs B **2**. The attacker wins.
-- Damage check: A's AttDmg 3 + 3 = **6** vs B's Def **2**. B takes a hit and drops to half strength.
-- Knockback: B is pushed N to **F5**. If F5 were occupied or adjacent to another enemy, B would be destroyed instead.
+- A 3 + 3 = **6** vs B **2**. Margin 4: B is **destroyed**.
+
+Had B been supported by two adjacent allies, it would be 6 vs 4, margin 2: a hit, and B would be knocked back N to **F5** (or destroyed if F5 were occupied or next to another enemy).
 
 ### EX-5: Ambush
 
 Cavalry A has a Move order to F10. Its path takes it into a hex adjacent to enemy Infantry B, so it stops there and is ambushed. B attacks A across A's front (A is facing the direction of its last step, toward B).
 
-- Hit check: B 2 + 0 = **2** vs A 3 − 1 (ambushed) = **2**. Tie, so the defender (A) wins.
-- Damage check: A's AttDmg **3** vs B's Def **2**. B takes a hit.
-- Knockback: B is pushed directly away from A.
+- B 2 + 0 = **2** vs A 3 − 1 (ambushed) = **2**. Margin 0: B is **repelled**.
+- No damage. B is knocked back directly away from A.
 
-Even ambushed, cavalry beats infantry head-on.
+Even ambushed, cavalry holds off infantry head-on.
 
 ### EX-6: Artillery fire
 
 Ready Artillery A fires at Infantry B, 4 hexes away and inside A's arc.
 
-- Hit check: A 3 vs B **2**. Hit.
-- Damage check: A's RngDmg **3** vs B's Def **2**. B takes a hit.
+- A **3** vs B **2**. Margin 1: a **hit**. B drops to half strength.
 
-If B had one adjacent ally, the hit check would be 3 vs 3: a miss.
+If B had one adjacent ally, it would be 3 vs 3: a miss.
 
 ### EX-7: Barrage
 
@@ -441,15 +441,15 @@ North's **1st Guns** (artillery, Ready) is at **F2 facing S**. At the start of t
 
 - 4th Horse is 2 hexes away: inside the minimum range, so it isn't fired on.
 - 3rd Foot is 3 hexes away, directly ahead: inside the band and the arc, so it is fired on.
-- Hit check: 1st Guns Attack **3** vs 3rd Foot Def 2 + 1 support (4th Horse is adjacent) = **3**. Not higher: a miss.
+- 1st Guns Attack **3** vs 3rd Foot Def 2 + 1 support (4th Horse is adjacent) = **3**. Margin 0: a miss.
 
-If 4th Horse had not been there, the hit check would be 3 vs 2 (a hit), and the damage check RngDmg 3 vs Def 2 would put 3rd Foot at half strength. Either way, 1st Guns can still carry out its own written order later in the turn.
+If 4th Horse had not been there, it would be 3 vs 2, margin 1: a hit, putting 3rd Foot at half strength. Either way, 1st Guns can still carry out its own written order later in the turn.
 
 ## 12. Provisional rules and open questions
 
 These rules were filled in to make the game playable and need confirming in playtesting:
 
-1. **Artillery Attack 3** (ranged only). Artillery originally had no Attack stat, so it could never pass a ranged hit check.
+1. **Artillery Attack 3** (ranged only). Artillery originally had no Attack stat, so it could never hit with ranged fire.
 2. **Ready and Mobilise orders can set facing.**
 3. **A Close order that doesn't move turns the unit toward its target.**
 4. **Deploying into or next to an enemy fails.**
@@ -460,7 +460,6 @@ These rules were filled in to make the game playable and need confirming in play
 
 Open design questions:
 
-- How much damage should exceeding Def by a lot do? (Currently any margin is one hit.)
 - Retreat vs rout: should badly beaten units turn their back when knocked back?
 - Initiative bidding, morale, terrain and barriers.
 - A larger unit roster with rock-paper-scissors balance.
@@ -470,7 +469,7 @@ Open design questions:
 New units use the standard stat block. A unit entry has:
 
 - **Name** and a short description of how it operates.
-- **Stat table:** Cost, Move, Def, Range, RngDmg, Attack, AttDmg.
+- **Stat table:** Cost, Move, Def, Range, Attack.
 - **Flavour text** in italics.
 - **Special orders**, if any: orders only this unit can use.
 - **Passive orders**, if any: rules that trigger automatically at the start of the Execution Phase (see [5.3](#53-execution-phase)). They are resolved simultaneously for both sides.
@@ -490,12 +489,13 @@ New units use the standard stat block. A unit entry has:
 | Front | The edge a unit faces. |
 | Half strength | A unit that has taken one hit. −1 to all stats. |
 | Hit | One step of damage: full to half strength, or half strength to destroyed. |
+| Margin | Attacker's total minus defender's total. 0 or less: repelled or miss. 1–2: one hit. 3+: destroyed. |
 | Initiative | Whose first order is carried out first. |
 | Passive order | A rule that triggers automatically, without being written on the orders sheet. Resolved at the start of the Execution Phase. |
 | Range band | The distances between a unit's minimum and maximum range. |
 | Knockback | The loser of a melee retreating one hex directly away from the winner. |
 | Rear | The three edges behind a unit. |
-| Support | +1 in the hit check for each adjacent friendly unit. |
+| Support | +1 to a unit's combat total for each adjacent friendly unit. |
 | Tie-break | The token deciding tied initiative. Passes to the other player each time it is used. |
 
 ## 15. Licence
@@ -506,7 +506,64 @@ New units use the standard stat block. A unit entry has:
 | Reserved Material | Reserved Material elements in this product include, but may not be limited to: [to be completed], and all elements designated as Reserved Material under the ORC License. |
 | Expressly Designated Licensed Material | [To be completed.] |
 
-## Appendix: orders sheet
+## Appendix A: combat tables
+
+Every standard matchup, worked out. Find the row for the attacker, the defender and the edge attacked, then the column for the **net modifier**:
+
+- \+ the attacker's support (adjacent friendly units)
+- − the defender's support
+- \+1 if the defender is at half strength
+- −1 if the attacker is at half strength
+- \+1 if the defender is ambushed
+
+Melee results: **Repelled** = attacker knocked back, no damage. **Hit** = defender takes one hit and is knocked back. **Destroyed** = defender removed. A half-strength defender that is hit is destroyed.
+
+**Infantry attacking** (Attack 2)
+
+| Defender, edge attacked | −2 | −1 | 0 | +1 | +2 | +3 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Infantry, front | Repelled | Repelled | Repelled | Hit | Hit | **Destroyed** |
+| Infantry, flank | Repelled | Repelled | Hit | Hit | **Destroyed** | **Destroyed** |
+| Infantry, rear | Hit | Hit | **Destroyed** | **Destroyed** | **Destroyed** | **Destroyed** |
+| Cavalry, front | Repelled | Repelled | Repelled | Repelled | Hit | Hit |
+| Cavalry, flank | Repelled | Repelled | Repelled | Hit | Hit | **Destroyed** |
+| Cavalry, rear | Repelled | Hit | Hit | **Destroyed** | **Destroyed** | **Destroyed** |
+| Artillery (Ready), front | Repelled | Repelled | Repelled | Repelled | Repelled | Hit |
+| Artillery (Ready), flank | Repelled | Repelled | Repelled | Repelled | Hit | Hit |
+| Artillery (Ready), rear | Repelled | Repelled | Hit | Hit | **Destroyed** | **Destroyed** |
+| Artillery (Mobilised), front | Repelled | Repelled | Repelled | Hit | Hit | **Destroyed** |
+| Artillery (Mobilised), flank | Repelled | Repelled | Hit | Hit | **Destroyed** | **Destroyed** |
+| Artillery (Mobilised), rear | Hit | Hit | **Destroyed** | **Destroyed** | **Destroyed** | **Destroyed** |
+
+**Cavalry attacking** (Attack 3)
+
+| Defender, edge attacked | −2 | −1 | 0 | +1 | +2 | +3 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Infantry, front | Repelled | Repelled | Hit | Hit | **Destroyed** | **Destroyed** |
+| Infantry, flank | Repelled | Hit | Hit | **Destroyed** | **Destroyed** | **Destroyed** |
+| Infantry, rear | Hit | **Destroyed** | **Destroyed** | **Destroyed** | **Destroyed** | **Destroyed** |
+| Cavalry, front | Repelled | Repelled | Repelled | Hit | Hit | **Destroyed** |
+| Cavalry, flank | Repelled | Repelled | Hit | Hit | **Destroyed** | **Destroyed** |
+| Cavalry, rear | Hit | Hit | **Destroyed** | **Destroyed** | **Destroyed** | **Destroyed** |
+| Artillery (Ready), front | Repelled | Repelled | Repelled | Repelled | Hit | Hit |
+| Artillery (Ready), flank | Repelled | Repelled | Repelled | Hit | Hit | **Destroyed** |
+| Artillery (Ready), rear | Repelled | Hit | Hit | **Destroyed** | **Destroyed** | **Destroyed** |
+| Artillery (Mobilised), front | Repelled | Repelled | Hit | Hit | **Destroyed** | **Destroyed** |
+| Artillery (Mobilised), flank | Repelled | Hit | Hit | **Destroyed** | **Destroyed** | **Destroyed** |
+| Artillery (Mobilised), rear | Hit | **Destroyed** | **Destroyed** | **Destroyed** | **Destroyed** | **Destroyed** |
+
+**Ranged attacks** (Cavalry or Artillery, both Attack 3; the target's facing doesn't matter)
+
+| Target | −2 | −1 | 0 | +1 | +2 | +3 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Infantry | Miss | Miss | Hit | Hit | **Destroyed** | **Destroyed** |
+| Cavalry | Miss | Miss | Miss | Hit | Hit | **Destroyed** |
+| Artillery (Ready) | Miss | Miss | Miss | Miss | Hit | Hit |
+| Artillery (Mobilised) | Miss | Miss | Hit | Hit | **Destroyed** | **Destroyed** |
+
+Artillery can't make melee attacks. Mobilised artillery can't fire. Tables like these can be generated for any custom unit from its stats.
+
+## Appendix B: orders sheet
 
 Player: ____________________ Turn: ____
 
