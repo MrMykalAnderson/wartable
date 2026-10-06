@@ -304,6 +304,7 @@ In every other case (any contact on a Move order, contact with an enemy other th
 - Each enemy now adjacent to it attacks it in melee, one at a time, checking in clockwise order around the ambushed unit starting from its N edge.
 - The ambushed unit is the **defender** and has **−1 Def** in these combats.
 - After each combat, check again: an enemy that is no longer adjacent (because of knockback) doesn't attack. Stop if the ambushed unit is destroyed.
+- If the ambushed unit loses a combat and survives, its knockback can never put it next to another enemy (it would be destroyed instead, see [8.3](#83-resolving-melee)). So losing always ends the ambush, and an ambush never draws in enemies that weren't adjacent at the start.
 
 ## 8. Melee combat
 
