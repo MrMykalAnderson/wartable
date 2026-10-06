@@ -27,6 +27,25 @@ tie-break token correctly carrying over between turns).
 
 `go vet ./...` and `go test ./...` pass.
 
+## M6: Web viewer
+
+Added `cmd/wartable-web` (a local HTTP server: `GET /api/game`,
+`POST /api/turn`, serving `web/` as static files) and `web/` (a
+vanilla-JS single-page viewer): draws the hex grid and unit tokens as
+SVG, following the core-rules.md 3.3 token convention (front edge red,
+flank edges green, rear unmarked, half-strength tokens faded), loads a
+saved game, runs a turn from pasted order sheets, and steps through the
+resulting event log one event at a time, highlighting the unit involved.
+Extracted `internal/save` (the `SaveFile` format and rules-data loading)
+out of `cmd/wartable` so both binaries share it, and moved event
+formatting onto `game.Event.Summary()` (and `MeleeResult`/`RangedResult`)
+so the CLI and the web server render identical text. Verified in a real
+browser: hex stagger, facing-relative edge colours, deploy/move/melee
+events, and event stepping all confirmed working, with no console
+errors.
+
+`go vet ./...` and `go test ./...` pass.
+
 ## Golden replay tests (pre-M6 verification)
 
 Played two complete Starter Battle games by hand through the CLI and

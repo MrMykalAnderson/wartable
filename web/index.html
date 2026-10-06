@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Wartable viewer</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Wartable</h1>
+  <div class="load-row">
+    <label for="path">Save file</label>
+    <input id="path" type="text" value="state.json" spellcheck="false">
+    <button id="load">Load</button>
+    <span id="load-status"></span>
+  </div>
+</header>
+
+<main>
+  <section class="map-panel">
+    <svg id="map" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div id="game-info"></div>
+  </section>
+
+  <section class="side-panel">
+    <div class="orders-box">
+      <h2>Orders</h2>
+      <label>North<textarea id="north-orders" rows="6" spellcheck="false"></textarea></label>
+      <label>South<textarea id="south-orders" rows="6" spellcheck="false"></textarea></label>
+      <button id="run-turn">Run turn</button>
+      <span id="turn-status"></span>
+    </div>
+
+    <div class="events-box">
+      <h2>Events</h2>
+      <div class="step-controls">
+        <button id="step-prev">&larr; Prev</button>
+        <span id="step-counter">0 / 0</span>
+        <button id="step-next">Next &rarr;</button>
+      </div>
+      <div id="step-summary"></div>
+      <ol id="event-list"></ol>
+    </div>
+  </section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

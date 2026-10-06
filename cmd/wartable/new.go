@@ -7,6 +7,7 @@ import (
 
 	"github.com/MrMykalAnderson/wartable/internal/game"
 	"github.com/MrMykalAnderson/wartable/internal/rules"
+	"github.com/MrMykalAnderson/wartable/internal/save"
 )
 
 // suggestedArmy is the Starter Battle's suggested army
@@ -21,7 +22,7 @@ func runNew(args []string, out io.Writer) error {
 	}
 	outPath := args[0]
 
-	units, _, scenario, err := loadRulesData()
+	units, _, scenario, err := save.LoadRulesData()
 	if err != nil {
 		return err
 	}
@@ -31,7 +32,7 @@ func runNew(args []string, out io.Writer) error {
 		reserves[side] = buildArmy(units, side)
 	}
 
-	save := SaveFile{
+	f := save.File{
 		ScenarioID: scenario.ID,
 		Turn:       1,
 		TieBreak:   game.TieBreak{Holder: scenario.TieBreakHolder},
@@ -40,7 +41,7 @@ func runNew(args []string, out io.Writer) error {
 			Reserves: reserves,
 		},
 	}
-	if err := writeSave(outPath, save); err != nil {
+	if err := save.Write(outPath, f); err != nil {
 		return err
 	}
 	fmt.Fprintf(out, "created %s: %s, turn 1\n", outPath, scenario.Name)

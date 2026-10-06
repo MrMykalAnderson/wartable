@@ -8,6 +8,7 @@ import (
 	"github.com/MrMykalAnderson/wartable/internal/game"
 	"github.com/MrMykalAnderson/wartable/internal/orders"
 	"github.com/MrMykalAnderson/wartable/internal/rules"
+	"github.com/MrMykalAnderson/wartable/internal/save"
 )
 
 func runTurn(args []string, out io.Writer) error {
@@ -16,11 +17,11 @@ func runTurn(args []string, out io.Writer) error {
 	}
 	statePath, northPath, southPath := args[0], args[1], args[2]
 
-	save, err := loadSave(statePath)
+	f, err := save.Load(statePath)
 	if err != nil {
 		return err
 	}
-	_, core, scenario, err := loadRulesData()
+	_, core, scenario, err := save.LoadRulesData()
 	if err != nil {
 		return err
 	}
@@ -34,23 +35,23 @@ func runTurn(args []string, out io.Writer) error {
 		return err
 	}
 
-	newState, events, err := game.ExecuteTurn(save.State, core, scenario, &save.TieBreak, northOrders, southOrders)
+	newState, events, err := game.ExecuteTurn(f.State, core, scenario, &f.TieBreak, northOrders, southOrders)
 	if err != nil {
 		return fmt.Errorf("execute turn: %w", err)
 	}
-	save.State = newState
+	f.State = newState
 
-	fmt.Fprintf(out, "Turn %d\n\n", save.Turn)
+	fmt.Fprintf(out, "Turn %d\n\n", f.Turn)
 	for _, e := range events {
 		fmt.Fprintln(out, formatEvent(e))
 	}
 	fmt.Fprintln(out)
-	fmt.Fprint(out, renderMap(save.State.Board))
+	fmt.Fprint(out, renderMap(f.State.Board))
 
-	reportOutcome(out, save.State, scenario, save.Turn)
+	reportOutcome(out, f.State, scenario, f.Turn)
 
-	save.Turn++
-	return writeSave(statePath, save)
+	f.Turn++
+	return save.Write(statePath, f)
 }
 
 func parseOrderFile(path string) ([]orders.Order, error) {

@@ -54,47 +54,5 @@ func unitCode(u game.UnitInstance) string {
 // formatEvent renders one turn-execution event (docs/dev-plan.md section
 // 4), including the numbers behind a melee or ranged attack.
 func formatEvent(e game.Event) string {
-	switch {
-	case e.Melee != nil:
-		return formatMelee(e.Melee)
-	case e.Ranged != nil:
-		return formatRanged(e.Ranged)
-	default:
-		return fmt.Sprintf("[%s] %s: %s", e.Kind, e.Unit, e.Detail)
-	}
-}
-
-func formatMelee(m *game.MeleeResult) string {
-	return fmt.Sprintf(
-		"[melee] %s attacks %s's %s: hit check %d/%d (attacker wins=%v); damage %d/%d (hit=%v)%s",
-		m.AttackerID, m.DefenderID, m.Edge,
-		m.Hit.AttackerTotal, m.Hit.DefenderTotal, m.Hit.AttackerWins,
-		m.Damage.Damage, m.Damage.Def, m.Damage.Hit,
-		knockbackSuffix(m),
-	)
-}
-
-func knockbackSuffix(m *game.MeleeResult) string {
-	switch {
-	case m.LoserDestroyed:
-		return fmt.Sprintf("; %s destroyed (already half strength)", m.LoserID)
-	case m.Knockback == nil:
-		return ""
-	case m.Knockback.Destroyed:
-		return fmt.Sprintf("; %s destroyed (couldn't retreat to %s)", m.LoserID, m.Knockback.To)
-	default:
-		return fmt.Sprintf("; %s knocked back to %s", m.LoserID, m.Knockback.To)
-	}
-}
-
-func formatRanged(r *game.RangedResult) string {
-	if !r.InRange || !r.InArc {
-		return fmt.Sprintf("[ranged] %s fires at %s: out of range or arc (in range=%v, in arc=%v)", r.ShooterID, r.TargetID, r.InRange, r.InArc)
-	}
-	return fmt.Sprintf(
-		"[ranged] %s fires at %s: hit check %d/%d (hit=%v); damage %d/%d (hit=%v)",
-		r.ShooterID, r.TargetID,
-		r.HitCheck.ShooterTotal, r.HitCheck.TargetTotal, r.HitCheck.Hit,
-		r.Damage.RngDmg, r.Damage.Def, r.Damage.Hit,
-	)
+	return e.Summary()
 }
