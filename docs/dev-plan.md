@@ -228,6 +228,16 @@ Don't start M6 until the engine (M1–M5) is solid; the point of the web tools i
 - When a Close and Attack or Close and Fire order is being made, the movement highlight shows the **half-move** reach, clearly different from a full Move (e.g. a different shade and a label "Close: 2 hexes").
 - Before an attack or Fire order is confirmed, show the **predicted result** if the target stays put (margin and Repelled/Hit/Destroyed, from the engine). Label it as a prediction, since the target may move first.
 
+### 7.6 Playtest round 3 fix: planning shows reach, not paths (do next)
+
+The planner currently works out movement against the board as it is now, so a unit ordered to move behind a friend that is also moving is shown as blocked. That can't be known while planning: by the time the order runs, other units (friendly and enemy) will have moved. Paths are only worked out at execution (core-rules.md 6.2, 6.6), so planning must not pretend otherwise.
+
+- **Reach highlight = pure distance.** Show every hex within the unit's Move (or half Move for Close orders) of its current position, ignoring all units. Only the map edge limits it. Still from the engine (`/api/options`), just without obstacles.
+- **Any hex is a valid Move target.** Clicking any hex on the map, inside or outside the highlight, creates a Move order toward it. Likewise any enemy is a valid Close/Fire target regardless of distance (the prediction can say "out of reach this turn").
+- **Pending-order display:** draw a line from the unit toward its objective, and mark where it would stop at full Move on an empty map (straight-line estimate, e.g. a ghost token labelled "about here"). Label it as an estimate.
+- Never reject or warn on an order just because of distance or units in the way. Only reject orders that break the order-sheet rules (unknown unit, two orders for one unit, wrong order type for the unit).
+- Add a test: two friendly units in a column, the rear one ordered to a hex beyond the front one; both orders accepted, and execution moves the front unit first so the rear one passes through the vacated hex (when the front unit's order runs first).
+
 ### 7.4 Parked (don't start without being asked)
 
 - **Map-first layout.** The map should be the main focus and fill the screen. All panels (orders, unit details, event playback, sandbox) become either docked strips around the map edges or floating, movable windows. A large layout change; do it as one piece of work when asked, not piecemeal.

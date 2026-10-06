@@ -259,6 +259,8 @@ Places a unit from off the map onto an empty hex in its deployment zone. **(Prov
 
 The unit moves toward the named hex (or the named unit's hex), up to its Move, following the movement rules in [Section 7](#7-movement). If it comes into contact with any enemy, it is **ambushed** (see [7.4](#74-contact-and-ambush)).
 
+The named hex can be anywhere on the map, however far away. A unit ordered to a distant objective moves as far toward it as it can this turn (see [6.6](#66-when-an-order-cant-be-done-as-written)). The path is only worked out when the order is carried out, because other units will have moved by then.
+
 ### 6.3 Close and Attack
 
 The unit moves toward the named enemy, up to **half its Move** (rounded down).
