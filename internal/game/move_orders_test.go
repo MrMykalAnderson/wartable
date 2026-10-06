@@ -132,10 +132,9 @@ func TestExecuteCloseAndAttackAlreadyAdjacent(t *testing.T) {
 	if len(events) != 1 || events[0].Kind != "melee" {
 		t.Fatalf("events = %+v, want exactly one melee event (no movement needed)", events)
 	}
-	// EX-4's numbers: rear attack, B takes a hit and is knocked back to F5.
-	def, ok := state.Board.Unit("B")
-	if !ok || def.Pos != mustParse(t, "F5") || def.Strength != Half {
-		t.Errorf("B = %+v, %v, want half-strength at F5", def, ok)
+	// EX-4's numbers: rear attack, margin 4 destroys B outright.
+	if _, ok := state.Board.Unit("B"); ok {
+		t.Errorf("B still on board, want destroyed (margin 3+ destroys any unit outright)")
 	}
 }
 

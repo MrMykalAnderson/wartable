@@ -7,30 +7,16 @@ import (
 	"github.com/MrMykalAnderson/wartable/internal/rules"
 )
 
-// HitCheck is the result of comparing the two sides' totals in a melee's
-// hit check (docs/core-rules.md section 8.3, step 1). Ties go to the
-// defender.
-type HitCheck struct {
-	AttackerTotal, DefenderTotal int
-	AttackerWins                 bool
-}
-
-// DamageCheck is the result of comparing the winner's damage against the
-// loser's Def (docs/core-rules.md section 8.3, step 2).
-type DamageCheck struct {
-	Damage, Def int
-	Hit         bool
-}
-
-// Knockback is the result of pushing the hit check's loser back
-// (docs/core-rules.md section 8.3, step 3).
+// Knockback is the result of pushing a melee combat's loser back
+// (docs/core-rules.md section 8.3).
 type Knockback struct {
 	To        hex.Offset
 	Destroyed bool // the loser couldn't retreat and was destroyed instead.
 }
 
 // MeleeResult is the full, auditable record of one melee combat
-// (docs/core-rules.md section 8): every number used at each step.
+// (docs/core-rules.md section 8.3): one comparison, whose margin decides
+// the result.
 type MeleeResult struct {
 	AttackerID, DefenderID string
 	Edge                   hex.Position // the defender's edge attacked.
@@ -38,17 +24,25 @@ type MeleeResult struct {
 	AttackerSupport        int
 	DefenderSupport        int
 	Ambushed               bool
+	AmbushPenalty          int // the penalty actually applied (0 unless Ambushed).
 
-	Hit HitCheck
+	AttackerBase, DefenderBase   int // raw Attack/Def, before support/bonus/penalty.
+	AttackerTotal, DefenderTotal int
+	Margin                       int
 
-	// WinnerID/LoserID are the hit check's winner and loser.
+	// WinnerID/LoserID: the repelled attacker (margin <= 0) or the hit
+	// defender (margin >= 1).
 	WinnerID, LoserID string
-	Damage            DamageCheck
 
-	// LoserDestroyed is true if the loser was already at half strength
-	// and so was destroyed by the hit, rather than knocked back.
+	// Hits is how many hits the loser takes: 0 (repelled, no damage), 1
+	// (margin 1-2), or 2 (margin 3+, which destroys any unit outright).
+	Hits int
+
+	// LoserDestroyed is true if the loser ends up destroyed without a
+	// knockback being attempted: either Hits is 2, or Hits is 1 and the
+	// loser was already at half strength (docs/core-rules.md section 3.2).
 	LoserDestroyed bool
-	Knockback      *Knockback // nil if the loser was destroyed by the hit.
+	Knockback      *Knockback // nil if LoserDestroyed is true.
 }
 
 func positionBonusFor(core rules.CoreRules, edge hex.Position) int {
@@ -63,8 +57,9 @@ func positionBonusFor(core rules.CoreRules, edge hex.Position) int {
 }
 
 // ResolveMelee resolves one melee combat between attackerID and defenderID
-// (docs/core-rules.md section 8). ambushed marks the defender as ambushed
-// (section 7.4): the ambushed unit always takes the defender's role.
+// (docs/core-rules.md section 8.3). ambushed marks the defender as
+// ambushed (section 7.4): the ambushed unit always takes the defender's
+// role.
 func ResolveMelee(board Board, core rules.CoreRules, attackerID, defenderID string, ambushed bool) (MeleeResult, error) {
 	attacker, ok := board.Unit(attackerID)
 	if !ok {
@@ -89,6 +84,10 @@ func ResolveMelee(board Board, core rules.CoreRules, attackerID, defenderID stri
 		ambushPenalty = core.AmbushDefPenalty
 	}
 
+	attackerTotal := attackerStats.Attack + attackerSupport + positionBonus
+	defenderTotal := defenderStats.Def + defenderSupport - ambushPenalty
+	margin := attackerTotal - defenderTotal
+
 	result := MeleeResult{
 		AttackerID:      attackerID,
 		DefenderID:      defenderID,
@@ -97,41 +96,32 @@ func ResolveMelee(board Board, core rules.CoreRules, attackerID, defenderID stri
 		AttackerSupport: attackerSupport,
 		DefenderSupport: defenderSupport,
 		Ambushed:        ambushed,
+		AmbushPenalty:   ambushPenalty,
+		AttackerBase:    attackerStats.Attack,
+		DefenderBase:    defenderStats.Def,
+		AttackerTotal:   attackerTotal,
+		DefenderTotal:   defenderTotal,
+		Margin:          margin,
 	}
 
-	attackerTotal := attackerStats.Attack + attackerSupport + positionBonus
-	defenderTotal := max(0, defenderStats.Def+defenderSupport-ambushPenalty)
-	attackerWins := attackerTotal > defenderTotal
-	result.Hit = HitCheck{AttackerTotal: attackerTotal, DefenderTotal: defenderTotal, AttackerWins: attackerWins}
-
-	winner, loser := defender, attacker
-	result.WinnerID, result.LoserID = defenderID, attackerID
-	if attackerWins {
-		winner, loser = attacker, defender
-		result.WinnerID, result.LoserID = attackerID, defenderID
-	}
-
-	var damage, loserDef int
-	if attackerWins {
-		damage = attackerStats.AttDmg + positionBonus
-		loserDef = max(0, defenderStats.Def-ambushPenalty)
-	} else {
-		damage = defenderStats.AttDmg
-		loserDef = attackerStats.Def
-	}
-	hit := damage > loserDef
-	result.Damage = DamageCheck{Damage: damage, Def: loserDef, Hit: hit}
-
-	if !hit {
-		result.Knockback = resolveKnockback(board, winner, loser)
+	if margin <= 0 {
+		// Repelled: ties go to the defender. No damage; the attacker is
+		// knocked back.
+		result.WinnerID, result.LoserID = defenderID, attackerID
+		result.Knockback = resolveKnockback(board, defender, attacker)
 		return result, nil
 	}
 
-	if loser.Strength == Half {
+	result.WinnerID, result.LoserID = attackerID, defenderID
+	result.Hits = 1
+	if margin >= 3 {
+		result.Hits = 2
+	}
+	if result.Hits == 2 || defender.Strength == Half {
 		result.LoserDestroyed = true
 		return result, nil
 	}
-	result.Knockback = resolveKnockback(board, winner, loser)
+	result.Knockback = resolveKnockback(board, attacker, defender)
 	return result, nil
 }
 

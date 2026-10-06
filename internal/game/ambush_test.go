@@ -14,7 +14,10 @@ import (
 func TestAmbushEndsWhenKnockbackWouldBeAdjacentToAnotherEnemy(t *testing.T) {
 	templates, core := loadTestRules(t)
 	ambushed := newUnit(t, templates, "X", "north", "infantry", "F6", hex.N)
-	attacker := newUnit(t, templates, "A", "south", "cavalry", "G6", hex.N)
+	// A front attack (margin 1, once ambushed) only hits and knocks back,
+	// rather than destroying outright at margin 3+ (docs/core-rules.md
+	// section 8.3), so this exercises the blocked-knockback path.
+	attacker := newUnit(t, templates, "A", "south", "infantry", "F5", hex.S)
 
 	// Find a hex adjacent to X's knockback destination (if it loses) that
 	// isn't already adjacent to X's original hex: a genuine "third

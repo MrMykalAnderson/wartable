@@ -24,13 +24,11 @@ func TestMeleeEX2FrontAttackRebuffed(t *testing.T) {
 	if result.Edge != hex.Front {
 		t.Errorf("Edge = %v, want Front", result.Edge)
 	}
-	wantHit := HitCheck{AttackerTotal: 2, DefenderTotal: 3, AttackerWins: false}
-	if result.Hit != wantHit {
-		t.Errorf("Hit = %+v, want %+v", result.Hit, wantHit)
+	if result.AttackerTotal != 2 || result.DefenderTotal != 3 || result.Margin != -1 {
+		t.Errorf("AttackerTotal/DefenderTotal/Margin = %d/%d/%d, want 2/3/-1", result.AttackerTotal, result.DefenderTotal, result.Margin)
 	}
-	wantDamage := DamageCheck{Damage: 2, Def: 2, Hit: false}
-	if result.Damage != wantDamage {
-		t.Errorf("Damage = %+v, want %+v", result.Damage, wantDamage)
+	if result.Hits != 0 {
+		t.Errorf("Hits = %d, want 0 (repelled)", result.Hits)
 	}
 	if result.WinnerID != "B" || result.LoserID != "A" {
 		t.Errorf("Winner/Loser = %s/%s, want B/A", result.WinnerID, result.LoserID)
@@ -60,13 +58,11 @@ func TestMeleeEX3FlankAttack(t *testing.T) {
 	if result.Edge != hex.Flank {
 		t.Errorf("Edge = %v, want Flank", result.Edge)
 	}
-	wantHit := HitCheck{AttackerTotal: 3, DefenderTotal: 2, AttackerWins: true}
-	if result.Hit != wantHit {
-		t.Errorf("Hit = %+v, want %+v", result.Hit, wantHit)
+	if result.AttackerTotal != 3 || result.DefenderTotal != 2 || result.Margin != 1 {
+		t.Errorf("AttackerTotal/DefenderTotal/Margin = %d/%d/%d, want 3/2/1", result.AttackerTotal, result.DefenderTotal, result.Margin)
 	}
-	wantDamage := DamageCheck{Damage: 3, Def: 2, Hit: true}
-	if result.Damage != wantDamage {
-		t.Errorf("Damage = %+v, want %+v", result.Damage, wantDamage)
+	if result.Hits != 1 {
+		t.Errorf("Hits = %d, want 1", result.Hits)
 	}
 	if result.WinnerID != "A" || result.LoserID != "B" {
 		t.Errorf("Winner/Loser = %s/%s, want A/B", result.WinnerID, result.LoserID)
@@ -78,7 +74,8 @@ func TestMeleeEX3FlankAttack(t *testing.T) {
 }
 
 // TestMeleeEX4RearAttack checks EX-4: Infantry B at F6 facing N; Cavalry A
-// at F7 (directly S of B) attacks B's rear.
+// at F7 (directly S of B) attacks B's rear. Margin 4 destroys B outright,
+// at full strength, without a knockback being attempted.
 func TestMeleeEX4RearAttack(t *testing.T) {
 	templates, core := loadTestRules(t)
 	a := newUnit(t, templates, "A", "south", "cavalry", "F7", hex.N)
@@ -93,13 +90,40 @@ func TestMeleeEX4RearAttack(t *testing.T) {
 	if result.Edge != hex.Rear {
 		t.Errorf("Edge = %v, want Rear", result.Edge)
 	}
-	wantHit := HitCheck{AttackerTotal: 6, DefenderTotal: 2, AttackerWins: true}
-	if result.Hit != wantHit {
-		t.Errorf("Hit = %+v, want %+v", result.Hit, wantHit)
+	if result.AttackerTotal != 6 || result.DefenderTotal != 2 || result.Margin != 4 {
+		t.Errorf("AttackerTotal/DefenderTotal/Margin = %d/%d/%d, want 6/2/4", result.AttackerTotal, result.DefenderTotal, result.Margin)
 	}
-	wantDamage := DamageCheck{Damage: 6, Def: 2, Hit: true}
-	if result.Damage != wantDamage {
-		t.Errorf("Damage = %+v, want %+v", result.Damage, wantDamage)
+	if result.Hits != 2 {
+		t.Errorf("Hits = %d, want 2", result.Hits)
+	}
+	if !result.LoserDestroyed {
+		t.Errorf("LoserDestroyed = false, want true (margin 3+ destroys any unit outright)")
+	}
+	if result.Knockback != nil {
+		t.Errorf("Knockback = %+v, want nil (destroyed outright, no knockback attempted)", result.Knockback)
+	}
+}
+
+// TestMeleeEX4SupportedHitKnockedBack extends EX-4: "Had B been supported
+// by two adjacent allies, it would be 6 vs 4, margin 2: a hit, and B
+// would be knocked back N to F5."
+func TestMeleeEX4SupportedHitKnockedBack(t *testing.T) {
+	templates, core := loadTestRules(t)
+	a := newUnit(t, templates, "A", "south", "cavalry", "F7", hex.N)
+	b := newUnit(t, templates, "B", "north", "infantry", "F6", hex.N)
+	ally1 := newUnit(t, templates, "Ally1", "north", "infantry", "E6", hex.N)
+	ally2 := newUnit(t, templates, "Ally2", "north", "infantry", "G6", hex.N)
+	board := starterBoard(a, b, ally1, ally2)
+
+	result, err := ResolveMelee(board, core, "A", "B", false)
+	if err != nil {
+		t.Fatalf("ResolveMelee: %v", err)
+	}
+	if result.AttackerTotal != 6 || result.DefenderTotal != 4 || result.Margin != 2 {
+		t.Errorf("AttackerTotal/DefenderTotal/Margin = %d/%d/%d, want 6/4/2", result.AttackerTotal, result.DefenderTotal, result.Margin)
+	}
+	if result.Hits != 1 || result.LoserDestroyed {
+		t.Errorf("Hits/LoserDestroyed = %d/%v, want 1/false (a hit, not a destroy)", result.Hits, result.LoserDestroyed)
 	}
 	wantTo, _ := hex.ParseOffset("F5")
 	if result.Knockback == nil || result.Knockback.To != wantTo || result.Knockback.Destroyed {
@@ -107,14 +131,16 @@ func TestMeleeEX4RearAttack(t *testing.T) {
 	}
 }
 
-// TestMeleeEX4DestroyedIfRetreatBlocked extends EX-4: "If F5 were occupied
-// or adjacent to another enemy, B would be destroyed instead."
+// TestMeleeEX4DestroyedIfRetreatBlocked extends the supported-hit scenario
+// above: "or destroyed if F5 were occupied or next to another enemy."
 func TestMeleeEX4DestroyedIfRetreatBlocked(t *testing.T) {
 	templates, core := loadTestRules(t)
 	a := newUnit(t, templates, "A", "south", "cavalry", "F7", hex.N)
 	b := newUnit(t, templates, "B", "north", "infantry", "F6", hex.N)
+	ally1 := newUnit(t, templates, "Ally1", "north", "infantry", "E6", hex.N)
+	ally2 := newUnit(t, templates, "Ally2", "north", "infantry", "G6", hex.N)
 	blocker := newUnit(t, templates, "Blocker", "south", "infantry", "F5", hex.N)
-	board := starterBoard(a, b, blocker)
+	board := starterBoard(a, b, ally1, ally2, blocker)
 
 	result, err := ResolveMelee(board, core, "A", "B", false)
 	if err != nil {
@@ -127,11 +153,11 @@ func TestMeleeEX4DestroyedIfRetreatBlocked(t *testing.T) {
 }
 
 // TestMeleeHalfStrengthLoserDestroyedByHit checks docs/core-rules.md
-// section 3.2: a half-strength unit that takes a hit is destroyed, not
+// section 3.2: a half-strength unit that takes any hit is destroyed, not
 // knocked back.
 func TestMeleeHalfStrengthLoserDestroyedByHit(t *testing.T) {
 	templates, core := loadTestRules(t)
-	a := newUnit(t, templates, "A", "south", "cavalry", "F7", hex.N)
+	a := newUnit(t, templates, "A", "south", "infantry", "G6", hex.N) // flank attack, margin 1.
 	b := newUnit(t, templates, "B", "north", "infantry", "F6", hex.N)
 	b.Strength = Half
 	board := starterBoard(a, b)
@@ -140,8 +166,8 @@ func TestMeleeHalfStrengthLoserDestroyedByHit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ResolveMelee: %v", err)
 	}
-	if !result.Damage.Hit {
-		t.Fatalf("Damage.Hit = false, want true")
+	if result.Hits != 1 {
+		t.Fatalf("Hits = %d, want 1", result.Hits)
 	}
 	if !result.LoserDestroyed {
 		t.Errorf("LoserDestroyed = false, want true")
@@ -152,7 +178,8 @@ func TestMeleeHalfStrengthLoserDestroyedByHit(t *testing.T) {
 }
 
 // TestMeleeEX5Ambush checks EX-5: Cavalry A, ambushed, is attacked across
-// its front by Infantry B. Even ambushed, cavalry beats infantry head-on.
+// its front by Infantry B. Even ambushed, cavalry holds off infantry
+// head-on: margin 0 repels the attacker B.
 func TestMeleeEX5Ambush(t *testing.T) {
 	templates, core := loadTestRules(t)
 	a := newUnit(t, templates, "A", "north", "cavalry", "F5", hex.S)
@@ -168,13 +195,11 @@ func TestMeleeEX5Ambush(t *testing.T) {
 	if result.Edge != hex.Front {
 		t.Errorf("Edge = %v, want Front", result.Edge)
 	}
-	wantHit := HitCheck{AttackerTotal: 2, DefenderTotal: 2, AttackerWins: false}
-	if result.Hit != wantHit {
-		t.Errorf("Hit = %+v, want %+v (tie goes to the defender)", result.Hit, wantHit)
+	if result.AttackerTotal != 2 || result.DefenderTotal != 2 || result.Margin != 0 {
+		t.Errorf("AttackerTotal/DefenderTotal/Margin = %d/%d/%d, want 2/2/0 (tie goes to the defender)", result.AttackerTotal, result.DefenderTotal, result.Margin)
 	}
-	wantDamage := DamageCheck{Damage: 3, Def: 2, Hit: true}
-	if result.Damage != wantDamage {
-		t.Errorf("Damage = %+v, want %+v", result.Damage, wantDamage)
+	if result.Hits != 0 {
+		t.Errorf("Hits = %d, want 0 (repelled)", result.Hits)
 	}
 	if result.WinnerID != "A" || result.LoserID != "B" {
 		t.Errorf("Winner/Loser = %s/%s, want A/B", result.WinnerID, result.LoserID)

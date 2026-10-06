@@ -54,9 +54,9 @@ Turn 3
  10 .  .  .  .  .  .  .  .  .  .  .  SA 
 Turn 4
 
-[barrage] North 1st Artillery fires at South 1st Infantry: hit check 3/2 (hit=true); damage 3/2 (hit=true)
-[barrage] North 1st Artillery fires at South 2nd Infantry: hit check 3/2 (hit=true); damage 3/2 (hit=true)
-[ranged] North 1st Artillery fires at South 1st Infantry: hit check 3/1 (hit=true); damage 3/1 (hit=true)
+[barrage] North 1st Artillery (3) vs South 1st Infantry (2): margin 1, hit
+[barrage] North 1st Artillery (3) vs South 2nd Infantry (2): margin 1, hit
+[ranged] North 1st Artillery (3) vs South 1st Infantry (1): margin 2, destroyed
 
     A  B  C  D  E  F  G  H  I  J  K  L  
   1 NI .  .  .  .  .  .  .  .  .  .  .  
@@ -71,7 +71,7 @@ Turn 4
  10 .  .  .  .  .  .  .  .  .  .  .  SA 
 Turn 5
 
-[barrage] North 1st Artillery fires at South 2nd Infantry: hit check 3/1 (hit=true); damage 3/1 (hit=true)
+[barrage] North 1st Artillery (3) vs South 2nd Infantry (1): margin 2, destroyed
 [order-skipped] North 1st Artillery: target not found
 
     A  B  C  D  E  F  G  H  I  J  K  L  
@@ -120,9 +120,10 @@ Turn 7
 Turn 8
 
 [moved] North 1st Infantry: moved to F5
-[melee] South 1st Cavalry attacks North 1st Infantry's flank: hit check 4/1 (attacker wins=true); damage 4/1 (hit=true); North 1st Infantry knocked back to E5
+[melee] South 1st Cavalry (3 +1 flank) vs North 1st Infantry (2 -1 ambush): margin 3, destroyed
+[unit-destroyed] North 1st Infantry: destroyed during ambush
 [moved] North 2nd Infantry: moved to F5
-[melee] South 1st Cavalry attacks North 2nd Infantry's flank: hit check 4/2 (attacker wins=true); damage 4/1 (hit=true); North 2nd Infantry destroyed (couldn't retreat to E5)
+[melee] South 1st Cavalry (3 +1 flank) vs North 2nd Infantry (2 -1 ambush): margin 3, destroyed
 [unit-destroyed] North 2nd Infantry: destroyed during ambush
 
     A  B  C  D  E  F  G  H  I  J  K  L  
@@ -130,7 +131,7 @@ Turn 8
   2 .  .  .  .  .  .  .  .  .  .  .  .  
   3 .  .  .  .  .  .  .  .  .  .  .  .  
   4 .  .  .  .  .  .  .  .  .  .  .  .  
-  5 .  .  .  .  ni .  .  .  .  .  .  .  
+  5 .  .  .  .  .  .  .  .  .  .  .  .  
   6 .  .  .  NA .  .  SC .  .  .  .  .  
   7 .  .  .  .  .  .  .  .  .  .  .  .  
   8 .  .  .  .  .  .  .  .  .  .  .  .  
@@ -139,7 +140,6 @@ Turn 8
 Turn 9
 
 [moved] South 1st Cavalry: moved to L6
-[moved] North 1st Infantry: moved to B5
 [moved] North 1st Cavalry: moved to A8
 
     A  B  C  D  E  F  G  H  I  J  K  L  
@@ -147,7 +147,7 @@ Turn 9
   2 .  .  .  .  .  .  .  .  .  .  .  .  
   3 .  .  .  .  .  .  .  .  .  .  .  .  
   4 .  .  .  .  .  .  .  .  .  .  .  .  
-  5 .  ni .  .  .  .  .  .  .  .  .  .  
+  5 .  .  .  .  .  .  .  .  .  .  .  .  
   6 .  .  .  NA .  .  .  .  .  .  .  SC 
   7 .  .  .  .  .  .  .  .  .  .  .  .  
   8 NC .  .  .  .  .  .  .  .  .  .  .  
@@ -161,7 +161,7 @@ Turn 10
   2 .  .  .  .  .  .  .  .  .  .  .  .  
   3 .  .  .  .  .  .  .  .  .  .  .  .  
   4 .  .  .  .  .  .  .  .  .  .  .  .  
-  5 .  ni .  .  .  .  .  .  .  .  .  .  
+  5 .  .  .  .  .  .  .  .  .  .  .  .  
   6 .  .  .  NA .  .  .  .  .  .  .  SC 
   7 .  .  .  .  .  .  .  .  .  .  .  .  
   8 NC .  .  .  .  .  .  .  .  .  .  .  
@@ -175,7 +175,7 @@ Turn 11
   2 .  .  .  .  .  .  .  .  .  .  .  .  
   3 .  .  .  .  .  .  .  .  .  .  .  .  
   4 .  .  .  .  .  .  .  .  .  .  .  .  
-  5 .  ni .  .  .  .  .  .  .  .  .  .  
+  5 .  .  .  .  .  .  .  .  .  .  .  .  
   6 .  .  .  NA .  .  .  .  .  .  .  SC 
   7 .  .  .  .  .  .  .  .  .  .  .  .  
   8 NC .  .  .  .  .  .  .  .  .  .  .  
@@ -189,13 +189,13 @@ Turn 12
   2 .  .  .  .  .  .  .  .  .  .  .  .  
   3 .  .  .  .  .  .  .  .  .  .  .  .  
   4 .  .  .  .  .  .  .  .  .  .  .  .  
-  5 .  ni .  .  .  .  .  .  .  .  .  .  
+  5 .  .  .  .  .  .  .  .  .  .  .  .  
   6 .  .  .  NA .  .  .  .  .  .  .  SC 
   7 .  .  .  .  .  .  .  .  .  .  .  .  
   8 NC .  .  .  .  .  .  .  .  .  .  .  
   9 .  .  .  .  .  .  .  .  .  .  .  .  
  10 .  .  .  .  .  .  .  .  .  .  .  SA 
 
-Turn limit reached. North 40, South 35.
+Turn limit reached. North 35, South 35.
 
-north wins: turn limit
+draw: turn limit: draw

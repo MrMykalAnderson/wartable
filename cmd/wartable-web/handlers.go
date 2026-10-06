@@ -113,6 +113,70 @@ func handleTurn(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// PredictionView is a predicted combat result for an attack or Fire order
+// not yet confirmed (docs/dev-plan.md section 7.5, interface item 2): the
+// engine's own resolution, run against the current board but never
+// saved, labelled as a prediction since the target may move first. Both
+// fields are nil if the order wouldn't make contact this turn (e.g. a
+// Close order that can't reach its target within half its Move).
+type PredictionView struct {
+	Melee  *MeleeView  `json:"melee,omitempty"`
+	Ranged *RangedView `json:"ranged,omitempty"`
+}
+
+var predictableOrderTypes = map[string]orders.Type{
+	"Close and Attack": orders.CloseAndAttack,
+	"Fire":             orders.Fire,
+	"Close and Fire":   orders.CloseAndFire,
+}
+
+// handlePredict serves GET /api/predict?path=&side=&unit=&type=&target=:
+// what would happen if unit's order against target were carried out this
+// turn, assuming target doesn't move first. It runs the real engine
+// resolution (game.ExecuteOrder) against the saved state but never
+// writes it back, so trying a prediction has no effect on the game.
+func handlePredict(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Query().Get("path")
+	side := r.URL.Query().Get("side")
+	unitID := r.URL.Query().Get("unit")
+	orderType := r.URL.Query().Get("type")
+	targetID := r.URL.Query().Get("target")
+	if path == "" || side == "" || unitID == "" || orderType == "" || targetID == "" {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("missing path, side, unit, type or target"))
+		return
+	}
+	ot, ok := predictableOrderTypes[orderType]
+	if !ok {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("unsupported predict type %q", orderType))
+		return
+	}
+
+	f, err := save.Load(path)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err)
+		return
+	}
+	_, core, scenario, err := save.LoadRulesData()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	o := orders.Order{Unit: unitID, Type: ot, TargetUnit: targetID}
+	_, events := game.ExecuteOrder(f.State, core, scenario, side, o)
+
+	var pred PredictionView
+	for _, e := range events {
+		if e.Melee != nil {
+			pred.Melee = newMeleeView(e.Melee)
+		}
+		if e.Ranged != nil {
+			pred.Ranged = newRangedView(e.Ranged)
+		}
+	}
+	writeJSON(w, pred)
+}
+
 func writeJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(v); err != nil {

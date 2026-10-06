@@ -14,9 +14,7 @@ type StatsView struct {
 	Move     int `json:"move"`
 	MinRange int `json:"minRange"`
 	MaxRange int `json:"maxRange"`
-	RngDmg   int `json:"rngDmg"`
 	Attack   int `json:"attack"`
-	AttDmg   int `json:"attDmg"`
 }
 
 // UnitView is a unit as seen by the web viewer.
@@ -56,9 +54,7 @@ func newUnitView(u game.UnitInstance, core rules.CoreRules) UnitView {
 			Move:     s.Move,
 			MinRange: s.MinRange,
 			MaxRange: s.MaxRange,
-			RngDmg:   s.RngDmg,
 			Attack:   s.Attack,
-			AttDmg:   s.AttDmg,
 		},
 	}
 }
@@ -142,8 +138,10 @@ func newGameView(f save.File, core rules.CoreRules) GameView {
 }
 
 // MeleeView is a melee combat's full, auditable record (docs/core-rules.md
-// section 8), broken into every number used, for a detailed step-by-step
-// view (docs/dev-plan.md section 7.3) rather than just the final totals.
+// section 8.3), broken into every number used, for a detailed step-by-
+// step view (docs/dev-plan.md section 7.3) rather than just the final
+// totals. Combat is one comparison: Margin decides Hits (0 repelled/1
+// hit/2 destroyed outright).
 type MeleeView struct {
 	AttackerID      string `json:"attackerId"`
 	DefenderID      string `json:"defenderId"`
@@ -152,16 +150,17 @@ type MeleeView struct {
 	AttackerSupport int    `json:"attackerSupport"`
 	DefenderSupport int    `json:"defenderSupport"`
 	Ambushed        bool   `json:"ambushed"`
+	AmbushPenalty   int    `json:"ambushPenalty"`
 
-	AttackerTotal int  `json:"attackerTotal"`
-	DefenderTotal int  `json:"defenderTotal"`
-	AttackerWins  bool `json:"attackerWins"`
+	AttackerBase  int `json:"attackerBase"`
+	DefenderBase  int `json:"defenderBase"`
+	AttackerTotal int `json:"attackerTotal"`
+	DefenderTotal int `json:"defenderTotal"`
+	Margin        int `json:"margin"`
 
-	WinnerID  string `json:"winnerId"`
-	LoserID   string `json:"loserId"`
-	Damage    int    `json:"damage"`
-	DamageDef int    `json:"damageDef"`
-	DamageHit bool   `json:"damageHit"`
+	WinnerID string `json:"winnerId"`
+	LoserID  string `json:"loserId"`
+	Hits     int    `json:"hits"`
 
 	LoserDestroyed   bool     `json:"loserDestroyed"`
 	KnockbackTo      *HexView `json:"knockbackTo,omitempty"`
@@ -180,14 +179,15 @@ func newMeleeView(m *game.MeleeResult) *MeleeView {
 		AttackerSupport: m.AttackerSupport,
 		DefenderSupport: m.DefenderSupport,
 		Ambushed:        m.Ambushed,
-		AttackerTotal:   m.Hit.AttackerTotal,
-		DefenderTotal:   m.Hit.DefenderTotal,
-		AttackerWins:    m.Hit.AttackerWins,
+		AmbushPenalty:   m.AmbushPenalty,
+		AttackerBase:    m.AttackerBase,
+		DefenderBase:    m.DefenderBase,
+		AttackerTotal:   m.AttackerTotal,
+		DefenderTotal:   m.DefenderTotal,
+		Margin:          m.Margin,
 		WinnerID:        m.WinnerID,
 		LoserID:         m.LoserID,
-		Damage:          m.Damage.Damage,
-		DamageDef:       m.Damage.Def,
-		DamageHit:       m.Damage.Hit,
+		Hits:            m.Hits,
 		LoserDestroyed:  m.LoserDestroyed,
 	}
 	if m.Knockback != nil {
@@ -205,15 +205,16 @@ type RangedView struct {
 	InRange   bool   `json:"inRange"`
 	InArc     bool   `json:"inArc"`
 
-	ShooterSupport int  `json:"shooterSupport"`
-	TargetSupport  int  `json:"targetSupport"`
-	ShooterTotal   int  `json:"shooterTotal"`
-	TargetTotal    int  `json:"targetTotal"`
-	Hit            bool `json:"hit"`
+	ShooterSupport int `json:"shooterSupport"`
+	TargetSupport  int `json:"targetSupport"`
+	ShooterBase    int `json:"shooterBase"`
+	TargetBase     int `json:"targetBase"`
+	ShooterTotal   int `json:"shooterTotal"`
+	TargetTotal    int `json:"targetTotal"`
+	Margin         int `json:"margin"`
 
-	RngDmg    int  `json:"rngDmg"`
-	DamageDef int  `json:"damageDef"`
-	DamageHit bool `json:"damageHit"`
+	Hits      int  `json:"hits"`
+	Destroyed bool `json:"destroyed"`
 }
 
 func newRangedView(r *game.RangedResult) *RangedView {
@@ -227,12 +228,13 @@ func newRangedView(r *game.RangedResult) *RangedView {
 		InArc:          r.InArc,
 		ShooterSupport: r.ShooterSupport,
 		TargetSupport:  r.TargetSupport,
-		ShooterTotal:   r.HitCheck.ShooterTotal,
-		TargetTotal:    r.HitCheck.TargetTotal,
-		Hit:            r.HitCheck.Hit,
-		RngDmg:         r.Damage.RngDmg,
-		DamageDef:      r.Damage.Def,
-		DamageHit:      r.Damage.Hit,
+		ShooterBase:    r.ShooterBase,
+		TargetBase:     r.TargetBase,
+		ShooterTotal:   r.ShooterTotal,
+		TargetTotal:    r.TargetTotal,
+		Margin:         r.Margin,
+		Hits:           r.Hits,
+		Destroyed:      r.Destroyed,
 	}
 }
 

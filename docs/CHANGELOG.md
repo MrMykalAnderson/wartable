@@ -11,6 +11,73 @@ section 11 (EX-3, EX-4) and the direction table in section 2.1.
 
 `go vet ./...` and `go test ./...` pass.
 
+## Playtest round 2 changes: combat rewrite (dev-plan.md section 7.5)
+
+**Combat rewrite.** Melee and ranged combat are now one comparison each:
+margin = attacker's total − defender's total. Margin ≤ 0 is Repelled
+(melee only: the attacker is knocked back, no damage) or a Miss
+(ranged); 1–2 is a Hit (one hit, then knocked back if the defender
+survives); 3+ is Destroyed (two hits, which destroys any unit outright
+— at margin 3+ no knockback is attempted at all, even at full
+strength). A half-strength unit destroyed by any hit, and the defender
+no longer deals damage back when it wins (previously it did). Removed
+`att_dmg`/`rng_dmg` from the data, `rules.Unit`, `game.Stats`, and every
+view/interface that showed them — `AttackerBase`/`DefenderBase` (melee)
+and `ShooterBase`/`TargetBase` (ranged) replace the old `AttDmg`/`RngDmg`
+hit/damage-check split. Event log lines now state the totals and the
+margin, e.g. `1st Horse (3 +3 rear) vs 2nd Foot (2): margin 4,
+destroyed`.
+
+Added `TestAppendixACombatTables` (`internal/game`): computes every
+matchup in core-rules.md's Appendix A from the engine (support alone
+realizing each net modifier, to isolate the margin-tier-to-label
+mapping from the half-strength/ambush nuances already covered
+elsewhere) and checks it matches the table exactly — 172 cases, all
+passing.
+
+Found and fixed a real bug while regenerating the golden replays:
+`applyRanged` discarded `UnitInstance.TakeHit`'s `destroyed` return
+value, so a second barrage shot landing on a unit already dropped to
+half strength by an earlier shot in the same barrage didn't destroy it
+(`TestBarrageStacksMultipleHits` caught this once the destroy-outright
+rule made the mismatch visible).
+
+Regenerated both golden replay games for the new rules (results
+changed, as expected): `annihilation` now ends at **turn 9** instead of
+12 (so `north/south-10.txt` through `-12.txt` were deleted, and
+`golden_test.go` now takes a turn count per scenario); `turnlimit` now
+ends in a **35-35 draw** instead of North winning 40-35, and its turn-8
+double ambush destroys both units outright rather than demonstrating a
+blocked knockback (that case is still covered directly by
+`TestMeleeEX4DestroyedIfRetreatBlocked` and
+`TestAmbushEndsWhenKnockbackWouldBeAdjacentToAnotherEnemy`). See both
+`testdata/*/README.md` for the turn-by-turn account.
+
+**Interface.** The order builder now highlights a Close and Attack/Fire
+order's shorter half-move reach as purple dots, separate from (and
+inside) the full-Move green highlight, labelled "Close: N hexes".
+Clicking an enemy to attack or Fire at no longer commits the order
+immediately: it shows a predicted result first (new `GET /api/predict`,
+which runs the real `game.ExecuteOrder` against the saved state but
+never writes it back), labelled as a prediction since the target may
+move before the order is actually carried out, with a Confirm button to
+add it to the order list.
+
+`go vet ./...` and `go test ./...` pass. Verified end-to-end in a real
+browser: deployed both sides, selected a unit eligible for both Close
+orders and confirmed the purple close-move dots render distinctly from
+the green move highlight, triggered a prediction against a
+not-yet-reachable target ("won't make contact this turn") and against
+an adjacent target (full margin breakdown, matching a direct
+`/api/predict` call), and confirmed the order correctly lands in the
+order list.
+
+Regenerated `state.json` via `wartable new` partway through this work
+(see the previous changelog entry): worth noting again here since the
+stale-save problem it fixed (embedded unit stats not picking up a rules
+change) is exactly what this combat rewrite would otherwise have hit
+too.
+
 ## Web viewer: show the path taken and the order's actual target
 
 Playtesting found two more things: a Close order's "moved" event said

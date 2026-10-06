@@ -2,10 +2,10 @@ package game
 
 import "github.com/MrMykalAnderson/wartable/internal/rules"
 
-// applyMelee applies a resolved melee combat's outcome to the board: the
-// loser takes a hit (if any), and is then knocked back, destroyed, or
-// (if it was already half strength) destroyed outright
-// (docs/core-rules.md section 8.3).
+// applyMelee applies a resolved melee combat's outcome to the board
+// (docs/core-rules.md section 8.3): the loser takes its hits (if any),
+// and is then knocked back, destroyed, or (if LoserDestroyed) removed
+// outright without a knockback being attempted.
 func applyMelee(board Board, r MeleeResult) Board {
 	if r.LoserDestroyed {
 		return board.WithoutUnit(r.LoserID)
@@ -14,7 +14,7 @@ func applyMelee(board Board, r MeleeResult) Board {
 	if !ok {
 		return board
 	}
-	if r.Damage.Hit {
+	for i := 0; i < r.Hits; i++ {
 		loser, _ = loser.TakeHit()
 	}
 	if r.Knockback != nil {
@@ -27,21 +27,28 @@ func applyMelee(board Board, r MeleeResult) Board {
 }
 
 // applyRanged applies a resolved ranged attack's outcome to the board: the
-// target takes a hit, if any (docs/core-rules.md section 9; there is no
-// knockback from ranged attacks).
+// target takes its hits, if any (docs/core-rules.md section 9; there is
+// no knockback from ranged attacks). Barrage shots are all resolved
+// against the same start-of-phase board (docs/core-rules.md section 5.3),
+// so r.Destroyed only reflects what that one shot's own margin did; a
+// unit already knocked to half strength by an earlier shot in the same
+// barrage is still destroyed here by any further hit.
 func applyRanged(board Board, r RangedResult) Board {
-	if !r.Damage.Hit {
+	if r.Hits == 0 {
 		return board
 	}
 	target, ok := board.Unit(r.TargetID)
 	if !ok {
 		return board
 	}
-	next, destroyed := target.TakeHit()
+	destroyed := r.Destroyed
+	for i := 0; i < r.Hits && !destroyed; i++ {
+		target, destroyed = target.TakeHit()
+	}
 	if destroyed {
 		return board.WithoutUnit(target.ID)
 	}
-	return board.WithUnit(next)
+	return board.WithUnit(target)
 }
 
 // resolveAmbush resolves an ambush (docs/core-rules.md section 7.4): each
