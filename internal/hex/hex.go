@@ -90,7 +90,7 @@ func (d Direction) String() string {
 
 // RotateCW rotates the direction clockwise by n steps (n may be negative).
 func (d Direction) RotateCW(n int) Direction {
-	return Direction((((int(d)+n)%6)+6)%6)
+	return Direction((((int(d) + n) % 6) + 6) % 6)
 }
 
 // Opposite returns the direction pointing the opposite way.

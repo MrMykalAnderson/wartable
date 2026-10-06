@@ -1,0 +1,7 @@
+# Core rule numbers (docs/core-rules.md). If a number here changes, update
+# the matching rules doc and this file in the same commit.
+position_bonus: { front: 0, flank: 1, rear: 3 } # section 8.2
+ambush_def_penalty: 1 # section 7.4: ambushed unit has -1 Def
+half_strength_penalty: 1 # section 3.2: half strength is -1 to every stat
+support_per_ally: 1 # section 8.1: +1 support per adjacent friendly unit
+direction_order: [N, NE, SE, S, SW, NW] # section 7.2: clockwise tie-break order

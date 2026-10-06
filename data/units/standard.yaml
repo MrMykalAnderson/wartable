@@ -1,0 +1,38 @@
+# Standard unit templates (docs/core-rules.md section 3.3/3.4). Stats shown
+# as "—" in the rules doc count as 0 here (section 3.1).
+- id: infantry
+  name: Infantry
+  cost: 10
+  move: 4
+  def: 2
+  range: 0
+  rng_dmg: 0
+  attack: 2
+  att_dmg: 2
+  melee: true
+
+- id: cavalry
+  name: Cavalry
+  cost: 20
+  move: 7
+  def: 3
+  range: 2
+  rng_dmg: 2
+  attack: 3
+  att_dmg: 3
+  melee: true
+
+- id: artillery
+  name: Artillery
+  cost: 15
+  move: 4
+  def: { ready: 4, mobilised: 2 }
+  range: 5
+  rng_dmg: 3
+  attack: 3
+  att_dmg: 0
+  melee: false
+  states:
+    mobilised: { can_move: true, can_fire: false, can_turn: true }
+    ready: { can_move: false, can_fire: true, can_turn: false }
+  deploy_state: mobilised

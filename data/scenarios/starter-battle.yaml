@@ -1,0 +1,12 @@
+# Starter Battle: Open Field (docs/starter-battle.md "At a glance" table).
+id: starter-battle
+name: "Starter Battle: Open Field"
+map: { columns: 12, rows: 10 }
+deployment_zones:
+  north: { rows: [1, 2] }
+  south: { rows: [9, 10] }
+default_facing: { north: S, south: N }
+capacity: 60
+units_allowed: [infantry, cavalry, artillery]
+turn_limit: 12
+tie_break_holder: north
