@@ -1,2 +1,1 @@
-North 1st Infantry | Move | A5
 North 1st Cavalry   | Move | A8

@@ -23,13 +23,11 @@ func TestRangedEX6ArtilleryFire(t *testing.T) {
 	if !result.InRange || !result.InArc {
 		t.Fatalf("InRange, InArc = %v, %v, want true, true", result.InRange, result.InArc)
 	}
-	wantHit := RangedHitCheck{ShooterTotal: 3, TargetTotal: 2, Hit: true}
-	if result.HitCheck != wantHit {
-		t.Errorf("HitCheck = %+v, want %+v", result.HitCheck, wantHit)
+	if result.ShooterTotal != 3 || result.TargetTotal != 2 || result.Margin != 1 {
+		t.Errorf("ShooterTotal/TargetTotal/Margin = %d/%d/%d, want 3/2/1", result.ShooterTotal, result.TargetTotal, result.Margin)
 	}
-	wantDamage := RangedDamageCheck{RngDmg: 3, Def: 2, Hit: true}
-	if result.Damage != wantDamage {
-		t.Errorf("Damage = %+v, want %+v", result.Damage, wantDamage)
+	if result.Hits != 1 || result.Destroyed {
+		t.Errorf("Hits/Destroyed = %d/%v, want 1/false (a hit)", result.Hits, result.Destroyed)
 	}
 }
 
@@ -47,12 +45,11 @@ func TestRangedEX6WithAllySupportMisses(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ResolveRanged: %v", err)
 	}
-	wantHit := RangedHitCheck{ShooterTotal: 3, TargetTotal: 3, Hit: false}
-	if result.HitCheck != wantHit {
-		t.Errorf("HitCheck = %+v, want %+v", result.HitCheck, wantHit)
+	if result.ShooterTotal != 3 || result.TargetTotal != 3 || result.Margin != 0 {
+		t.Errorf("ShooterTotal/TargetTotal/Margin = %d/%d/%d, want 3/3/0", result.ShooterTotal, result.TargetTotal, result.Margin)
 	}
-	if result.Damage.Hit {
-		t.Errorf("Damage.Hit = true, want false (no hit check success means no damage check)")
+	if result.Hits != 0 {
+		t.Errorf("Hits = %d, want 0 (miss)", result.Hits)
 	}
 }
 
@@ -69,8 +66,8 @@ func TestRangedOutOfRange(t *testing.T) {
 	if result.InRange {
 		t.Errorf("InRange = true, want false")
 	}
-	if result.HitCheck != (RangedHitCheck{}) {
-		t.Errorf("HitCheck = %+v, want zero value (attack not attempted)", result.HitCheck)
+	if result.Margin != 0 || result.Hits != 0 {
+		t.Errorf("Margin/Hits = %d/%d, want 0/0 (attack not attempted)", result.Margin, result.Hits)
 	}
 }
 

@@ -13,13 +13,13 @@ func TestLoadUnitsMatchesDocs(t *testing.T) {
 	}
 
 	cases := []struct {
-		id                                                   string
-		cost, move, minRange, range_, rngDmg, attack, attDmg int
-		melee                                                bool
+		id                                   string
+		cost, move, minRange, range_, attack int
+		melee                                bool
 	}{
-		{"infantry", 10, 4, 0, 0, 0, 2, 2, true},
-		{"cavalry", 20, 7, 1, 2, 2, 3, 3, true},
-		{"artillery", 15, 4, 3, 5, 3, 3, 0, false},
+		{"infantry", 10, 4, 0, 0, 2, true},
+		{"cavalry", 20, 7, 1, 2, 3, true},
+		{"artillery", 15, 4, 3, 5, 3, false},
 	}
 	for _, c := range cases {
 		u, ok := units[c.id]
@@ -39,14 +39,8 @@ func TestLoadUnitsMatchesDocs(t *testing.T) {
 		if u.Range != c.range_ {
 			t.Errorf("%s: Range = %d, want %d", c.id, u.Range, c.range_)
 		}
-		if u.RngDmg != c.rngDmg {
-			t.Errorf("%s: RngDmg = %d, want %d", c.id, u.RngDmg, c.rngDmg)
-		}
 		if u.Attack != c.attack {
 			t.Errorf("%s: Attack = %d, want %d", c.id, u.Attack, c.attack)
-		}
-		if u.AttDmg != c.attDmg {
-			t.Errorf("%s: AttDmg = %d, want %d", c.id, u.AttDmg, c.attDmg)
 		}
 		if u.Melee != c.melee {
 			t.Errorf("%s: Melee = %v, want %v", c.id, u.Melee, c.melee)
@@ -96,9 +90,7 @@ func TestLoadUnitsRejectsDuplicateID(t *testing.T) {
   move: 4
   def: 2
   range: 0
-  rng_dmg: 0
   attack: 2
-  att_dmg: 2
   melee: true
 - id: infantry
   name: Infantry Again
@@ -106,9 +98,7 @@ func TestLoadUnitsRejectsDuplicateID(t *testing.T) {
   move: 4
   def: 2
   range: 0
-  rng_dmg: 0
   attack: 2
-  att_dmg: 2
   melee: true
 `)
 	if err == nil {
@@ -124,9 +114,7 @@ func TestLoadUnitsRejectsStateWithoutDef(t *testing.T) {
   move: 4
   def: 2
   range: 5
-  rng_dmg: 3
   attack: 3
-  att_dmg: 0
   melee: false
   states:
     mobilised: { can_move: true, can_fire: false, can_turn: true }
@@ -147,9 +135,7 @@ func TestLoadUnitsRejectsMinRangeAboveRange(t *testing.T) {
   def: 3
   min_range: 3
   range: 2
-  rng_dmg: 2
   attack: 3
-  att_dmg: 3
   melee: true
 `)
 	if err == nil {
@@ -167,9 +153,7 @@ func TestLoadUnitsDefaultsMinRange(t *testing.T) {
   move: 7
   def: 3
   range: 2
-  rng_dmg: 2
   attack: 3
-  att_dmg: 3
   melee: true
 `)
 	if err != nil {

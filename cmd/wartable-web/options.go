@@ -21,10 +21,17 @@ type HexView struct {
 // sections 7.1 and 7.3): computed by the engine, never re-derived in
 // JavaScript.
 type OptionsView struct {
-	IsReserve        bool      `json:"isReserve"`
-	MoveHexes        []HexView `json:"moveHexes"`
-	DeployHexes      []HexView `json:"deployHexes"`
-	FireHexes        []HexView `json:"fireHexes"`
+	IsReserve   bool      `json:"isReserve"`
+	MoveHexes   []HexView `json:"moveHexes"`
+	DeployHexes []HexView `json:"deployHexes"`
+	FireHexes   []HexView `json:"fireHexes"`
+	// CloseMoveHexes is the shorter, half-move reach a Close and Attack
+	// or Close and Fire order can close across (docs/core-rules.md
+	// section 6.3/6.5), shown distinctly from MoveHexes' full reach
+	// (docs/dev-plan.md section 7.5, interface item 1). Empty if the
+	// unit can't make either order (e.g. artillery, which can't Close).
+	CloseMoveHexes   []HexView `json:"closeMoveHexes"`
+	CloseMove        int       `json:"closeMove"` // the half-move distance itself, for the "Close: N hexes" label.
 	MeleeTargets     []string  `json:"meleeTargets"`
 	FireTargets      []string  `json:"fireTargets"`
 	CloseFireTargets []string  `json:"closeFireTargets"`
@@ -79,8 +86,8 @@ func deployedUnitOptions(board game.Board, core rules.CoreRules, unit game.UnitI
 		HasBarrage:  len(unit.Template.States) > 0 && unit.CanFire(),
 	}
 
+	stats := unit.Stats(core)
 	if unit.CanMove() {
-		stats := unit.Stats(core)
 		passable := game.PassableFor(board, unit.ID)
 		field := hex.FloodFill(unit.Pos, passable)
 		for h, dist := range field {
@@ -88,9 +95,16 @@ func deployedUnitOptions(board game.Board, core rules.CoreRules, unit game.UnitI
 				view.MoveHexes = append(view.MoveHexes, HexView{Col: h.Col, Row: h.Row})
 			}
 		}
+		if unit.Template.Melee || len(unit.Template.States) == 0 {
+			view.CloseMove = stats.Move / 2
+			for h, dist := range field {
+				if dist > 0 && dist <= view.CloseMove {
+					view.CloseMoveHexes = append(view.CloseMoveHexes, HexView{Col: h.Col, Row: h.Row})
+				}
+			}
+		}
 	}
 
-	stats := unit.Stats(core)
 	if unit.CanFire() && stats.MaxRange > 0 {
 		for col := 0; col < scenario.Map.Columns; col++ {
 			for row := 0; row < scenario.Map.Rows; row++ {

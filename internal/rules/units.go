@@ -53,9 +53,7 @@ type Unit struct {
 	Def         Def                  `yaml:"def"`
 	MinRange    int                  `yaml:"min_range"`
 	Range       int                  `yaml:"range"`
-	RngDmg      int                  `yaml:"rng_dmg"`
 	Attack      int                  `yaml:"attack"`
-	AttDmg      int                  `yaml:"att_dmg"`
 	Melee       bool                 `yaml:"melee"`
 	States      map[string]UnitState `yaml:"states,omitempty"`
 	DeployState string               `yaml:"deploy_state,omitempty"`
@@ -68,7 +66,7 @@ func (u Unit) validate() error {
 	if u.Name == "" {
 		return fmt.Errorf("unit %q: name is required", u.ID)
 	}
-	if u.Cost < 0 || u.Move < 0 || u.Range < 0 || u.MinRange < 0 || u.RngDmg < 0 || u.Attack < 0 || u.AttDmg < 0 {
+	if u.Cost < 0 || u.Move < 0 || u.Range < 0 || u.MinRange < 0 || u.Attack < 0 {
 		return fmt.Errorf("unit %q: stats must not be negative", u.ID)
 	}
 	if u.Range > 0 && u.MinRange > u.Range {

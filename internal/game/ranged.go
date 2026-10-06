@@ -7,33 +7,28 @@ import (
 	"github.com/MrMykalAnderson/wartable/internal/rules"
 )
 
-// RangedHitCheck is the result of comparing the shooter's and target's
-// totals (docs/core-rules.md section 9).
-type RangedHitCheck struct {
-	ShooterTotal, TargetTotal int
-	Hit                       bool
-}
-
-// RangedDamageCheck is the result of comparing the shooter's RngDmg against
-// the target's Def (docs/core-rules.md section 9).
-type RangedDamageCheck struct {
-	RngDmg, Def int
-	Hit         bool
-}
-
 // RangedResult is the full, auditable record of one ranged attack
-// (docs/core-rules.md section 9).
+// (docs/core-rules.md section 9): one comparison, whose margin decides
+// the result. There is no position bonus and no knockback.
 type RangedResult struct {
 	ShooterID, TargetID string
 	InRange, InArc      bool
 	ShooterSupport      int
 	TargetSupport       int
 
-	// HitCheck and Damage are the zero value if the target was out of
-	// range or outside the firing arc: nothing happens in that case
-	// (section 6.4).
-	HitCheck RangedHitCheck
-	Damage   RangedDamageCheck
+	// ShooterBase/TargetBase/ShooterTotal/TargetTotal/Margin/Hits/
+	// Destroyed are all the zero value if the target was out of range or
+	// outside the firing arc: nothing happens in that case (section 6.4).
+	ShooterBase, TargetBase   int
+	ShooterTotal, TargetTotal int
+	Margin                    int
+
+	// Hits is how many hits the target takes: 0 (miss), 1 (margin 1-2),
+	// or 2 (margin 3+, which destroys any unit outright).
+	Hits int
+	// Destroyed is true if Hits is 2, or Hits is 1 and the target was
+	// already at half strength (docs/core-rules.md section 3.2).
+	Destroyed bool
 }
 
 // ResolveRanged resolves one ranged attack from shooterID at targetID
@@ -65,16 +60,23 @@ func ResolveRanged(board Board, core rules.CoreRules, shooterID, targetID string
 	targetStats := target.Stats(core)
 	result.ShooterSupport = board.Support(shooter.Side, shooter.Pos)
 	result.TargetSupport = board.Support(target.Side, target.Pos)
+	result.ShooterBase = shooterStats.Attack
+	result.TargetBase = targetStats.Def
 
 	shooterTotal := shooterStats.Attack + result.ShooterSupport
 	targetTotal := targetStats.Def + result.TargetSupport
-	hit := shooterTotal > targetTotal
-	result.HitCheck = RangedHitCheck{ShooterTotal: shooterTotal, TargetTotal: targetTotal, Hit: hit}
-	if !hit {
+	result.ShooterTotal, result.TargetTotal = shooterTotal, targetTotal
+	result.Margin = shooterTotal - targetTotal
+
+	if result.Margin <= 0 {
 		return result, nil
 	}
-
-	damageHit := shooterStats.RngDmg > targetStats.Def
-	result.Damage = RangedDamageCheck{RngDmg: shooterStats.RngDmg, Def: targetStats.Def, Hit: damageHit}
+	result.Hits = 1
+	if result.Margin >= 3 {
+		result.Hits = 2
+	}
+	if result.Hits == 2 || target.Strength == Half {
+		result.Destroyed = true
+	}
 	return result, nil
 }

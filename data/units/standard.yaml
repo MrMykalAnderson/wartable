@@ -6,9 +6,7 @@
   move: 4
   def: 2
   range: 0
-  rng_dmg: 0
   attack: 2
-  att_dmg: 2
   melee: true
 
 - id: cavalry
@@ -18,9 +16,7 @@
   def: 3
   min_range: 1
   range: 2
-  rng_dmg: 2
   attack: 3
-  att_dmg: 3
   melee: true
 
 - id: artillery
@@ -30,9 +26,7 @@
   def: { ready: 4, mobilised: 2 }
   min_range: 3
   range: 5
-  rng_dmg: 3
   attack: 3
-  att_dmg: 0
   melee: false
   states:
     mobilised: { can_move: true, can_fire: false, can_turn: true }

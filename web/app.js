@@ -154,8 +154,7 @@ function drawUnit(svg, unit) {
   title.textContent =
     `${unit.id} (${unit.side}) — ${unit.typeName}, ${unit.strength} strength, facing ${unit.facing}` +
     `${unit.state ? ", " + unit.state : ""}\n` +
-    `Def ${unit.stats.def} · Move ${unit.stats.move} · Range ${range} · RngDmg ${unit.stats.rngDmg} · ` +
-    `Attack ${unit.stats.attack} · AttDmg ${unit.stats.attDmg}`;
+    `Def ${unit.stats.def} · Move ${unit.stats.move} · Range ${range} · Attack ${unit.stats.attack}`;
   group.appendChild(title);
 
   // A ring just outside the token, shown only while targetable: the
@@ -237,13 +236,17 @@ function clearHighlights() {
     c.classList.remove("selectable", "highlight-move", "highlight-deploy", "highlight-fire");
   });
   document.querySelectorAll("#map .unit").forEach((g) => g.classList.remove("targetable"));
+  const closeLayer = document.getElementById("close-move-layer");
+  if (closeLayer) closeLayer.remove();
 }
 
 // renderHighlights draws the selected unit's range visualiser (docs/dev-
 // plan.md section 7.3, interface item 5): green for hexes it can move to
 // or Deploy into (clickable), red for hexes it can fire into (band +
-// arc; for Ready artillery this is also its passive Barrage zone), and a
-// ring around every enemy it has a valid order against.
+// arc; for Ready artillery this is also its passive Barrage zone), a
+// ring around every enemy it has a valid order against, and (docs/dev-
+// plan.md section 7.5, interface item 1) a purple dot over the shorter
+// half-move reach a Close and Attack/Fire order can actually use.
 function renderHighlights() {
   clearHighlights();
   const opts = state.options;
@@ -259,12 +262,24 @@ function renderHighlights() {
     const cell = document.querySelector(`#map .hex-cell[data-col="${h.col}"][data-row="${h.row}"]`);
     if (cell) cell.classList.add("highlight-fire");
   }
+  renderCloseMoveMarkers(opts.closeMoveHexes);
 
   const targetable = new Set([...(opts.meleeTargets || []), ...(opts.fireTargets || []), ...(opts.closeFireTargets || [])]);
   targetable.forEach((id) => {
     const g = document.querySelector(`#map .unit[data-unit-id="${CSS.escape(id)}"]`);
     if (g) g.classList.add("targetable");
   });
+}
+
+function renderCloseMoveMarkers(hexes) {
+  if (!hexes || hexes.length === 0) return;
+  const svg = document.getElementById("map");
+  const layer = svgEl("g", { id: "close-move-layer" });
+  svg.appendChild(layer);
+  for (const h of hexes) {
+    const { x, y } = hexCenter(h.col, h.row);
+    layer.appendChild(svgEl("circle", { cx: x, cy: y, r: HEX_SIZE * 0.16, class: "close-move-dot" }));
+  }
 }
 
 document.getElementById("map").addEventListener("click", (e) => {
@@ -306,7 +321,7 @@ function showUnitCard(unitId) {
     `<strong>${u.id}</strong> (${u.side})<br>` +
     `${u.typeName}, ${u.strength} strength, facing ${u.facing}${u.state ? ", " + u.state : ""}<br>` +
     `Cost ${u.cost} &middot; Def ${u.stats.def} &middot; Move ${u.stats.move} &middot; Range ${range} &middot; ` +
-    `RngDmg ${u.stats.rngDmg} &middot; Attack ${u.stats.attack} &middot; AttDmg ${u.stats.attDmg}<br>` +
+    `Attack ${u.stats.attack}<br>` +
     `<em>${TYPE_DESCRIPTIONS[u.type] || ""}</em>`;
   card.hidden = false;
 }
@@ -381,12 +396,19 @@ function clearSelection() {
   hideUnitCard();
 }
 
+// ATTACK_TYPES are the order types that need a predicted-result
+// confirmation (docs/dev-plan.md section 7.5, interface item 2) rather
+// than a facing pick: they always target a unit, and the engine, not the
+// player, decides the resulting facing.
+const ATTACK_TYPES = ["Close and Attack", "Fire", "Close and Fire"];
+
 function renderBuilder() {
   const builder = document.getElementById("order-builder");
   const label = document.getElementById("builder-label");
   const typeChooser = document.getElementById("type-chooser");
   const stateButtons = document.getElementById("state-buttons");
   const facingPicker = document.getElementById("facing-picker");
+  const predictPanel = document.getElementById("predict-panel");
 
   if (!state.selection) {
     builder.hidden = true;
@@ -395,6 +417,15 @@ function renderBuilder() {
   builder.hidden = false;
   typeChooser.hidden = true;
   typeChooser.innerHTML = "";
+
+  if (state.pendingOrder && ATTACK_TYPES.includes(state.pendingOrder.type)) {
+    label.textContent = `${state.pendingOrder.unit}: ${state.pendingOrder.type} ${state.pendingOrder.targetUnit}`;
+    stateButtons.hidden = true;
+    facingPicker.hidden = true;
+    predictPanel.hidden = false;
+    return;
+  }
+  predictPanel.hidden = true;
 
   if (state.pendingOrder) {
     label.textContent = `${state.pendingOrder.unit}: ${state.pendingOrder.type}${state.pendingOrder.targetHex ? " to " + hexName(state.pendingOrder.targetHex.col, state.pendingOrder.targetHex.row) : ""} — pick a facing (or Auto)`;
@@ -410,6 +441,9 @@ function renderBuilder() {
     : `${state.selection}: click a highlighted hex to Move, an outlined enemy to attack, or a state button`;
   if (opts.hasBarrage) {
     label.textContent += " (red hexes are also its passive Barrage zone: it auto-fires there every turn while Ready)";
+  }
+  if (opts.closeMove > 0) {
+    label.textContent += ` — Close: ${opts.closeMove} hexes (purple dots)`;
   }
 
   const buttons = [];
@@ -461,7 +495,7 @@ function onUnitClick(unitId) {
   if ((opts.closeFireTargets || []).includes(unitId)) types.push("Close and Fire");
   if (types.length === 0) return;
   if (types.length === 1) {
-    commitOrder({ type: types[0], unit: state.selection, targetUnit: unitId });
+    startAttackConfirm({ type: types[0], unit: state.selection, targetUnit: unitId });
     return;
   }
   const chooser = document.getElementById("type-chooser");
@@ -470,10 +504,56 @@ function onUnitClick(unitId) {
   types.forEach((type) => {
     const b = document.createElement("button");
     b.textContent = type;
-    b.addEventListener("click", () => commitOrder({ type, unit: state.selection, targetUnit: unitId }));
+    b.addEventListener("click", () => startAttackConfirm({ type, unit: state.selection, targetUnit: unitId }));
     chooser.appendChild(b);
   });
 }
+
+// startAttackConfirm shows a predicted result (docs/dev-plan.md section
+// 7.5, interface item 2) before an attack or Fire order is added to the
+// order list: the engine's own resolution against the current board,
+// labelled as a prediction since the target may move first. The order
+// isn't added until the player clicks Confirm.
+async function startAttackConfirm(partial) {
+  state.pendingOrder = partial;
+  renderBuilder();
+  const predictText = document.getElementById("predict-text");
+  predictText.textContent = "Predicting…";
+  document.getElementById("confirm-order").disabled = true;
+
+  const path = currentPath();
+  try {
+    const url =
+      `/api/predict?path=${encodeURIComponent(path)}&side=${state.activeSide}` +
+      `&unit=${encodeURIComponent(partial.unit)}&type=${encodeURIComponent(partial.type)}&target=${encodeURIComponent(partial.targetUnit)}`;
+    const res = await fetch(url);
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || res.statusText);
+    if (state.pendingOrder !== partial) return; // superseded by a later click.
+
+    predictText.innerHTML = "";
+    const labelEl = document.createElement("span");
+    labelEl.className = "predict-label";
+    labelEl.textContent = "Prediction (if the target stays put — it may move first):";
+    predictText.appendChild(labelEl);
+    const lines = body.melee ? describeMelee(body.melee) : body.ranged ? describeRanged(body.ranged) : ["Won't make contact this turn."];
+    lines.forEach((line) => {
+      const div = document.createElement("div");
+      div.textContent = line;
+      predictText.appendChild(div);
+    });
+  } catch (err) {
+    predictText.textContent = String(err.message || err);
+  } finally {
+    if (state.pendingOrder === partial) {
+      document.getElementById("confirm-order").disabled = false;
+    }
+  }
+}
+
+document.getElementById("confirm-order").addEventListener("click", () => {
+  if (state.pendingOrder) commitOrder(state.pendingOrder);
+});
 
 document.getElementById("facing-picker").addEventListener("click", (e) => {
   const btn = e.target.closest("button[data-facing]");
@@ -643,40 +723,34 @@ function renderEventList() {
 }
 
 // describeMelee turns a MeleeView into plain-language breakdown lines
-// (docs/dev-plan.md section 7.3, latest interface pass: show bonuses, not
-// just the final hit-check totals). Every number comes from the server;
-// this only subtracts already-known components back out for display.
-function describeMelee(core, m) {
+// (docs/dev-plan.md section 7.5: combat is one comparison, and the
+// margin is the result). Every number comes from the server; this only
+// formats them.
+function describeMelee(m) {
   const lines = [`${m.attackerId} attacks ${m.defenderId}'s ${m.edge}${m.ambushed ? " (ambush)" : ""}`];
 
-  const rawAttack = m.attackerTotal - m.attackerSupport - m.positionBonus;
-  const ambushPenalty = m.ambushed ? core.ambushDefPenalty : 0;
-  const rawDefense = m.defenderTotal - m.defenderSupport + ambushPenalty;
-  let hit = `Hit check: Attack ${rawAttack}`;
-  if (m.attackerSupport) hit += ` + Support ${m.attackerSupport}`;
-  if (m.positionBonus) hit += ` + Position bonus ${m.positionBonus}`;
-  hit += ` = ${m.attackerTotal}  vs  Def ${rawDefense}`;
-  if (m.defenderSupport) hit += ` + Support ${m.defenderSupport}`;
-  if (ambushPenalty) hit += ` - Ambush penalty ${ambushPenalty}`;
-  hit += ` = ${m.defenderTotal}  →  ${m.attackerWins ? "attacker wins" : "defender wins"}`;
-  lines.push(hit);
+  let att = `${m.attackerBase}`;
+  if (m.attackerSupport) att += ` +${m.attackerSupport} support`;
+  if (m.positionBonus) att += ` +${m.positionBonus} ${m.edge}`;
+  let def = `${m.defenderBase}`;
+  if (m.defenderSupport) def += ` +${m.defenderSupport} support`;
+  if (m.ambushPenalty) def += ` -${m.ambushPenalty} ambush`;
+  lines.push(`${att} = ${m.attackerTotal}  vs  ${def} = ${m.defenderTotal}  →  margin ${m.margin}`);
 
-  const rawDamage = m.attackerWins ? m.damage - m.positionBonus : m.damage;
-  let dmg = `Damage check: AttDmg ${rawDamage}`;
-  if (m.attackerWins && m.positionBonus) dmg += ` + Position bonus ${m.positionBonus}`;
-  dmg += ` = ${m.damage}  vs  Def ${m.damageDef}  →  ${m.damageHit ? `hit (${m.loserId} takes a hit)` : "no hit"}`;
-  lines.push(dmg);
-
-  if (m.loserDestroyed) {
-    lines.push(`${m.loserId} was already at half strength: destroyed.`);
-  } else if (m.knockbackTo) {
-    lines.push(
-      m.knockbackBlocked
-        ? `Knockback to ${hexName(m.knockbackTo.col, m.knockbackTo.row)} blocked: ${m.loserId} destroyed.`
-        : `${m.loserId} knocked back to ${hexName(m.knockbackTo.col, m.knockbackTo.row)}.`
-    );
-  }
+  lines.push(meleeOutcomeLine(m));
   return lines;
+}
+
+function meleeOutcomeLine(m) {
+  if (m.loserDestroyed) return `${m.loserId}: destroyed`;
+  if (m.hits === 0) return `${m.loserId} (the attacker): repelled${knockbackSuffix(m)}`;
+  return `${m.loserId}: hit${knockbackSuffix(m)}`;
+}
+
+function knockbackSuffix(m) {
+  if (!m.knockbackTo) return "";
+  const dest = hexName(m.knockbackTo.col, m.knockbackTo.row);
+  return m.knockbackBlocked ? ` (couldn't retreat to ${dest}: destroyed)` : `, knocked back to ${dest}`;
 }
 
 // describeRanged turns a RangedView into the same kind of breakdown for a
@@ -687,17 +761,12 @@ function describeRanged(r) {
     lines.push(`Out of range or arc (in range: ${r.inRange}, in arc: ${r.inArc}) → no effect.`);
     return lines;
   }
-  const rawAttack = r.shooterTotal - r.shooterSupport;
-  const rawDefense = r.targetTotal - r.targetSupport;
-  let hit = `Hit check: Attack ${rawAttack}`;
-  if (r.shooterSupport) hit += ` + Support ${r.shooterSupport}`;
-  hit += ` = ${r.shooterTotal}  vs  Def ${rawDefense}`;
-  if (r.targetSupport) hit += ` + Support ${r.targetSupport}`;
-  hit += ` = ${r.targetTotal}  →  ${r.hit ? "hit" : "miss"}`;
-  lines.push(hit);
-  if (r.hit) {
-    lines.push(`Damage check: RngDmg ${r.rngDmg}  vs  Def ${r.damageDef}  →  ${r.damageHit ? `hit (${r.targetId} takes a hit)` : "no hit"}`);
-  }
+  let shooter = `${r.shooterBase}`;
+  if (r.shooterSupport) shooter += ` +${r.shooterSupport} support`;
+  let target = `${r.targetBase}`;
+  if (r.targetSupport) target += ` +${r.targetSupport} support`;
+  lines.push(`${shooter} = ${r.shooterTotal}  vs  ${target} = ${r.targetTotal}  →  margin ${r.margin}`);
+  lines.push(r.hits === 0 ? "miss" : r.destroyed ? `${r.targetId}: destroyed` : `${r.targetId}: hit`);
   return lines;
 }
 
@@ -715,7 +784,7 @@ function renderStepDetail(e) {
   if (!e) return;
   const lines = [
     ...describePath(e),
-    ...(e.melee ? describeMelee(state.game.coreRules, e.melee) : e.ranged ? describeRanged(e.ranged) : []),
+    ...(e.melee ? describeMelee(e.melee) : e.ranged ? describeRanged(e.ranged) : []),
   ];
   lines.forEach((line) => {
     const div = document.createElement("div");

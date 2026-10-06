@@ -414,3 +414,39 @@ button {
 .step-detail:empty {
   display: none;
 }
+
+/* Close-order half-move reach marker (docs/dev-plan.md section 7.5,
+   interface item 1): a dot distinct from the full-Move green fill. */
+#close-move-layer {
+  pointer-events: none;
+}
+.close-move-dot {
+  fill: #7a3fa0;
+  opacity: 0.75;
+}
+
+/* Attack/Fire prediction, before the order is confirmed (docs/dev-
+   plan.md section 7.5, interface item 2). */
+.predict-panel {
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 0.4rem 0.5rem;
+  margin-bottom: 0.4rem;
+  background: #fff8e1;
+}
+.predict-panel[hidden] {
+  display: none;
+}
+#predict-text {
+  font-size: 0.82rem;
+  margin-bottom: 0.4rem;
+  white-space: pre-line;
+}
+#predict-text .predict-label {
+  font-weight: bold;
+  display: block;
+  margin-bottom: 0.2rem;
+}
+#confirm-order {
+  padding: 0.3rem 0.9rem;
+}

@@ -36,7 +36,7 @@ type UnitInstance struct {
 // MinRange and MaxRange are the ranged-attack band: a unit can only fire
 // at a target between the two, inclusive.
 type Stats struct {
-	Def, Move, MinRange, MaxRange, RngDmg, Attack, AttDmg int
+	Def, Move, MinRange, MaxRange, Attack int
 }
 
 // Stats computes the unit's effective stats. A half-strength unit has -1
@@ -49,18 +49,14 @@ func (u UnitInstance) Stats(core rules.CoreRules) Stats {
 		Move:     u.Template.Move,
 		MinRange: u.Template.MinRange,
 		MaxRange: u.Template.Range,
-		RngDmg:   u.Template.RngDmg,
 		Attack:   u.Template.Attack,
-		AttDmg:   u.Template.AttDmg,
 	}
 	if u.Strength == Half {
 		p := core.HalfStrengthPenalty
 		s.Def = max(0, s.Def-p)
 		s.Move = max(0, s.Move-p)
 		s.MaxRange = max(0, s.MaxRange-p)
-		s.RngDmg = max(0, s.RngDmg-p)
 		s.Attack = max(0, s.Attack-p)
-		s.AttDmg = max(0, s.AttDmg-p)
 	}
 	return s
 }

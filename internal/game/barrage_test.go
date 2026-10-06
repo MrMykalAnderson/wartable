@@ -27,9 +27,11 @@ func TestBarrageEX7(t *testing.T) {
 	if shot.TargetID != "3rd Foot" {
 		t.Errorf("shot target = %q, want 3rd Foot", shot.TargetID)
 	}
-	wantHit := RangedHitCheck{ShooterTotal: 3, TargetTotal: 3, Hit: false}
-	if shot.HitCheck != wantHit {
-		t.Errorf("HitCheck = %+v, want %+v (3rd Foot's adjacent ally 4th Horse gives it support)", shot.HitCheck, wantHit)
+	if shot.ShooterTotal != 3 || shot.TargetTotal != 3 || shot.Margin != 0 {
+		t.Errorf("ShooterTotal/TargetTotal/Margin = %d/%d/%d, want 3/3/0 (3rd Foot's adjacent ally 4th Horse gives it support)", shot.ShooterTotal, shot.TargetTotal, shot.Margin)
+	}
+	if shot.Hits != 0 {
+		t.Errorf("Hits = %d, want 0 (miss)", shot.Hits)
 	}
 
 	foot2, ok := newBoard.Unit("3rd Foot")
@@ -55,13 +57,11 @@ func TestBarrageEX7WithoutSupport(t *testing.T) {
 	if len(shots) != 1 {
 		t.Fatalf("ResolveBarragePhase: got %d shots, want 1", len(shots))
 	}
-	wantHit := RangedHitCheck{ShooterTotal: 3, TargetTotal: 2, Hit: true}
-	if shots[0].Result.HitCheck != wantHit {
-		t.Errorf("HitCheck = %+v, want %+v", shots[0].Result.HitCheck, wantHit)
+	if shots[0].Result.ShooterTotal != 3 || shots[0].Result.TargetTotal != 2 || shots[0].Result.Margin != 1 {
+		t.Errorf("ShooterTotal/TargetTotal/Margin = %d/%d/%d, want 3/2/1", shots[0].Result.ShooterTotal, shots[0].Result.TargetTotal, shots[0].Result.Margin)
 	}
-	wantDamage := RangedDamageCheck{RngDmg: 3, Def: 2, Hit: true}
-	if shots[0].Result.Damage != wantDamage {
-		t.Errorf("Damage = %+v, want %+v", shots[0].Result.Damage, wantDamage)
+	if shots[0].Result.Hits != 1 || shots[0].Result.Destroyed {
+		t.Errorf("Hits/Destroyed = %d/%v, want 1/false (a hit)", shots[0].Result.Hits, shots[0].Result.Destroyed)
 	}
 	foot2, ok := newBoard.Unit("3rd Foot")
 	if !ok || foot2.Strength != Half {

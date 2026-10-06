@@ -17,7 +17,7 @@ func TestNewUnitView(t *testing.T) {
 		Template: rules.Unit{
 			ID: "artillery", Name: "Artillery", Cost: 15,
 			Def:      rules.Def{ByState: map[string]int{"ready": 4, "mobilised": 2}},
-			MinRange: 3, Range: 5, RngDmg: 3, Attack: 3,
+			MinRange: 3, Range: 5, Attack: 3,
 		},
 		Pos:      hex.Offset{Col: 2, Row: 3},
 		Facing:   hex.SE,
@@ -28,9 +28,9 @@ func TestNewUnitView(t *testing.T) {
 	want := UnitView{
 		ID: "1st Guns", Side: "north", Type: "artillery", TypeName: "Artillery", Cost: 15,
 		Col: 2, Row: 3, Facing: "SE", Strength: "half", State: "ready",
-		// Half strength: Def 4-1=3, MaxRange 5-1=4, RngDmg 3-1=2, Attack 3-1=2;
-		// MinRange is unaffected (docs/core-rules.md section 3.2).
-		Stats: StatsView{Def: 3, MinRange: 3, MaxRange: 4, RngDmg: 2, Attack: 2},
+		// Half strength: Def 4-1=3, MaxRange 5-1=4, Attack 3-1=2; MinRange
+		// is unaffected (docs/core-rules.md section 3.2).
+		Stats: StatsView{Def: 3, MinRange: 3, MaxRange: 4, Attack: 2},
 	}
 	if got != want {
 		t.Errorf("newUnitView = %+v, want %+v", got, want)
@@ -95,9 +95,9 @@ func TestNewMeleeView(t *testing.T) {
 	m := &game.MeleeResult{
 		AttackerID: "A", DefenderID: "B", Edge: hex.Flank,
 		PositionBonus: 1, AttackerSupport: 1, DefenderSupport: 0, Ambushed: false,
-		Hit:      game.HitCheck{AttackerTotal: 3, DefenderTotal: 2, AttackerWins: true},
-		Damage:   game.DamageCheck{Damage: 3, Def: 2, Hit: true},
-		WinnerID: "A", LoserID: "B",
+		AttackerBase: 2, DefenderBase: 2,
+		AttackerTotal: 3, DefenderTotal: 2, Margin: 1,
+		WinnerID: "A", LoserID: "B", Hits: 1,
 		Knockback: &game.Knockback{To: hex.Offset{Col: 4, Row: 6}, Destroyed: false},
 	}
 	got := newMeleeView(m)
@@ -107,11 +107,11 @@ func TestNewMeleeView(t *testing.T) {
 	if got.AttackerID != "A" || got.DefenderID != "B" || got.Edge != "flank" {
 		t.Errorf("newMeleeView identity fields = %+v", got)
 	}
-	if got.AttackerTotal != 3 || got.DefenderTotal != 2 || !got.AttackerWins {
-		t.Errorf("newMeleeView hit check = %+v", got)
+	if got.AttackerTotal != 3 || got.DefenderTotal != 2 || got.Margin != 1 {
+		t.Errorf("newMeleeView totals = %+v", got)
 	}
-	if got.Damage != 3 || got.DamageDef != 2 || !got.DamageHit {
-		t.Errorf("newMeleeView damage check = %+v", got)
+	if got.Hits != 1 || got.LoserDestroyed {
+		t.Errorf("newMeleeView outcome = %+v", got)
 	}
 	if got.KnockbackTo == nil || *got.KnockbackTo != (HexView{Col: 4, Row: 6}) || got.KnockbackBlocked {
 		t.Errorf("newMeleeView knockback = %+v", got.KnockbackTo)
@@ -128,13 +128,14 @@ func TestNewRangedView(t *testing.T) {
 	r := &game.RangedResult{
 		ShooterID: "A", TargetID: "B", InRange: true, InArc: true,
 		ShooterSupport: 0, TargetSupport: 1,
-		HitCheck: game.RangedHitCheck{ShooterTotal: 3, TargetTotal: 3, Hit: false},
+		ShooterBase: 3, TargetBase: 2,
+		ShooterTotal: 3, TargetTotal: 3, Margin: 0,
 	}
 	got := newRangedView(r)
 	if got == nil {
 		t.Fatalf("newRangedView returned nil")
 	}
-	if got.ShooterTotal != 3 || got.TargetTotal != 3 || got.Hit {
+	if got.ShooterTotal != 3 || got.TargetTotal != 3 || got.Hits != 0 {
 		t.Errorf("newRangedView = %+v, want a miss at 3/3", got)
 	}
 }

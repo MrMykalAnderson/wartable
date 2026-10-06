@@ -13,10 +13,13 @@ import (
 // CLI's own runNew/runTurn and check the combined output byte-for-byte
 // against a recorded transcript. Each game was played by hand to exercise
 // specific rules: see testdata/<scenario>/README.md.
-func TestGoldenAnnihilation(t *testing.T) { testGolden(t, "annihilation") }
-func TestGoldenTurnLimit(t *testing.T)    { testGolden(t, "turnlimit") }
+// turnCount is how many of each scenario's turn order files to replay:
+// annihilation ends early (the whole point of the scenario), so it has
+// fewer turn files than the 12-turn limit.
+func TestGoldenAnnihilation(t *testing.T) { testGolden(t, "annihilation", 9) }
+func TestGoldenTurnLimit(t *testing.T)    { testGolden(t, "turnlimit", 12) }
 
-func testGolden(t *testing.T, scenario string) {
+func testGolden(t *testing.T, scenario string, turns int) {
 	pkgDir, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("Getwd: %v", err)
@@ -37,7 +40,7 @@ func testGolden(t *testing.T, scenario string) {
 	}
 
 	var out bytes.Buffer
-	for n := 1; n <= 12; n++ {
+	for n := 1; n <= turns; n++ {
 		north := filepath.Join(testdataDir, fmt.Sprintf("north-%02d.txt", n))
 		south := filepath.Join(testdataDir, fmt.Sprintf("south-%02d.txt", n))
 		if err := runTurn([]string{statePath, north, south}, &out); err != nil {
