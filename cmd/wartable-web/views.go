@@ -2,35 +2,64 @@ package main
 
 import (
 	"github.com/MrMykalAnderson/wartable/internal/game"
+	"github.com/MrMykalAnderson/wartable/internal/rules"
 	"github.com/MrMykalAnderson/wartable/internal/save"
 )
 
-// UnitView is a unit as seen by the web viewer.
-type UnitView struct {
-	ID       string `json:"id"`
-	Side     string `json:"side"`
-	Type     string `json:"type"`
-	Col      int    `json:"col"`
-	Row      int    `json:"row"`
-	Facing   string `json:"facing"`
-	Strength string `json:"strength"`
-	State    string `json:"state,omitempty"`
+// StatsView is a unit's effective stats (docs/core-rules.md sections
+// 3.1-3.2: half strength already applied), for the unit detail card
+// (docs/dev-plan.md section 7.3, interface item 3).
+type StatsView struct {
+	Def      int `json:"def"`
+	Move     int `json:"move"`
+	MinRange int `json:"minRange"`
+	MaxRange int `json:"maxRange"`
+	RngDmg   int `json:"rngDmg"`
+	Attack   int `json:"attack"`
+	AttDmg   int `json:"attDmg"`
 }
 
-func newUnitView(u game.UnitInstance) UnitView {
+// UnitView is a unit as seen by the web viewer.
+type UnitView struct {
+	ID       string    `json:"id"`
+	Side     string    `json:"side"`
+	Type     string    `json:"type"`
+	TypeName string    `json:"typeName"`
+	Cost     int       `json:"cost"`
+	Col      int       `json:"col"`
+	Row      int       `json:"row"`
+	Facing   string    `json:"facing"`
+	Strength string    `json:"strength"`
+	State    string    `json:"state,omitempty"`
+	Stats    StatsView `json:"stats"`
+}
+
+func newUnitView(u game.UnitInstance, core rules.CoreRules) UnitView {
 	strength := "full"
 	if u.Strength == game.Half {
 		strength = "half"
 	}
+	s := u.Stats(core)
 	return UnitView{
 		ID:       u.ID,
 		Side:     u.Side,
 		Type:     u.Template.ID,
+		TypeName: u.Template.Name,
+		Cost:     u.Template.Cost,
 		Col:      u.Pos.Col,
 		Row:      u.Pos.Row,
 		Facing:   u.Facing.String(),
 		Strength: strength,
 		State:    u.State,
+		Stats: StatsView{
+			Def:      s.Def,
+			Move:     s.Move,
+			MinRange: s.MinRange,
+			MaxRange: s.MaxRange,
+			RngDmg:   s.RngDmg,
+			Attack:   s.Attack,
+			AttDmg:   s.AttDmg,
+		},
 	}
 }
 
@@ -45,10 +74,10 @@ type GameView struct {
 	Reserves       map[string][]string `json:"reserves"`
 }
 
-func newGameView(f save.File) GameView {
+func newGameView(f save.File, core rules.CoreRules) GameView {
 	units := make([]UnitView, len(f.State.Board.Units))
 	for i, u := range f.State.Board.Units {
-		units[i] = newUnitView(u)
+		units[i] = newUnitView(u, core)
 	}
 	reserves := make(map[string][]string, len(f.State.Reserves))
 	for side, us := range f.State.Reserves {

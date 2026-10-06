@@ -51,10 +51,11 @@ func ResolveRanged(board Board, core rules.CoreRules, shooterID, targetID string
 	}
 
 	shooterStats := shooter.Stats(core)
+	dist := hex.Distance(shooter.Pos, target.Pos)
 	result := RangedResult{
 		ShooterID: shooterID,
 		TargetID:  targetID,
-		InRange:   hex.Distance(shooter.Pos, target.Pos) <= shooterStats.Range,
+		InRange:   dist >= shooterStats.MinRange && dist <= shooterStats.MaxRange,
 		InArc:     hex.InFiringArc(shooter.Pos, shooter.Facing, target.Pos),
 	}
 	if !result.InRange || !result.InArc {

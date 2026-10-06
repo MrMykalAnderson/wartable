@@ -143,6 +143,17 @@ function drawUnit(svg, unit) {
 
   const group = svgEl("g", { "data-unit-id": unit.id, class: "unit" + (unit.strength === "half" ? " unit-half" : "") });
 
+  // A native tooltip, as a lightweight hover summary (see the unit card
+  // for the full detail, shown on selection).
+  const range = unit.stats.maxRange > 0 ? `${unit.stats.minRange}-${unit.stats.maxRange}` : "-";
+  const title = svgEl("title", {});
+  title.textContent =
+    `${unit.id} (${unit.side}) — ${unit.typeName}, ${unit.strength} strength, facing ${unit.facing}` +
+    `${unit.state ? ", " + unit.state : ""}\n` +
+    `Def ${unit.stats.def} · Move ${unit.stats.move} · Range ${range} · RngDmg ${unit.stats.rngDmg} · ` +
+    `Attack ${unit.stats.attack} · AttDmg ${unit.stats.attDmg}`;
+  group.appendChild(title);
+
   // A ring just outside the token, shown only while targetable: the
   // token's own border is fully covered by the facing-indicator lines
   // below, so the "can be targeted" highlight needs its own element.
@@ -219,11 +230,16 @@ function renderGameInfo(game) {
 
 function clearHighlights() {
   document.querySelectorAll("#map .hex-cell").forEach((c) => {
-    c.classList.remove("selectable", "highlight-move", "highlight-deploy");
+    c.classList.remove("selectable", "highlight-move", "highlight-deploy", "highlight-fire");
   });
   document.querySelectorAll("#map .unit").forEach((g) => g.classList.remove("targetable"));
 }
 
+// renderHighlights draws the selected unit's range visualiser (docs/dev-
+// plan.md section 7.3, interface item 5): green for hexes it can move to
+// or Deploy into (clickable), red for hexes it can fire into (band +
+// arc; for Ready artillery this is also its passive Barrage zone), and a
+// ring around every enemy it has a valid order against.
 function renderHighlights() {
   clearHighlights();
   const opts = state.options;
@@ -234,6 +250,10 @@ function renderHighlights() {
   for (const h of hexes || []) {
     const cell = document.querySelector(`#map .hex-cell[data-col="${h.col}"][data-row="${h.row}"]`);
     if (cell) cell.classList.add("selectable", cls);
+  }
+  for (const h of opts.fireHexes || []) {
+    const cell = document.querySelector(`#map .hex-cell[data-col="${h.col}"][data-row="${h.row}"]`);
+    if (cell) cell.classList.add("highlight-fire");
   }
 
   const targetable = new Set([...(opts.meleeTargets || []), ...(opts.fireTargets || []), ...(opts.closeFireTargets || [])]);
@@ -254,6 +274,42 @@ document.getElementById("map").addEventListener("click", (e) => {
     onHexClick(Number(cellEl.getAttribute("data-col")), Number(cellEl.getAttribute("data-row")));
   }
 });
+
+// ---- unit detail card (docs/dev-plan.md section 7.3, interface item 3) --
+//
+// Shown when a unit is selected for ordering (see selectUnit/
+// clearSelection below). Each token also carries a native SVG <title>
+// (set in drawUnit) as a lightweight hover tooltip — deliberately not a
+// custom JS mouseover/mouseout handler, which is prone to firing
+// repeatedly as the pointer crosses a token's internal sub-elements.
+
+const TYPE_DESCRIPTIONS = {
+  infantry: "The most basic unit: no ranged attack and a short move. On its own it can only damage an enemy by attacking a flank or the rear.",
+  cavalry: "Fast shock troops with both melee and a short-ranged attack.",
+  artillery: "Long-ranged guns that must be set up before they can fire, and are vulnerable while moving.",
+};
+
+function showUnitCard(unitId) {
+  const u = state.game && state.game.units.find((x) => x.id === unitId);
+  if (!u) {
+    // Not yet deployed (in reserves): no position/facing to show yet.
+    hideUnitCard();
+    return;
+  }
+  const card = document.getElementById("unit-card");
+  const range = u.stats.maxRange > 0 ? `${u.stats.minRange}-${u.stats.maxRange}` : "-";
+  card.innerHTML =
+    `<strong>${u.id}</strong> (${u.side})<br>` +
+    `${u.typeName}, ${u.strength} strength, facing ${u.facing}${u.state ? ", " + u.state : ""}<br>` +
+    `Cost ${u.cost} &middot; Def ${u.stats.def} &middot; Move ${u.stats.move} &middot; Range ${range} &middot; ` +
+    `RngDmg ${u.stats.rngDmg} &middot; Attack ${u.stats.attack} &middot; AttDmg ${u.stats.attDmg}<br>` +
+    `<em>${TYPE_DESCRIPTIONS[u.type] || ""}</em>`;
+  card.hidden = false;
+}
+
+function hideUnitCard() {
+  document.getElementById("unit-card").hidden = true;
+}
 
 // ---- order building ------------------------------------------------------
 
@@ -300,6 +356,7 @@ async function selectUnit(unitId) {
     renderAvailableUnits();
     renderHighlights();
     renderBuilder();
+    showUnitCard(unitId);
   } catch (err) {
     document.getElementById("turn-status").textContent = String(err.message || err);
   }
@@ -312,6 +369,7 @@ function clearSelection() {
   renderAvailableUnits();
   clearHighlights();
   renderBuilder();
+  hideUnitCard();
 }
 
 function renderBuilder() {
@@ -341,6 +399,9 @@ function renderBuilder() {
   label.textContent = opts.isReserve
     ? `${state.selection}: click a highlighted hex to Deploy`
     : `${state.selection}: click a highlighted hex to Move, an outlined enemy to attack, or a state button`;
+  if (opts.hasBarrage) {
+    label.textContent += " (red hexes are also its passive Barrage zone: it auto-fires there every turn while Ready)";
+  }
 
   const buttons = [];
   if (opts.canReady) buttons.push("Ready");
@@ -374,6 +435,15 @@ function onHexClick(col, row) {
 }
 
 function onUnitClick(unitId) {
+  const unit = state.game && state.game.units.find((u) => u.id === unitId);
+  // Clicking a unit on your own side selects it for ordering (docs/dev-plan.md
+  // section 7.3, interface item 2), whether or not something else was
+  // already selected; clicking an already-ordered unit does nothing.
+  if (unit && unit.side === state.activeSide) {
+    if (!unitHasOrder(state.activeSide, unitId)) selectUnit(unitId);
+    return;
+  }
+
   if (!state.selection || !state.options) return;
   const opts = state.options;
   const types = [];
@@ -456,6 +526,45 @@ function renderOrderLists() {
     });
     document.getElementById(`order-text-${side}`).textContent = state.orders[side].map(orderLine).join("\n");
   }
+  renderOrderGhosts();
+}
+
+// renderOrderGhosts shows pending orders on the map while planning
+// (docs/dev-plan.md section 7.3, interface item 1): a faint token at a
+// Deploy or Move order's destination, with a dashed path from the unit's
+// current hex, and a dashed line to the target for an attack or Fire
+// order.
+function renderOrderGhosts() {
+  const svg = document.getElementById("map");
+  const old = document.getElementById("ghost-layer");
+  if (old) old.remove();
+  if (!state.game) return;
+  const layer = svgEl("g", { id: "ghost-layer" });
+  svg.appendChild(layer);
+
+  for (const side of ["north", "south"]) {
+    for (const o of state.orders[side]) {
+      const unit = state.game.units.find((u) => u.id === o.unit);
+      const startPos = unit ? hexCenter(unit.col, unit.row) : null;
+
+      if (o.targetHex) {
+        const { x, y } = hexCenter(o.targetHex.col, o.targetHex.row);
+        if (startPos) {
+          layer.appendChild(svgEl("line", { x1: startPos.x, y1: startPos.y, x2: x, y2: y, class: "ghost-path" }));
+        }
+        const pts = hexVertices(x, y, HEX_SIZE * 0.55);
+        layer.appendChild(
+          svgEl("polygon", { points: pts.map((p) => p.join(",")).join(" "), class: `ghost-token ghost-${side}` })
+        );
+      } else if (o.targetUnit) {
+        const target = state.game.units.find((u) => u.id === o.targetUnit);
+        if (startPos && target) {
+          const end = hexCenter(target.col, target.row);
+          layer.appendChild(svgEl("line", { x1: startPos.x, y1: startPos.y, x2: end.x, y2: end.y, class: "ghost-arrow" }));
+        }
+      }
+    }
+  }
 }
 
 function moveOrder(side, index, delta) {
@@ -511,6 +620,8 @@ function renderStep() {
     highlightUnit(null);
   }
   renderEventList();
+  const current = document.querySelector("#event-list li.current");
+  if (current) current.scrollIntoView({ block: "nearest" });
 }
 
 // ---- API calls --------------------------------------------------------

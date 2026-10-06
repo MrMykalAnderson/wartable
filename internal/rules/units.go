@@ -43,13 +43,15 @@ type UnitState struct {
 }
 
 // Unit is a unit template's full stat block (docs/core-rules.md section
-// 3.1).
+// 3.1). Range is written as a band, MinRange to Range (the maximum); a
+// unit with no ranged attack has Range 0.
 type Unit struct {
 	ID          string               `yaml:"id"`
 	Name        string               `yaml:"name"`
 	Cost        int                  `yaml:"cost"`
 	Move        int                  `yaml:"move"`
 	Def         Def                  `yaml:"def"`
+	MinRange    int                  `yaml:"min_range"`
 	Range       int                  `yaml:"range"`
 	RngDmg      int                  `yaml:"rng_dmg"`
 	Attack      int                  `yaml:"attack"`
@@ -66,8 +68,11 @@ func (u Unit) validate() error {
 	if u.Name == "" {
 		return fmt.Errorf("unit %q: name is required", u.ID)
 	}
-	if u.Cost < 0 || u.Move < 0 || u.Range < 0 || u.RngDmg < 0 || u.Attack < 0 || u.AttDmg < 0 {
+	if u.Cost < 0 || u.Move < 0 || u.Range < 0 || u.MinRange < 0 || u.RngDmg < 0 || u.Attack < 0 || u.AttDmg < 0 {
 		return fmt.Errorf("unit %q: stats must not be negative", u.ID)
+	}
+	if u.Range > 0 && u.MinRange > u.Range {
+		return fmt.Errorf("unit %q: min_range %d is greater than range %d", u.ID, u.MinRange, u.Range)
 	}
 	if u.Def.ByState == nil && u.Def.Flat < 0 {
 		return fmt.Errorf("unit %q: def must not be negative", u.ID)
@@ -106,6 +111,9 @@ func LoadUnits(path string) (map[string]Unit, error) {
 	}
 	units := make(map[string]Unit, len(list))
 	for _, u := range list {
+		if u.Range > 0 && u.MinRange == 0 {
+			u.MinRange = 1 // default (docs/dev-plan.md section 7.3).
+		}
 		if err := u.validate(); err != nil {
 			return nil, fmt.Errorf("rules: %s: %w", path, err)
 		}

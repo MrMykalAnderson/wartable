@@ -17,17 +17,23 @@ type HexView struct {
 }
 
 // OptionsView is what click-to-order needs to know about one unit's
-// available orders this turn (docs/dev-plan.md section 7.1): computed by
-// the engine, never re-derived in JavaScript.
+// available orders this turn, plus its range visualiser (docs/dev-plan.md
+// sections 7.1 and 7.3): computed by the engine, never re-derived in
+// JavaScript.
 type OptionsView struct {
 	IsReserve        bool      `json:"isReserve"`
 	MoveHexes        []HexView `json:"moveHexes"`
 	DeployHexes      []HexView `json:"deployHexes"`
+	FireHexes        []HexView `json:"fireHexes"`
 	MeleeTargets     []string  `json:"meleeTargets"`
 	FireTargets      []string  `json:"fireTargets"`
 	CloseFireTargets []string  `json:"closeFireTargets"`
 	CanReady         bool      `json:"canReady"`
 	CanMobilise      bool      `json:"canMobilise"`
+	// HasBarrage is true if this unit, in its current state, fires a
+	// Barrage at the start of every Execution Phase (docs/core-rules.md
+	// section 3.3): FireHexes doubles as its barrage zone.
+	HasBarrage bool `json:"hasBarrage"`
 }
 
 // handleOptions serves GET /api/options?path=&side=&unit=: the hexes and
@@ -54,7 +60,7 @@ func handleOptions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if unit, ok := f.State.Board.Unit(unitID); ok {
-		writeJSON(w, deployedUnitOptions(f.State.Board, core, unit))
+		writeJSON(w, deployedUnitOptions(f.State.Board, core, unit, scenario))
 		return
 	}
 	for _, u := range f.State.Reserves[side] {
@@ -66,10 +72,11 @@ func handleOptions(w http.ResponseWriter, r *http.Request) {
 	writeError(w, http.StatusNotFound, fmt.Errorf("unit %q not found on the board or in %s's reserves", unitID, side))
 }
 
-func deployedUnitOptions(board game.Board, core rules.CoreRules, unit game.UnitInstance) OptionsView {
+func deployedUnitOptions(board game.Board, core rules.CoreRules, unit game.UnitInstance, scenario rules.Scenario) OptionsView {
 	view := OptionsView{
 		CanReady:    canEnterState(unit, "ready"),
 		CanMobilise: canEnterState(unit, "mobilised"),
+		HasBarrage:  len(unit.Template.States) > 0 && unit.CanFire(),
 	}
 
 	if unit.CanMove() {
@@ -79,6 +86,23 @@ func deployedUnitOptions(board game.Board, core rules.CoreRules, unit game.UnitI
 		for h, dist := range field {
 			if dist > 0 && dist <= stats.Move {
 				view.MoveHexes = append(view.MoveHexes, HexView{Col: h.Col, Row: h.Row})
+			}
+		}
+	}
+
+	stats := unit.Stats(core)
+	if unit.CanFire() && stats.MaxRange > 0 {
+		for col := 0; col < scenario.Map.Columns; col++ {
+			for row := 0; row < scenario.Map.Rows; row++ {
+				h := hex.Offset{Col: col, Row: row}
+				dist := hex.Distance(unit.Pos, h)
+				if dist < stats.MinRange || dist > stats.MaxRange {
+					continue
+				}
+				if !hex.InFiringArc(unit.Pos, unit.Facing, h) {
+					continue
+				}
+				view.FireHexes = append(view.FireHexes, HexView{Col: col, Row: row})
 			}
 		}
 	}
@@ -94,8 +118,8 @@ func deployedUnitOptions(board game.Board, core rules.CoreRules, unit game.UnitI
 			view.CloseFireTargets = append(view.CloseFireTargets, other.ID)
 		}
 		if unit.CanFire() {
-			stats := unit.Stats(core)
-			if hex.Distance(unit.Pos, other.Pos) <= stats.Range && hex.InFiringArc(unit.Pos, unit.Facing, other.Pos) {
+			dist := hex.Distance(unit.Pos, other.Pos)
+			if dist >= stats.MinRange && dist <= stats.MaxRange && hex.InFiringArc(unit.Pos, unit.Facing, other.Pos) {
 				view.FireTargets = append(view.FireTargets, other.ID)
 			}
 		}

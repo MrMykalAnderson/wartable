@@ -1,12 +1,17 @@
 package game
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // Summary renders an event as a human-readable line (docs/dev-plan.md
 // section 4), including the numbers behind a melee or ranged attack. It's
 // shared by the CLI and the web viewer.
 func (e Event) Summary() string {
 	switch {
+	case e.Kind == "barrage" && e.Ranged != nil:
+		return "[barrage] " + strings.TrimPrefix(e.Ranged.Summary(), "[ranged] ")
 	case e.Melee != nil:
 		return e.Melee.Summary()
 	case e.Ranged != nil:

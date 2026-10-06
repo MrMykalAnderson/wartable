@@ -10,17 +10,28 @@ import (
 )
 
 func TestNewUnitView(t *testing.T) {
+	core := rules.CoreRules{HalfStrengthPenalty: 1}
 	u := game.UnitInstance{
-		ID:       "1st Guns",
-		Side:     "north",
-		Template: rules.Unit{ID: "artillery"},
+		ID:   "1st Guns",
+		Side: "north",
+		Template: rules.Unit{
+			ID: "artillery", Name: "Artillery", Cost: 15,
+			Def:      rules.Def{ByState: map[string]int{"ready": 4, "mobilised": 2}},
+			MinRange: 3, Range: 5, RngDmg: 3, Attack: 3,
+		},
 		Pos:      hex.Offset{Col: 2, Row: 3},
 		Facing:   hex.SE,
 		Strength: game.Half,
 		State:    "ready",
 	}
-	got := newUnitView(u)
-	want := UnitView{ID: "1st Guns", Side: "north", Type: "artillery", Col: 2, Row: 3, Facing: "SE", Strength: "half", State: "ready"}
+	got := newUnitView(u, core)
+	want := UnitView{
+		ID: "1st Guns", Side: "north", Type: "artillery", TypeName: "Artillery", Cost: 15,
+		Col: 2, Row: 3, Facing: "SE", Strength: "half", State: "ready",
+		// Half strength: Def 4-1=3, MaxRange 5-1=4, RngDmg 3-1=2, Attack 3-1=2;
+		// MinRange is unaffected (docs/core-rules.md section 3.2).
+		Stats: StatsView{Def: 3, MinRange: 3, MaxRange: 4, RngDmg: 2, Attack: 2},
+	}
 	if got != want {
 		t.Errorf("newUnitView = %+v, want %+v", got, want)
 	}
@@ -44,7 +55,7 @@ func TestNewGameView(t *testing.T) {
 			},
 		},
 	}
-	got := newGameView(f)
+	got := newGameView(f, rules.CoreRules{HalfStrengthPenalty: 1})
 	if got.ScenarioID != "starter-battle" || got.Turn != 4 || got.TieBreakHolder != "south" {
 		t.Errorf("newGameView header fields = %+v", got)
 	}

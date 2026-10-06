@@ -27,6 +27,40 @@ tie-break token correctly carrying over between turns).
 
 `go vet ./...` and `go test ./...` pass.
 
+## Playtest round 1 changes (dev-plan.md section 7.3)
+
+**Rules:** Range is now a band, `min_range`–`range` (artillery 3–5;
+other ranged units default to 1–their old range); half strength only
+lowers the maximum. Added artillery's passive **Barrage**: at the start
+of every Execution Phase, before written orders, every Ready artillery
+unit fires at every enemy in its band and arc — all shots for both
+sides are computed from the same start-of-phase board, then every hit
+is applied together, so a unit hit by two guns in one barrage is
+destroyed, and a unit the barrage itself destroys still counted as
+support for other shots in the same barrage. The gun still gets its
+own written order afterward. Added `internal/game/barrage.go`
+(`ResolveBarragePhase`), wired into `ExecuteTurn` before the
+alternating written-order sequence, with its own `[barrage]`-prefixed
+events. Added EX-7 as a test and regenerated the `turnlimit` golden
+replay test — the extra early damage changes the whole rest of that
+game, including who wins (north now, not south); see its updated
+`README.md`. The `annihilation` golden game was unaffected (no Ready
+artillery ever had an enemy in range during it) and needed no changes.
+
+**Interface:** click a unit on the map (not just the orders panel) to
+select it; a unit card (full stats, facing, state, flavour text) shows
+on selection; a red range visualiser (band + arc) joins the green move
+highlight, doubling as a Ready gun's barrage-zone preview; pending
+orders now show as ghost tokens/paths/arrows on the map while planning;
+event-log stepping auto-scrolls the current event into view. All of
+this reuses the existing `/api/options` and the new `stats` field on
+`/api/game`'s units — never recomputed in JavaScript.
+
+`go vet ./...` and `go test ./...` pass. Verified in a real browser via
+claude-in-chrome: map click-to-select, the range/barrage visualiser,
+the unit card, order ghosts, and barrage events in the turn log all
+confirmed working, no console errors.
+
 ## M7 (part 1): click-to-order
 
 Replaced the web viewer's free-text order textareas with click-to-order

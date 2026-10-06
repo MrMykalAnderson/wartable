@@ -13,13 +13,13 @@ func TestLoadUnitsMatchesDocs(t *testing.T) {
 	}
 
 	cases := []struct {
-		id                                         string
-		cost, move, range_, rngDmg, attack, attDmg int
-		melee                                      bool
+		id                                                   string
+		cost, move, minRange, range_, rngDmg, attack, attDmg int
+		melee                                                bool
 	}{
-		{"infantry", 10, 4, 0, 0, 2, 2, true},
-		{"cavalry", 20, 7, 2, 2, 3, 3, true},
-		{"artillery", 15, 4, 5, 3, 3, 0, false},
+		{"infantry", 10, 4, 0, 0, 0, 2, 2, true},
+		{"cavalry", 20, 7, 1, 2, 2, 3, 3, true},
+		{"artillery", 15, 4, 3, 5, 3, 3, 0, false},
 	}
 	for _, c := range cases {
 		u, ok := units[c.id]
@@ -32,6 +32,9 @@ func TestLoadUnitsMatchesDocs(t *testing.T) {
 		}
 		if u.Move != c.move {
 			t.Errorf("%s: Move = %d, want %d", c.id, u.Move, c.move)
+		}
+		if u.MinRange != c.minRange {
+			t.Errorf("%s: MinRange = %d, want %d", c.id, u.MinRange, c.minRange)
 		}
 		if u.Range != c.range_ {
 			t.Errorf("%s: Range = %d, want %d", c.id, u.Range, c.range_)
@@ -132,6 +135,48 @@ func TestLoadUnitsRejectsStateWithoutDef(t *testing.T) {
 `)
 	if err == nil {
 		t.Fatalf("LoadUnits: want error for states without a per-state def, got none")
+	}
+}
+
+func TestLoadUnitsRejectsMinRangeAboveRange(t *testing.T) {
+	_, err := loadUnitsFromYAML(t, `
+- id: cavalry
+  name: Cavalry
+  cost: 20
+  move: 7
+  def: 3
+  min_range: 3
+  range: 2
+  rng_dmg: 2
+  attack: 3
+  att_dmg: 3
+  melee: true
+`)
+	if err == nil {
+		t.Fatalf("LoadUnits: want error for min_range above range, got none")
+	}
+}
+
+// TestLoadUnitsDefaultsMinRange checks docs/dev-plan.md section 7.3: a
+// unit with a ranged attack and no min_range given defaults to 1.
+func TestLoadUnitsDefaultsMinRange(t *testing.T) {
+	units, err := loadUnitsFromYAML(t, `
+- id: cavalry
+  name: Cavalry
+  cost: 20
+  move: 7
+  def: 3
+  range: 2
+  rng_dmg: 2
+  attack: 3
+  att_dmg: 3
+  melee: true
+`)
+	if err != nil {
+		t.Fatalf("LoadUnits: %v", err)
+	}
+	if got := units["cavalry"].MinRange; got != 1 {
+		t.Errorf("MinRange = %d, want 1 (default)", got)
 	}
 }
 

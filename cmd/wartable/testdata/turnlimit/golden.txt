@@ -54,7 +54,9 @@ Turn 3
  10 .  .  .  .  .  .  .  .  .  .  .  SA 
 Turn 4
 
-[ranged] North 1st Artillery fires at South 1st Infantry: hit check 3/2 (hit=true); damage 3/2 (hit=true)
+[barrage] North 1st Artillery fires at South 1st Infantry: hit check 3/2 (hit=true); damage 3/2 (hit=true)
+[barrage] North 1st Artillery fires at South 2nd Infantry: hit check 3/2 (hit=true); damage 3/2 (hit=true)
+[ranged] North 1st Artillery fires at South 1st Infantry: hit check 3/1 (hit=true); damage 3/1 (hit=true)
 
     A  B  C  D  E  F  G  H  I  J  K  L  
   1 NI .  .  .  .  .  .  .  .  .  .  .  
@@ -65,11 +67,12 @@ Turn 4
   6 .  .  .  NA .  .  .  .  .  .  .  .  
   7 .  .  .  .  .  .  .  .  .  .  .  .  
   8 .  .  .  .  NC .  .  .  .  .  .  .  
-  9 .  .  .  si .  SI .  .  .  .  .  SC 
+  9 .  .  .  .  .  si .  .  .  .  .  SC 
  10 .  .  .  .  .  .  .  .  .  .  .  SA 
 Turn 5
 
-[ranged] North 1st Artillery fires at South 2nd Infantry: hit check 3/2 (hit=true); damage 3/2 (hit=true)
+[barrage] North 1st Artillery fires at South 2nd Infantry: hit check 3/1 (hit=true); damage 3/1 (hit=true)
+[order-skipped] North 1st Artillery: target not found
 
     A  B  C  D  E  F  G  H  I  J  K  L  
   1 NI .  .  .  .  .  .  .  .  .  .  .  
@@ -80,13 +83,11 @@ Turn 5
   6 .  .  .  NA .  .  .  .  .  .  .  .  
   7 .  .  .  .  .  .  .  .  .  .  .  .  
   8 .  .  .  .  NC .  .  .  .  .  .  .  
-  9 .  .  .  si .  si .  .  .  .  .  SC 
+  9 .  .  .  .  .  .  .  .  .  .  .  SC 
  10 .  .  .  .  .  .  .  .  .  .  .  SA 
 Turn 6
 
 [moved] North 1st Cavalry: moved to E9
-[melee] South 2nd Infantry attacks North 1st Cavalry's front: hit check 1/2 (attacker wins=false); damage 3/1 (hit=true); South 2nd Infantry destroyed (already half strength)
-[melee] South 1st Infantry attacks North 1st Cavalry's rear: hit check 4/2 (attacker wins=true); damage 4/2 (hit=true); North 1st Cavalry knocked back to F8
 
     A  B  C  D  E  F  G  H  I  J  K  L  
   1 NI .  .  .  .  .  .  .  .  .  .  .  
@@ -96,8 +97,8 @@ Turn 6
   5 .  .  .  .  .  .  .  .  .  .  .  .  
   6 .  .  .  NA .  .  .  .  .  .  .  .  
   7 .  .  .  .  .  .  .  .  .  .  .  .  
-  8 .  .  .  .  .  nc .  .  .  .  .  .  
-  9 .  .  .  si .  .  .  .  .  .  .  SC 
+  8 .  .  .  .  .  .  .  .  .  .  .  .  
+  9 .  .  .  .  NC .  .  .  .  .  .  SC 
  10 .  .  .  .  .  .  .  .  .  .  .  SA 
 Turn 7
 
@@ -113,8 +114,8 @@ Turn 7
   5 .  .  .  .  .  .  .  .  .  .  .  .  
   6 .  .  .  NA .  .  SC .  .  .  .  .  
   7 .  .  .  .  .  .  .  .  .  .  .  .  
-  8 .  .  .  .  .  nc .  .  .  .  .  .  
-  9 .  .  .  si .  .  .  .  .  .  .  .  
+  8 .  .  .  .  .  .  .  .  .  .  .  .  
+  9 .  .  .  .  NC .  .  .  .  .  .  .  
  10 .  .  .  .  .  .  .  .  .  .  .  SA 
 Turn 8
 
@@ -132,15 +133,14 @@ Turn 8
   5 .  .  .  .  ni .  .  .  .  .  .  .  
   6 .  .  .  NA .  .  SC .  .  .  .  .  
   7 .  .  .  .  .  .  .  .  .  .  .  .  
-  8 .  .  .  .  .  nc .  .  .  .  .  .  
-  9 .  .  .  si .  .  .  .  .  .  .  .  
+  8 .  .  .  .  .  .  .  .  .  .  .  .  
+  9 .  .  .  .  NC .  .  .  .  .  .  .  
  10 .  .  .  .  .  .  .  .  .  .  .  SA 
 Turn 9
 
 [moved] South 1st Cavalry: moved to L6
 [moved] North 1st Infantry: moved to B5
-[moved] North 1st Cavalry: moved to E9
-[melee] South 1st Infantry attacks North 1st Cavalry's front: hit check 1/1 (attacker wins=false); damage 2/1 (hit=true); South 1st Infantry destroyed (already half strength)
+[moved] North 1st Cavalry: moved to A8
 
     A  B  C  D  E  F  G  H  I  J  K  L  
   1 .  .  .  .  .  .  .  .  .  .  .  .  
@@ -150,8 +150,8 @@ Turn 9
   5 .  ni .  .  .  .  .  .  .  .  .  .  
   6 .  .  .  NA .  .  .  .  .  .  .  SC 
   7 .  .  .  .  .  .  .  .  .  .  .  .  
-  8 .  .  .  .  .  .  .  .  .  .  .  .  
-  9 .  .  .  .  nc .  .  .  .  .  .  .  
+  8 NC .  .  .  .  .  .  .  .  .  .  .  
+  9 .  .  .  .  .  .  .  .  .  .  .  .  
  10 .  .  .  .  .  .  .  .  .  .  .  SA 
 Turn 10
 
@@ -164,8 +164,8 @@ Turn 10
   5 .  ni .  .  .  .  .  .  .  .  .  .  
   6 .  .  .  NA .  .  .  .  .  .  .  SC 
   7 .  .  .  .  .  .  .  .  .  .  .  .  
-  8 .  .  .  .  .  .  .  .  .  .  .  .  
-  9 .  .  .  .  nc .  .  .  .  .  .  .  
+  8 NC .  .  .  .  .  .  .  .  .  .  .  
+  9 .  .  .  .  .  .  .  .  .  .  .  .  
  10 .  .  .  .  .  .  .  .  .  .  .  SA 
 Turn 11
 
@@ -178,8 +178,8 @@ Turn 11
   5 .  ni .  .  .  .  .  .  .  .  .  .  
   6 .  .  .  NA .  .  .  .  .  .  .  SC 
   7 .  .  .  .  .  .  .  .  .  .  .  .  
-  8 .  .  .  .  .  .  .  .  .  .  .  .  
-  9 .  .  .  .  nc .  .  .  .  .  .  .  
+  8 NC .  .  .  .  .  .  .  .  .  .  .  
+  9 .  .  .  .  .  .  .  .  .  .  .  .  
  10 .  .  .  .  .  .  .  .  .  .  .  SA 
 Turn 12
 
@@ -192,10 +192,10 @@ Turn 12
   5 .  ni .  .  .  .  .  .  .  .  .  .  
   6 .  .  .  NA .  .  .  .  .  .  .  SC 
   7 .  .  .  .  .  .  .  .  .  .  .  .  
-  8 .  .  .  .  .  .  .  .  .  .  .  .  
-  9 .  .  .  .  nc .  .  .  .  .  .  .  
+  8 NC .  .  .  .  .  .  .  .  .  .  .  
+  9 .  .  .  .  .  .  .  .  .  .  .  .  
  10 .  .  .  .  .  .  .  .  .  .  .  SA 
 
-Turn limit reached. North 30, South 35.
+Turn limit reached. North 40, South 35.
 
-south wins: turn limit
+north wins: turn limit

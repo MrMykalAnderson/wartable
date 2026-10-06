@@ -46,6 +46,7 @@ func TestHandleGameNotFound(t *testing.T) {
 }
 
 func TestHandleGameSuccess(t *testing.T) {
+	chdirToRepoRoot(t)
 	path := filepath.Join(t.TempDir(), "state.json")
 	err := save.Write(path, save.File{
 		ScenarioID: "starter-battle",

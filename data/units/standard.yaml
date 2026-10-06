@@ -16,6 +16,7 @@
   cost: 20
   move: 7
   def: 3
+  min_range: 1
   range: 2
   rng_dmg: 2
   attack: 3
@@ -27,6 +28,7 @@
   cost: 15
   move: 4
   def: { ready: 4, mobilised: 2 }
+  min_range: 3
   range: 5
   rng_dmg: 3
   attack: 3

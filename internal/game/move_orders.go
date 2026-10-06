@@ -251,6 +251,13 @@ func ExecuteTurn(state GameState, core rules.CoreRules, scenario rules.Scenario,
 	}
 
 	var events []Event
+	newBoard, barrageShots := ResolveBarragePhase(state.Board, core)
+	state.Board = newBoard
+	for _, shot := range barrageShots {
+		r := shot.Result
+		events = append(events, Event{Kind: "barrage", Unit: r.ShooterID, Detail: "barrage", Ranged: &r})
+	}
+
 	for _, step := range steps {
 		var stepEvents []Event
 		state, stepEvents = ExecuteOrder(state, core, scenario, step.Side, step.Order)

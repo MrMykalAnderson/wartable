@@ -259,6 +259,9 @@ button {
 #map .hex-cell.highlight-deploy {
   fill: #c8dcf0;
 }
+#map .hex-cell.highlight-fire {
+  fill: #f0c2c2;
+}
 #map .unit.targetable {
   cursor: pointer;
 }
@@ -268,4 +271,63 @@ button {
 }
 #map .unit.targetable .target-ring {
   stroke: #d4a017;
+}
+
+/* Pending-order ghosts (docs/dev-plan.md section 7.3, interface item 1). */
+#ghost-layer {
+  pointer-events: none;
+}
+.ghost-path {
+  stroke: #444;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+  opacity: 0.6;
+}
+.ghost-arrow {
+  stroke: #a33;
+  stroke-width: 2;
+  stroke-dasharray: 2 2;
+  opacity: 0.8;
+}
+.ghost-token {
+  stroke: #333;
+  stroke-width: 1;
+  opacity: 0.45;
+}
+.ghost-north {
+  fill: #6f93c9;
+}
+.ghost-south {
+  fill: #c97b6f;
+}
+
+/* Unit detail card (docs/dev-plan.md section 7.3, interface item 3). */
+.unit-card {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  background: #fffdf5;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  max-width: 480px;
+}
+
+/* Step playback (docs/dev-plan.md section 7.3, interface item 4). */
+.step-controls button {
+  padding: 0.35rem 0.9rem;
+  font-size: 0.95rem;
+}
+#step-counter {
+  font-weight: bold;
+}
+#step-summary {
+  font-size: 1rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: #fff8e1;
+}
+#event-list li.current {
+  scroll-margin: 2em;
 }

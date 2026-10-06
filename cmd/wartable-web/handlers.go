@@ -23,7 +23,12 @@ func handleGame(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, err)
 		return
 	}
-	writeJSON(w, newGameView(f))
+	_, core, _, err := save.LoadRulesData()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, newGameView(f, core))
 }
 
 type turnRequest struct {
@@ -102,7 +107,7 @@ func handleTurn(w http.ResponseWriter, r *http.Request) {
 		eventViews[i] = newEventView(e)
 	}
 	writeJSON(w, turnResponse{
-		Game:    newGameView(f),
+		Game:    newGameView(f, core),
 		Events:  eventViews,
 		Outcome: newOutcomeView(outcome),
 	})
