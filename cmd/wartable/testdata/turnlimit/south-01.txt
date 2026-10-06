@@ -1,0 +1,4 @@
+South 1st Infantry  | Deploy | D9
+South 2nd Infantry  | Deploy | F9
+South 1st Cavalry    | Deploy | L9
+South 1st Artillery  | Deploy | L10

@@ -1,0 +1,3 @@
+North 1st Infantry  | Deploy | D2
+North 1st Cavalry    | Deploy | G2
+North 1st Artillery  | Deploy | J2

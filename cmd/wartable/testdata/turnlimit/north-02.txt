@@ -1,0 +1,2 @@
+North 1st Artillery | Move | D6
+North 1st Cavalry    | Move | E6

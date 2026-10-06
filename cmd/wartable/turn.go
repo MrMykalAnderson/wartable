@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/MrMykalAnderson/wartable/internal/game"
@@ -9,7 +10,7 @@ import (
 	"github.com/MrMykalAnderson/wartable/internal/rules"
 )
 
-func runTurn(args []string) error {
+func runTurn(args []string, out io.Writer) error {
 	if len(args) != 3 {
 		return fmt.Errorf("usage: wartable turn <state.json> <north-orders.txt> <south-orders.txt>")
 	}
@@ -39,14 +40,14 @@ func runTurn(args []string) error {
 	}
 	save.State = newState
 
-	fmt.Printf("Turn %d\n\n", save.Turn)
+	fmt.Fprintf(out, "Turn %d\n\n", save.Turn)
 	for _, e := range events {
-		fmt.Println(formatEvent(e))
+		fmt.Fprintln(out, formatEvent(e))
 	}
-	fmt.Println()
-	fmt.Print(renderMap(save.State.Board))
+	fmt.Fprintln(out)
+	fmt.Fprint(out, renderMap(save.State.Board))
 
-	reportOutcome(save.State, scenario, save.Turn)
+	reportOutcome(out, save.State, scenario, save.Turn)
 
 	save.Turn++
 	return writeSave(statePath, save)
@@ -66,19 +67,19 @@ func parseOrderFile(path string) ([]orders.Order, error) {
 
 // reportOutcome checks the Starter Battle's win conditions
 // (docs/starter-battle.md "Winning") and prints the result, if any.
-func reportOutcome(state game.GameState, scenario rules.Scenario, turn int) {
+func reportOutcome(out io.Writer, state game.GameState, scenario rules.Scenario, turn int) {
 	outcome := game.CheckAnnihilation(state)
 	if !outcome.Over && turn >= scenario.TurnLimit {
 		north, south, limitOutcome := game.ScoreAtTurnLimit(state)
-		fmt.Printf("\nTurn limit reached. North %d, South %d.\n", north, south)
+		fmt.Fprintf(out, "\nTurn limit reached. North %d, South %d.\n", north, south)
 		outcome = limitOutcome
 	}
 	if !outcome.Over {
 		return
 	}
 	if outcome.Winner != "" {
-		fmt.Printf("\n%s wins: %s\n", outcome.Winner, outcome.Reason)
+		fmt.Fprintf(out, "\n%s wins: %s\n", outcome.Winner, outcome.Reason)
 	} else {
-		fmt.Printf("\ndraw: %s\n", outcome.Reason)
+		fmt.Fprintf(out, "\ndraw: %s\n", outcome.Reason)
 	}
 }

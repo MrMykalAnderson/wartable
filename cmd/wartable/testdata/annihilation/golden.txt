@@ -1,0 +1,221 @@
+Turn 1
+
+[deployed] North 1st Infantry: deployed to D2 facing S
+[deployed] South 1st Infantry: deployed to D9 facing N
+[deployed] North 1st Cavalry: deployed to G2 facing S
+[deployed] South 1st Cavalry: deployed to G9 facing N
+[deployed] North 1st Artillery: deployed to J2 facing S
+[deployed] South 1st Artillery: deployed to J9 facing N
+
+    A  B  C  D  E  F  G  H  I  J  K  L  
+  1 .  .  .  .  .  .  .  .  .  .  .  .  
+  2 .  .  .  NI .  .  NC .  .  NA .  .  
+  3 .  .  .  .  .  .  .  .  .  .  .  .  
+  4 .  .  .  .  .  .  .  .  .  .  .  .  
+  5 .  .  .  .  .  .  .  .  .  .  .  .  
+  6 .  .  .  .  .  .  .  .  .  .  .  .  
+  7 .  .  .  .  .  .  .  .  .  .  .  .  
+  8 .  .  .  .  .  .  .  .  .  .  .  .  
+  9 .  .  .  SI .  .  SC .  .  SA .  .  
+ 10 .  .  .  .  .  .  .  .  .  .  .  .  
+Turn 2
+
+[deployed] South 2nd Infantry: deployed to F9 facing N
+[deploy-failed] North 2nd Infantry: D2 is occupied
+[moved] South 1st Cavalry: moved to G7
+[moved] North 1st Cavalry: moved to G6
+[melee] South 1st Cavalry attacks North 1st Cavalry's front: hit check 3/2 (attacker wins=true); damage 3/2 (hit=true); North 1st Cavalry knocked back to G5
+
+    A  B  C  D  E  F  G  H  I  J  K  L  
+  1 .  .  .  .  .  .  .  .  .  .  .  .  
+  2 .  .  .  NI .  .  .  .  .  NA .  .  
+  3 .  .  .  .  .  .  .  .  .  .  .  .  
+  4 .  .  .  .  .  .  .  .  .  .  .  .  
+  5 .  .  .  .  .  .  nc .  .  .  .  .  
+  6 .  .  .  .  .  .  .  .  .  .  .  .  
+  7 .  .  .  .  .  .  SC .  .  .  .  .  
+  8 .  .  .  .  .  .  .  .  .  .  .  .  
+  9 .  .  .  SI .  SI .  .  .  SA .  .  
+ 10 .  .  .  .  .  .  .  .  .  .  .  .  
+Turn 3
+
+[deployed] North 2nd Infantry: deployed to F2 facing S
+[moved] South 1st Infantry: moved to D6
+[moved] North 1st Infantry: moved to D5
+[melee] South 1st Infantry attacks North 1st Infantry's front: hit check 2/1 (attacker wins=true); damage 2/1 (hit=true); North 1st Infantry knocked back to D4
+[moved] South 2nd Infantry: moved to F6
+[moved] North 1st Cavalry: moved to G2
+[moved] South 1st Cavalry: moved to G9
+
+    A  B  C  D  E  F  G  H  I  J  K  L  
+  1 .  .  .  .  .  .  .  .  .  .  .  .  
+  2 .  .  .  .  .  NI nc .  .  NA .  .  
+  3 .  .  .  .  .  .  .  .  .  .  .  .  
+  4 .  .  .  ni .  .  .  .  .  .  .  .  
+  5 .  .  .  .  .  .  .  .  .  .  .  .  
+  6 .  .  .  SI .  SI .  .  .  .  .  .  
+  7 .  .  .  .  .  .  .  .  .  .  .  .  
+  8 .  .  .  .  .  .  .  .  .  .  .  .  
+  9 .  .  .  .  .  .  SC .  .  SA .  .  
+ 10 .  .  .  .  .  .  .  .  .  .  .  .  
+Turn 4
+
+[moved] North 2nd Infantry: moved to F4
+[moved] South 1st Infantry: moved to D6
+[moved] North 1st Cavalry: moved to H5
+[moved] South 2nd Infantry: moved to F6
+[moved] North 1st Infantry: closed to D5
+[melee] North 1st Infantry attacks South 1st Infantry's rear: hit check 4/2 (attacker wins=true); damage 4/2 (hit=true); South 1st Infantry knocked back to D7
+[moved] South 1st Artillery: moved to H9
+
+    A  B  C  D  E  F  G  H  I  J  K  L  
+  1 .  .  .  .  .  .  .  .  .  .  .  .  
+  2 .  .  .  .  .  .  .  .  .  NA .  .  
+  3 .  .  .  .  .  .  .  .  .  .  .  .  
+  4 .  .  .  .  .  NI .  .  .  .  .  .  
+  5 .  .  .  ni .  .  .  nc .  .  .  .  
+  6 .  .  .  .  .  SI .  .  .  .  .  .  
+  7 .  .  .  si .  .  .  .  .  .  .  .  
+  8 .  .  .  .  .  .  .  .  .  .  .  .  
+  9 .  .  .  .  .  .  SC SA .  .  .  .  
+ 10 .  .  .  .  .  .  .  .  .  .  .  .  
+Turn 5
+
+[moved] South 1st Infantry: moved to D9
+[moved] North 1st Artillery: moved to J6
+[moved] North 1st Cavalry: moved to H8
+[melee] South 1st Artillery attacks North 1st Cavalry's front: hit check 4/1 (attacker wins=true); damage 0/1 (hit=false); North 1st Cavalry knocked back to H7
+[moved] North 2nd Infantry: closed to F5
+[melee] North 2nd Infantry attacks South 2nd Infantry's flank: hit check 3/2 (attacker wins=true); damage 3/2 (hit=true); South 2nd Infantry knocked back to F7
+
+    A  B  C  D  E  F  G  H  I  J  K  L  
+  1 .  .  .  .  .  .  .  .  .  .  .  .  
+  2 .  .  .  .  .  .  .  .  .  .  .  .  
+  3 .  .  .  .  .  .  .  .  .  .  .  .  
+  4 .  .  .  .  .  .  .  .  .  .  .  .  
+  5 .  .  .  ni .  NI .  .  .  .  .  .  
+  6 .  .  .  .  .  .  .  .  .  NA .  .  
+  7 .  .  .  .  .  si .  nc .  .  .  .  
+  8 .  .  .  .  .  .  .  .  .  .  .  .  
+  9 .  .  .  si .  .  SC SA .  .  .  .  
+ 10 .  .  .  .  .  .  .  .  .  .  .  .  
+Turn 6
+
+[moved] South 2nd Infantry: moved to F9
+[moved] North 1st Infantry: closed to E6
+[moved] North 1st Cavalry: moved to G8
+[melee] South 1st Cavalry attacks North 1st Cavalry's flank: hit check 6/1 (attacker wins=true); damage 4/1 (hit=true); North 1st Cavalry destroyed (already half strength)
+[unit-destroyed] North 1st Cavalry: destroyed during ambush
+
+    A  B  C  D  E  F  G  H  I  J  K  L  
+  1 .  .  .  .  .  .  .  .  .  .  .  .  
+  2 .  .  .  .  .  .  .  .  .  .  .  .  
+  3 .  .  .  .  .  .  .  .  .  .  .  .  
+  4 .  .  .  .  .  .  .  .  .  .  .  .  
+  5 .  .  .  .  .  NI .  .  .  .  .  .  
+  6 .  .  .  .  ni .  .  .  .  NA .  .  
+  7 .  .  .  .  .  .  .  .  .  .  .  .  
+  8 .  .  .  .  .  .  .  .  .  .  .  .  
+  9 .  .  .  si .  si SC SA .  .  .  .  
+ 10 .  .  .  .  .  .  .  .  .  .  .  .  
+Turn 7
+
+[moved] North 2nd Infantry: moved to G8
+[melee] South 1st Cavalry attacks North 2nd Infantry's front: hit check 5/1 (attacker wins=true); damage 3/1 (hit=true); North 2nd Infantry knocked back to G7
+[moved] North 1st Infantry: closed to F6
+
+    A  B  C  D  E  F  G  H  I  J  K  L  
+  1 .  .  .  .  .  .  .  .  .  .  .  .  
+  2 .  .  .  .  .  .  .  .  .  .  .  .  
+  3 .  .  .  .  .  .  .  .  .  .  .  .  
+  4 .  .  .  .  .  .  .  .  .  .  .  .  
+  5 .  .  .  .  .  .  .  .  .  .  .  .  
+  6 .  .  .  .  .  ni .  .  .  NA .  .  
+  7 .  .  .  .  .  .  ni .  .  .  .  .  
+  8 .  .  .  .  .  .  .  .  .  .  .  .  
+  9 .  .  .  si .  si SC SA .  .  .  .  
+ 10 .  .  .  .  .  .  .  .  .  .  .  .  
+Turn 8
+
+[moved] North 1st Infantry: moved to F8
+[melee] South 1st Cavalry attacks North 1st Infantry's flank: hit check 6/0 (attacker wins=true); damage 4/0 (hit=true); North 1st Infantry destroyed (already half strength)
+[unit-destroyed] North 1st Infantry: destroyed during ambush
+
+    A  B  C  D  E  F  G  H  I  J  K  L  
+  1 .  .  .  .  .  .  .  .  .  .  .  .  
+  2 .  .  .  .  .  .  .  .  .  .  .  .  
+  3 .  .  .  .  .  .  .  .  .  .  .  .  
+  4 .  .  .  .  .  .  .  .  .  .  .  .  
+  5 .  .  .  .  .  .  .  .  .  .  .  .  
+  6 .  .  .  .  .  .  .  .  .  NA .  .  
+  7 .  .  .  .  .  .  ni .  .  .  .  .  
+  8 .  .  .  .  .  .  .  .  .  .  .  .  
+  9 .  .  .  si .  si SC SA .  .  .  .  
+ 10 .  .  .  .  .  .  .  .  .  .  .  .  
+Turn 9
+
+[moved] North 1st Artillery: moved to I10
+[melee] South 1st Artillery attacks North 1st Artillery's flank: hit check 5/1 (attacker wins=true); damage 1/1 (hit=false); North 1st Artillery knocked back to J10
+
+    A  B  C  D  E  F  G  H  I  J  K  L  
+  1 .  .  .  .  .  .  .  .  .  .  .  .  
+  2 .  .  .  .  .  .  .  .  .  .  .  .  
+  3 .  .  .  .  .  .  .  .  .  .  .  .  
+  4 .  .  .  .  .  .  .  .  .  .  .  .  
+  5 .  .  .  .  .  .  .  .  .  .  .  .  
+  6 .  .  .  .  .  .  .  .  .  .  .  .  
+  7 .  .  .  .  .  .  ni .  .  .  .  .  
+  8 .  .  .  .  .  .  .  .  .  .  .  .  
+  9 .  .  .  si .  si SC SA .  .  .  .  
+ 10 .  .  .  .  .  .  .  .  .  NA .  .  
+Turn 10
+
+[moved] North 1st Artillery: moved to I9
+[melee] South 1st Artillery attacks North 1st Artillery's rear: hit check 7/1 (attacker wins=true); damage 3/1 (hit=true); North 1st Artillery knocked back to J8
+
+    A  B  C  D  E  F  G  H  I  J  K  L  
+  1 .  .  .  .  .  .  .  .  .  .  .  .  
+  2 .  .  .  .  .  .  .  .  .  .  .  .  
+  3 .  .  .  .  .  .  .  .  .  .  .  .  
+  4 .  .  .  .  .  .  .  .  .  .  .  .  
+  5 .  .  .  .  .  .  .  .  .  .  .  .  
+  6 .  .  .  .  .  .  .  .  .  .  .  .  
+  7 .  .  .  .  .  .  ni .  .  .  .  .  
+  8 .  .  .  .  .  .  .  .  .  na .  .  
+  9 .  .  .  si .  si SC SA .  .  .  .  
+ 10 .  .  .  .  .  .  .  .  .  .  .  .  
+Turn 11
+
+[moved] South 1st Cavalry: closed to I8
+[melee] South 1st Cavalry attacks North 1st Artillery's rear: hit check 6/1 (attacker wins=true); damage 6/1 (hit=true); North 1st Artillery destroyed (already half strength)
+[moved] South 1st Infantry: closed to D8
+
+    A  B  C  D  E  F  G  H  I  J  K  L  
+  1 .  .  .  .  .  .  .  .  .  .  .  .  
+  2 .  .  .  .  .  .  .  .  .  .  .  .  
+  3 .  .  .  .  .  .  .  .  .  .  .  .  
+  4 .  .  .  .  .  .  .  .  .  .  .  .  
+  5 .  .  .  .  .  .  .  .  .  .  .  .  
+  6 .  .  .  .  .  .  .  .  .  .  .  .  
+  7 .  .  .  .  .  .  ni .  .  .  .  .  
+  8 .  .  .  si .  .  .  .  SC .  .  .  
+  9 .  .  .  .  .  si .  SA .  .  .  .  
+ 10 .  .  .  .  .  .  .  .  .  .  .  .  
+Turn 12
+
+[moved] South 1st Cavalry: closed to H7
+[melee] South 1st Cavalry attacks North 2nd Infantry's flank: hit check 4/1 (attacker wins=true); damage 4/1 (hit=true); North 2nd Infantry destroyed (already half strength)
+
+    A  B  C  D  E  F  G  H  I  J  K  L  
+  1 .  .  .  .  .  .  .  .  .  .  .  .  
+  2 .  .  .  .  .  .  .  .  .  .  .  .  
+  3 .  .  .  .  .  .  .  .  .  .  .  .  
+  4 .  .  .  .  .  .  .  .  .  .  .  .  
+  5 .  .  .  .  .  .  .  .  .  .  .  .  
+  6 .  .  .  .  .  .  .  .  .  .  .  .  
+  7 .  .  .  .  .  .  .  SC .  .  .  .  
+  8 .  .  .  si .  .  .  .  .  .  .  .  
+  9 .  .  .  .  .  si .  SA .  .  .  .  
+ 10 .  .  .  .  .  .  .  .  .  .  .  .  
+
+south wins: north annihilated

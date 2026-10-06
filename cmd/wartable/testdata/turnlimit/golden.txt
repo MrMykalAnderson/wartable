@@ -1,0 +1,201 @@
+Turn 1
+
+[deployed] North 1st Infantry: deployed to A1 facing S
+[deployed] South 1st Infantry: deployed to D9 facing N
+[deployed] North 2nd Infantry: deployed to A2 facing S
+[deployed] South 2nd Infantry: deployed to F9 facing N
+[deployed] North 1st Cavalry: deployed to F2 facing S
+[deployed] South 1st Cavalry: deployed to L9 facing N
+[deployed] North 1st Artillery: deployed to D2 facing S
+[deployed] South 1st Artillery: deployed to L10 facing N
+
+    A  B  C  D  E  F  G  H  I  J  K  L  
+  1 NI .  .  .  .  .  .  .  .  .  .  .  
+  2 NI .  .  NA .  NC .  .  .  .  .  .  
+  3 .  .  .  .  .  .  .  .  .  .  .  .  
+  4 .  .  .  .  .  .  .  .  .  .  .  .  
+  5 .  .  .  .  .  .  .  .  .  .  .  .  
+  6 .  .  .  .  .  .  .  .  .  .  .  .  
+  7 .  .  .  .  .  .  .  .  .  .  .  .  
+  8 .  .  .  .  .  .  .  .  .  .  .  .  
+  9 .  .  .  SI .  SI .  .  .  .  .  SC 
+ 10 .  .  .  .  .  .  .  .  .  .  .  SA 
+Turn 2
+
+[moved] North 1st Artillery: moved to D6
+[moved] North 1st Cavalry: moved to E6
+
+    A  B  C  D  E  F  G  H  I  J  K  L  
+  1 NI .  .  .  .  .  .  .  .  .  .  .  
+  2 NI .  .  .  .  .  .  .  .  .  .  .  
+  3 .  .  .  .  .  .  .  .  .  .  .  .  
+  4 .  .  .  .  .  .  .  .  .  .  .  .  
+  5 .  .  .  .  .  .  .  .  .  .  .  .  
+  6 .  .  .  NA NC .  .  .  .  .  .  .  
+  7 .  .  .  .  .  .  .  .  .  .  .  .  
+  8 .  .  .  .  .  .  .  .  .  .  .  .  
+  9 .  .  .  SI .  SI .  .  .  .  .  SC 
+ 10 .  .  .  .  .  .  .  .  .  .  .  SA 
+Turn 3
+
+[state-changed] North 1st Artillery: mobilised -> ready
+[moved] North 1st Cavalry: moved to E8
+
+    A  B  C  D  E  F  G  H  I  J  K  L  
+  1 NI .  .  .  .  .  .  .  .  .  .  .  
+  2 NI .  .  .  .  .  .  .  .  .  .  .  
+  3 .  .  .  .  .  .  .  .  .  .  .  .  
+  4 .  .  .  .  .  .  .  .  .  .  .  .  
+  5 .  .  .  .  .  .  .  .  .  .  .  .  
+  6 .  .  .  NA .  .  .  .  .  .  .  .  
+  7 .  .  .  .  .  .  .  .  .  .  .  .  
+  8 .  .  .  .  NC .  .  .  .  .  .  .  
+  9 .  .  .  SI .  SI .  .  .  .  .  SC 
+ 10 .  .  .  .  .  .  .  .  .  .  .  SA 
+Turn 4
+
+[ranged] North 1st Artillery fires at South 1st Infantry: hit check 3/2 (hit=true); damage 3/2 (hit=true)
+
+    A  B  C  D  E  F  G  H  I  J  K  L  
+  1 NI .  .  .  .  .  .  .  .  .  .  .  
+  2 NI .  .  .  .  .  .  .  .  .  .  .  
+  3 .  .  .  .  .  .  .  .  .  .  .  .  
+  4 .  .  .  .  .  .  .  .  .  .  .  .  
+  5 .  .  .  .  .  .  .  .  .  .  .  .  
+  6 .  .  .  NA .  .  .  .  .  .  .  .  
+  7 .  .  .  .  .  .  .  .  .  .  .  .  
+  8 .  .  .  .  NC .  .  .  .  .  .  .  
+  9 .  .  .  si .  SI .  .  .  .  .  SC 
+ 10 .  .  .  .  .  .  .  .  .  .  .  SA 
+Turn 5
+
+[ranged] North 1st Artillery fires at South 2nd Infantry: hit check 3/2 (hit=true); damage 3/2 (hit=true)
+
+    A  B  C  D  E  F  G  H  I  J  K  L  
+  1 NI .  .  .  .  .  .  .  .  .  .  .  
+  2 NI .  .  .  .  .  .  .  .  .  .  .  
+  3 .  .  .  .  .  .  .  .  .  .  .  .  
+  4 .  .  .  .  .  .  .  .  .  .  .  .  
+  5 .  .  .  .  .  .  .  .  .  .  .  .  
+  6 .  .  .  NA .  .  .  .  .  .  .  .  
+  7 .  .  .  .  .  .  .  .  .  .  .  .  
+  8 .  .  .  .  NC .  .  .  .  .  .  .  
+  9 .  .  .  si .  si .  .  .  .  .  SC 
+ 10 .  .  .  .  .  .  .  .  .  .  .  SA 
+Turn 6
+
+[moved] North 1st Cavalry: moved to E9
+[melee] South 2nd Infantry attacks North 1st Cavalry's front: hit check 1/2 (attacker wins=false); damage 3/1 (hit=true); South 2nd Infantry destroyed (already half strength)
+[melee] South 1st Infantry attacks North 1st Cavalry's rear: hit check 4/2 (attacker wins=true); damage 4/2 (hit=true); North 1st Cavalry knocked back to F8
+
+    A  B  C  D  E  F  G  H  I  J  K  L  
+  1 NI .  .  .  .  .  .  .  .  .  .  .  
+  2 NI .  .  .  .  .  .  .  .  .  .  .  
+  3 .  .  .  .  .  .  .  .  .  .  .  .  
+  4 .  .  .  .  .  .  .  .  .  .  .  .  
+  5 .  .  .  .  .  .  .  .  .  .  .  .  
+  6 .  .  .  NA .  .  .  .  .  .  .  .  
+  7 .  .  .  .  .  .  .  .  .  .  .  .  
+  8 .  .  .  .  .  nc .  .  .  .  .  .  
+  9 .  .  .  si .  .  .  .  .  .  .  SC 
+ 10 .  .  .  .  .  .  .  .  .  .  .  SA 
+Turn 7
+
+[moved] South 1st Cavalry: moved to G6
+[moved] North 1st Infantry: moved to E3
+[moved] North 2nd Infantry: moved to E4
+
+    A  B  C  D  E  F  G  H  I  J  K  L  
+  1 .  .  .  .  .  .  .  .  .  .  .  .  
+  2 .  .  .  .  .  .  .  .  .  .  .  .  
+  3 .  .  .  .  NI .  .  .  .  .  .  .  
+  4 .  .  .  .  NI .  .  .  .  .  .  .  
+  5 .  .  .  .  .  .  .  .  .  .  .  .  
+  6 .  .  .  NA .  .  SC .  .  .  .  .  
+  7 .  .  .  .  .  .  .  .  .  .  .  .  
+  8 .  .  .  .  .  nc .  .  .  .  .  .  
+  9 .  .  .  si .  .  .  .  .  .  .  .  
+ 10 .  .  .  .  .  .  .  .  .  .  .  SA 
+Turn 8
+
+[moved] North 1st Infantry: moved to F5
+[melee] South 1st Cavalry attacks North 1st Infantry's flank: hit check 4/1 (attacker wins=true); damage 4/1 (hit=true); North 1st Infantry knocked back to E5
+[moved] North 2nd Infantry: moved to F5
+[melee] South 1st Cavalry attacks North 2nd Infantry's flank: hit check 4/2 (attacker wins=true); damage 4/1 (hit=true); North 2nd Infantry destroyed (couldn't retreat to E5)
+[unit-destroyed] North 2nd Infantry: destroyed during ambush
+
+    A  B  C  D  E  F  G  H  I  J  K  L  
+  1 .  .  .  .  .  .  .  .  .  .  .  .  
+  2 .  .  .  .  .  .  .  .  .  .  .  .  
+  3 .  .  .  .  .  .  .  .  .  .  .  .  
+  4 .  .  .  .  .  .  .  .  .  .  .  .  
+  5 .  .  .  .  ni .  .  .  .  .  .  .  
+  6 .  .  .  NA .  .  SC .  .  .  .  .  
+  7 .  .  .  .  .  .  .  .  .  .  .  .  
+  8 .  .  .  .  .  nc .  .  .  .  .  .  
+  9 .  .  .  si .  .  .  .  .  .  .  .  
+ 10 .  .  .  .  .  .  .  .  .  .  .  SA 
+Turn 9
+
+[moved] South 1st Cavalry: moved to L6
+[moved] North 1st Infantry: moved to B5
+[moved] North 1st Cavalry: moved to E9
+[melee] South 1st Infantry attacks North 1st Cavalry's front: hit check 1/1 (attacker wins=false); damage 2/1 (hit=true); South 1st Infantry destroyed (already half strength)
+
+    A  B  C  D  E  F  G  H  I  J  K  L  
+  1 .  .  .  .  .  .  .  .  .  .  .  .  
+  2 .  .  .  .  .  .  .  .  .  .  .  .  
+  3 .  .  .  .  .  .  .  .  .  .  .  .  
+  4 .  .  .  .  .  .  .  .  .  .  .  .  
+  5 .  ni .  .  .  .  .  .  .  .  .  .  
+  6 .  .  .  NA .  .  .  .  .  .  .  SC 
+  7 .  .  .  .  .  .  .  .  .  .  .  .  
+  8 .  .  .  .  .  .  .  .  .  .  .  .  
+  9 .  .  .  .  nc .  .  .  .  .  .  .  
+ 10 .  .  .  .  .  .  .  .  .  .  .  SA 
+Turn 10
+
+
+    A  B  C  D  E  F  G  H  I  J  K  L  
+  1 .  .  .  .  .  .  .  .  .  .  .  .  
+  2 .  .  .  .  .  .  .  .  .  .  .  .  
+  3 .  .  .  .  .  .  .  .  .  .  .  .  
+  4 .  .  .  .  .  .  .  .  .  .  .  .  
+  5 .  ni .  .  .  .  .  .  .  .  .  .  
+  6 .  .  .  NA .  .  .  .  .  .  .  SC 
+  7 .  .  .  .  .  .  .  .  .  .  .  .  
+  8 .  .  .  .  .  .  .  .  .  .  .  .  
+  9 .  .  .  .  nc .  .  .  .  .  .  .  
+ 10 .  .  .  .  .  .  .  .  .  .  .  SA 
+Turn 11
+
+
+    A  B  C  D  E  F  G  H  I  J  K  L  
+  1 .  .  .  .  .  .  .  .  .  .  .  .  
+  2 .  .  .  .  .  .  .  .  .  .  .  .  
+  3 .  .  .  .  .  .  .  .  .  .  .  .  
+  4 .  .  .  .  .  .  .  .  .  .  .  .  
+  5 .  ni .  .  .  .  .  .  .  .  .  .  
+  6 .  .  .  NA .  .  .  .  .  .  .  SC 
+  7 .  .  .  .  .  .  .  .  .  .  .  .  
+  8 .  .  .  .  .  .  .  .  .  .  .  .  
+  9 .  .  .  .  nc .  .  .  .  .  .  .  
+ 10 .  .  .  .  .  .  .  .  .  .  .  SA 
+Turn 12
+
+
+    A  B  C  D  E  F  G  H  I  J  K  L  
+  1 .  .  .  .  .  .  .  .  .  .  .  .  
+  2 .  .  .  .  .  .  .  .  .  .  .  .  
+  3 .  .  .  .  .  .  .  .  .  .  .  .  
+  4 .  .  .  .  .  .  .  .  .  .  .  .  
+  5 .  ni .  .  .  .  .  .  .  .  .  .  
+  6 .  .  .  NA .  .  .  .  .  .  .  SC 
+  7 .  .  .  .  .  .  .  .  .  .  .  .  
+  8 .  .  .  .  .  .  .  .  .  .  .  .  
+  9 .  .  .  .  nc .  .  .  .  .  .  .  
+ 10 .  .  .  .  .  .  .  .  .  .  .  SA 
+
+Turn limit reached. North 30, South 35.
+
+south wins: turn limit

@@ -27,6 +27,20 @@ tie-break token correctly carrying over between turns).
 
 `go vet ./...` and `go test ./...` pass.
 
+## Golden replay tests (pre-M6 verification)
+
+Played two complete Starter Battle games by hand through the CLI and
+recorded them as golden replay tests (`cmd/wartable/testdata/`,
+`golden_test.go`): one ending in annihilation (turn 12), one reaching the
+turn-12 limit and scored on points. Together they exercise a failed
+Deploy, a rear attack, a flank attack, an ambush by more than one enemy
+in sequence, and a knockback destroyed by a blocked (occupied) retreat
+hex. Refactored `runNew`/`runTurn`/`runShow` to take an `io.Writer` so
+tests can replay a game by direct function calls instead of shelling out.
+See the `testdata/*/README.md` files for a turn-by-turn account.
+
+`go vet ./...` and `go test ./...` pass.
+
 ## M4: Orders and turns
 
 Added `internal/orders` (order sheet parsing: unit/order/target/facing

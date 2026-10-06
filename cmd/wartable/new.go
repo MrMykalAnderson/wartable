@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/MrMykalAnderson/wartable/internal/game"
@@ -14,7 +15,7 @@ import (
 // is a later milestone's concern.
 var suggestedArmy = []string{"infantry", "infantry", "cavalry", "artillery"}
 
-func runNew(args []string) error {
+func runNew(args []string, out io.Writer) error {
 	if len(args) != 1 {
 		return fmt.Errorf("usage: wartable new <state.json>")
 	}
@@ -42,7 +43,7 @@ func runNew(args []string) error {
 	if err := writeSave(outPath, save); err != nil {
 		return err
 	}
-	fmt.Printf("created %s: %s, turn 1\n", outPath, scenario.Name)
+	fmt.Fprintf(out, "created %s: %s, turn 1\n", outPath, scenario.Name)
 	return nil
 }
 

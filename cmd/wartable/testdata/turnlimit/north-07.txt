@@ -1,0 +1,2 @@
+North 1st Infantry  | Move | F4
+North 2nd Infantry   | Move | G4

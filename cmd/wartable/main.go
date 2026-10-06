@@ -18,11 +18,11 @@ func main() {
 	var err error
 	switch os.Args[1] {
 	case "new":
-		err = runNew(os.Args[2:])
+		err = runNew(os.Args[2:], os.Stdout)
 	case "turn":
-		err = runTurn(os.Args[2:])
+		err = runTurn(os.Args[2:], os.Stdout)
 	case "show":
-		err = runShow(os.Args[2:])
+		err = runShow(os.Args[2:], os.Stdout)
 	default:
 		usage()
 		os.Exit(2)

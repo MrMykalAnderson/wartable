@@ -1,0 +1,2 @@
+South 2nd Infantry | Deploy | F9
+South 1st Cavalry   | Move   | G7
