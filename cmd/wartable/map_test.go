@@ -47,15 +47,3 @@ func TestRenderMapShowsUnitsAndEmptyHexes(t *testing.T) {
 		t.Errorf("renderMap output missing column headers:\n%s", out)
 	}
 }
-
-func TestOrdinalAndCapitalize(t *testing.T) {
-	cases := map[int]string{1: "1st", 2: "2nd", 3: "3rd", 4: "4th"}
-	for n, want := range cases {
-		if got := ordinal(n); got != want {
-			t.Errorf("ordinal(%d) = %q, want %q", n, got, want)
-		}
-	}
-	if got := capitalize("north"); got != "North" {
-		t.Errorf("capitalize(north) = %q, want North", got)
-	}
-}

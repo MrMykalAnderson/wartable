@@ -8,10 +8,18 @@
 <body>
 <header>
   <h1>Wartable</h1>
-  <div class="load-row">
-    <label for="path">Save file</label>
-    <input id="path" type="text" value="state.json" spellcheck="false">
-    <button id="load">Load</button>
+  <div class="save-panel">
+    <div class="save-row">
+      <label for="save-select">Save</label>
+      <select id="save-select"></select>
+      <button id="load">Load</button>
+      <button id="delete-save">Delete</button>
+    </div>
+    <div class="new-game-row">
+      <label for="new-game-name">New game</label>
+      <input id="new-game-name" type="text" placeholder="e.g. game2.json" spellcheck="false">
+      <button id="new-game">Create</button>
+    </div>
     <span id="load-status"></span>
   </div>
 </header>

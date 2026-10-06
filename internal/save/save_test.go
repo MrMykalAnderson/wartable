@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/MrMykalAnderson/wartable/internal/game"
+	"github.com/MrMykalAnderson/wartable/internal/rules"
 )
 
 func TestWriteLoadRoundTrip(t *testing.T) {
@@ -31,6 +32,64 @@ func TestWriteLoadRoundTrip(t *testing.T) {
 	}
 	if got.State.Board.Columns != want.State.Board.Columns || got.State.Board.Rows != want.State.Board.Rows {
 		t.Errorf("Load.State.Board = %+v, want %+v", got.State.Board, want.State.Board)
+	}
+}
+
+// TestNewGame checks docs/starter-battle.md "Armies": both sides seeded
+// with 2 Infantry, 1 Cavalry, 1 Artillery, named "<Side> <1st/2nd> <Type>".
+func TestNewGame(t *testing.T) {
+	units := map[string]rules.Unit{
+		"infantry":  {ID: "infantry", Name: "Infantry", DeployState: ""},
+		"cavalry":   {ID: "cavalry", Name: "Cavalry", DeployState: ""},
+		"artillery": {ID: "artillery", Name: "Artillery", DeployState: "mobilised"},
+	}
+	scenario := rules.Scenario{
+		ID: "starter-battle", TieBreakHolder: "north",
+		Map: rules.MapSize{Columns: 12, Rows: 10},
+	}
+
+	f := NewGame(units, scenario)
+	if f.ScenarioID != "starter-battle" || f.Turn != 1 || f.TieBreak.Holder != "north" {
+		t.Errorf("NewGame header fields = %+v", f)
+	}
+	if f.State.Board.Columns != 12 || f.State.Board.Rows != 10 {
+		t.Errorf("NewGame.State.Board = %+v, want 12x10", f.State.Board)
+	}
+
+	for _, side := range []string{"north", "south"} {
+		army := f.State.Reserves[side]
+		if len(army) != 4 {
+			t.Fatalf("%s reserves = %+v, want 4 units", side, army)
+		}
+		wantIDs := []string{
+			capitalize(side) + " 1st Infantry",
+			capitalize(side) + " 2nd Infantry",
+			capitalize(side) + " 1st Cavalry",
+			capitalize(side) + " 1st Artillery",
+		}
+		for i, u := range army {
+			if u.ID != wantIDs[i] {
+				t.Errorf("%s reserves[%d].ID = %q, want %q", side, i, u.ID, wantIDs[i])
+			}
+			if u.Side != side || u.Strength != game.Full {
+				t.Errorf("%s reserves[%d] = %+v, want Side %s, Full strength", side, i, u, side)
+			}
+		}
+		if army[3].State != "mobilised" {
+			t.Errorf("%s artillery State = %q, want mobilised (its deploy_state)", side, army[3].State)
+		}
+	}
+}
+
+func TestOrdinalAndCapitalize(t *testing.T) {
+	cases := map[int]string{1: "1st", 2: "2nd", 3: "3rd", 4: "4th"}
+	for n, want := range cases {
+		if got := ordinal(n); got != want {
+			t.Errorf("ordinal(%d) = %q, want %q", n, got, want)
+		}
+	}
+	if got := capitalize("north"); got != "North" {
+		t.Errorf("capitalize(north) = %q, want North", got)
 	}
 }
 
