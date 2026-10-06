@@ -11,6 +11,22 @@ section 11 (EX-3, EX-4) and the direction table in section 2.1.
 
 `go vet ./...` and `go test ./...` pass.
 
+## M5: CLI
+
+Added `cmd/wartable` (`new`, `turn`, `show`) and `internal/game`'s
+`CheckAnnihilation`/`ScoreAtTurnLimit` for the Starter Battle's win
+conditions. `new` seeds both sides' reserves with the suggested army;
+`turn` loads a saved game plus two order-sheet files, runs
+`game.ExecuteTurn`, prints a plain ASCII map and the event log (with the
+melee/ranged numbers), checks for a win, and saves the updated state as
+JSON; `show` prints an existing save's map and reserves. Deliberately
+minimal: no flags, no interactive prompts, and only the Starter Battle.
+Verified end-to-end with a real multi-turn game (deploy, move, ready,
+fire, and an ambush with knockback all resolved correctly, including the
+tie-break token correctly carrying over between turns).
+
+`go vet ./...` and `go test ./...` pass.
+
 ## M4: Orders and turns
 
 Added `internal/orders` (order sheet parsing: unit/order/target/facing
