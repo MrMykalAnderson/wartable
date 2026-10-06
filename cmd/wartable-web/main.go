@@ -22,6 +22,7 @@ func main() {
 	mux.HandleFunc("/api/turn", handleTurn)
 	mux.HandleFunc("/api/options", handleOptions)
 	mux.HandleFunc("/api/predict", handlePredict)
+	mux.HandleFunc("/api/saves", handleSaves)
 	mux.Handle("/", http.FileServer(http.Dir("web")))
 
 	fmt.Printf("wartable-web listening on http://%s (serving web/ from the current directory)\n", *addr)

@@ -29,10 +29,26 @@ header h1 {
   font-size: 1.4rem;
 }
 
-.load-row {
+.save-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.save-row,
+.new-game-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+#save-select {
+  min-width: 320px;
+  max-width: 480px;
+}
+
+#new-game-name {
+  width: 180px;
 }
 
 main {

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/MrMykalAnderson/wartable/internal/game"
 	"github.com/MrMykalAnderson/wartable/internal/rules"
@@ -42,6 +43,69 @@ func Write(path string, f File) error {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil
+}
+
+// suggestedArmy is the Starter Battle's suggested army (docs/starter-
+// battle.md "Armies"): 2 Infantry, 1 Cavalry, 1 Artillery, Cost 55. Both
+// cmd/wartable and cmd/wartable-web always start both sides with it;
+// choosing a different army is a later milestone's concern.
+var suggestedArmy = []string{"infantry", "infantry", "cavalry", "artillery"}
+
+// NewGame builds a fresh game: both sides' reserves seeded with the
+// suggested army, turn 1, tie-break holder per the scenario. It doesn't
+// write anything to disk; call Write with the result to save it.
+func NewGame(units map[string]rules.Unit, scenario rules.Scenario) File {
+	reserves := map[string][]game.UnitInstance{}
+	for _, side := range []string{"north", "south"} {
+		reserves[side] = buildArmy(units, side)
+	}
+	return File{
+		ScenarioID: scenario.ID,
+		Turn:       1,
+		TieBreak:   game.TieBreak{Holder: scenario.TieBreakHolder},
+		State: game.GameState{
+			Board:    game.Board{Columns: scenario.Map.Columns, Rows: scenario.Map.Rows},
+			Reserves: reserves,
+		},
+	}
+}
+
+func buildArmy(units map[string]rules.Unit, side string) []game.UnitInstance {
+	counts := map[string]int{}
+	army := make([]game.UnitInstance, 0, len(suggestedArmy))
+	for _, templateID := range suggestedArmy {
+		counts[templateID]++
+		tmpl := units[templateID]
+		name := fmt.Sprintf("%s %s %s", capitalize(side), ordinal(counts[templateID]), capitalize(templateID))
+		army = append(army, game.UnitInstance{
+			ID:       name,
+			Side:     side,
+			Template: tmpl,
+			Strength: game.Full,
+			State:    tmpl.DeployState,
+		})
+	}
+	return army
+}
+
+func capitalize(s string) string {
+	if s == "" {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
+}
+
+func ordinal(n int) string {
+	switch n {
+	case 1:
+		return "1st"
+	case 2:
+		return "2nd"
+	case 3:
+		return "3rd"
+	default:
+		return fmt.Sprintf("%dth", n)
+	}
 }
 
 // Rules data paths, relative to the repository root (docs/dev-plan.md

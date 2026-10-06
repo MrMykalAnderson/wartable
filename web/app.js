@@ -333,7 +333,7 @@ function hideUnitCard() {
 // ---- order building ------------------------------------------------------
 
 function currentPath() {
-  return document.getElementById("path").value.trim();
+  return document.getElementById("save-select").value;
 }
 
 function unitHasOrder(side, unitId) {
@@ -955,6 +955,135 @@ async function runTurn(path) {
   }
 }
 
+// ---- save management (new game, load, delete) ---------------------------
+
+// loadSaveList fetches the save list and (re)populates the dropdown,
+// trying to keep whichever path was selected (or selectPath, if given)
+// selected afterward. Returns the list.
+async function loadSaveList(selectPath) {
+  const status = document.getElementById("load-status");
+  try {
+    const res = await fetch("/api/saves");
+    const saves = await res.json();
+    if (!res.ok) throw new Error((saves && saves.error) || res.statusText);
+    renderSaveList(saves || [], selectPath);
+    return saves || [];
+  } catch (err) {
+    status.textContent = String(err.message || err);
+    return [];
+  }
+}
+
+function renderSaveList(saves, selectPath) {
+  const select = document.getElementById("save-select");
+  const previous = selectPath || select.value;
+  select.innerHTML = "";
+  if (saves.length === 0) {
+    const opt = document.createElement("option");
+    opt.textContent = "(no saves yet — create one below)";
+    opt.disabled = true;
+    select.appendChild(opt);
+    return;
+  }
+  saves.forEach((s) => {
+    const opt = document.createElement("option");
+    opt.value = s.path;
+    opt.textContent = `${s.path} — ${s.scenarioId}, turn ${s.turn}, ${s.units} unit${s.units === 1 ? "" : "s"}`;
+    select.appendChild(opt);
+  });
+  if (previous && saves.some((s) => s.path === previous)) {
+    select.value = previous;
+  }
+}
+
+async function createNewGame() {
+  const status = document.getElementById("load-status");
+  status.textContent = "";
+  const input = document.getElementById("new-game-name");
+  let name = input.value.trim();
+  if (!name) {
+    status.textContent = "Enter a name for the new game.";
+    return;
+  }
+  if (!name.toLowerCase().endsWith(".json")) name += ".json";
+  try {
+    const res = await fetch("/api/saves", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: name }),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || res.statusText);
+    input.value = "";
+    await loadSaveList(name);
+    await loadGame(name);
+  } catch (err) {
+    status.textContent = String(err.message || err);
+  }
+}
+
+// clearGame resets the viewer to its empty, nothing-loaded state (used
+// after deleting the save that's currently open).
+function clearGame() {
+  state.game = null;
+  state.turnHistory = [];
+  state.historyIndex = -1;
+  state.stepIndex = -1;
+  state.orders = { north: [], south: [] };
+  clearSelection();
+  document.getElementById("map").innerHTML = "";
+  document.getElementById("game-info").textContent = "";
+  document.getElementById("event-list").innerHTML = "";
+  document.getElementById("step-summary").textContent = "";
+  document.getElementById("step-detail").innerHTML = "";
+  document.getElementById("step-counter").textContent = "0 / 0";
+  renderAvailableUnits();
+  renderOrderLists();
+  renderTurnNav();
+}
+
+// Delete needs a second click within a few seconds to actually happen
+// (docs/dev-plan.md web TODO: save management), rather than a native
+// confirm() dialog.
+let deleteArmed = false;
+function resetDeleteArm() {
+  deleteArmed = false;
+  document.getElementById("delete-save").textContent = "Delete";
+}
+
+async function deleteCurrentSave() {
+  const path = currentPath();
+  if (!path) return;
+  const btn = document.getElementById("delete-save");
+  if (!deleteArmed) {
+    deleteArmed = true;
+    btn.textContent = `Confirm delete ${path}?`;
+    setTimeout(() => {
+      if (deleteArmed) resetDeleteArm();
+    }, 4000);
+    return;
+  }
+  resetDeleteArm();
+
+  const status = document.getElementById("load-status");
+  status.textContent = "";
+  try {
+    const res = await fetch(`/api/saves?path=${encodeURIComponent(path)}`, { method: "DELETE" });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || res.statusText);
+    }
+    if (state.game) clearGame();
+    await loadSaveList();
+  } catch (err) {
+    status.textContent = String(err.message || err);
+  }
+}
+
+document.getElementById("new-game").addEventListener("click", createNewGame);
+document.getElementById("delete-save").addEventListener("click", deleteCurrentSave);
+document.getElementById("save-select").addEventListener("change", resetDeleteArm);
+
 document.getElementById("load").addEventListener("click", () => {
   loadGame(currentPath());
 });
@@ -962,6 +1091,16 @@ document.getElementById("load").addEventListener("click", () => {
 document.getElementById("run-turn").addEventListener("click", () => {
   runTurn(currentPath());
 });
+
+// On page load: populate the save list, and if there's exactly one save
+// (the common case — one game in progress), load it straight away so
+// opening the page just works.
+(async function initSaves() {
+  const saves = await loadSaveList();
+  if (saves.length === 1) {
+    await loadGame(saves[0].path);
+  }
+})();
 
 document.getElementById("step-prev").addEventListener("click", () => {
   if (state.stepIndex > -1) {

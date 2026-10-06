@@ -11,6 +11,42 @@ section 11 (EX-3, EX-4) and the direction table in section 2.1.
 
 `go vet ./...` and `go test ./...` pass.
 
+## Web viewer: new game button and save management
+
+Closed the long-standing web TODO: a "New game" button, plus a proper
+save list instead of a free-text path field.
+
+Extracted `save.NewGame(units, scenario) File` out of
+`cmd/wartable/new.go`'s `runNew` (the suggested-army seeding logic) so
+both the CLI and the web server build a fresh game the same way —
+`cmd/wartable new` is unchanged from the outside, just thinner.
+
+Added `cmd/wartable-web/saves.go`: `GET /api/saves` lists every `*.json`
+file in the server's working directory that actually loads as a save
+(anything else is silently skipped); `POST /api/saves` creates a new
+one (refuses to overwrite an existing file); `DELETE /api/saves?path=`
+removes one. All three validate the path is a plain filename with no
+directory components, so the web API can never read, write or delete
+outside its working directory.
+
+The viewer's header is now a save dropdown (Load/Delete) plus a New
+game row (name, Create), replacing the old "Save file" text input.
+Deleting needs a second click within 4 seconds to confirm (no native
+`confirm()` dialog); deleting the save currently open resets the viewer
+to its empty state. On page load, the save list populates and — if
+there's exactly one save, the common case — it loads automatically, so
+opening the page just works instead of requiring a manual Load click
+against a guessed filename.
+
+`go vet ./...` and `go test ./...` pass (new `TestValidSavePath`,
+`TestHandleNewGameThenList`, `TestHandleNewGameRefusesOverwrite`,
+`TestHandleDeleteSave` and friends in `cmd/wartable-web`, plus
+`TestNewGame` in `internal/save`). Verified end-to-end in a real
+browser against an isolated directory (not the real `state.json`):
+created two games, confirmed both listed with their scenario/turn/unit
+summary, loaded one, deleted it with the two-click confirm, and
+confirmed the viewer cleared and the list updated.
+
 ## Playtest round 2 changes: combat rewrite (dev-plan.md section 7.5)
 
 **Combat rewrite.** Melee and ranged combat are now one comparison each:
