@@ -20,6 +20,14 @@ type HexView struct {
 // available orders this turn, plus its range visualiser (docs/dev-plan.md
 // sections 7.1 and 7.3): computed by the engine, never re-derived in
 // JavaScript.
+//
+// MoveHexes/CloseMoveHexes are a reach *guide*, not a restriction
+// (docs/dev-plan.md section 7.6): pure distance from the unit's current
+// position, ignoring every other unit on the board. A Move order's path
+// is only worked out at execution, by which time other units (friendly
+// and enemy) will have moved, so planning can't know what's actually in
+// the way — any hex, and any enemy for an attack/Fire order, is a valid
+// order target regardless of what these fields show.
 type OptionsView struct {
 	IsReserve   bool      `json:"isReserve"`
 	MoveHexes   []HexView `json:"moveHexes"`
@@ -88,20 +96,10 @@ func deployedUnitOptions(board game.Board, core rules.CoreRules, unit game.UnitI
 
 	stats := unit.Stats(core)
 	if unit.CanMove() {
-		passable := game.PassableFor(board, unit.ID)
-		field := hex.FloodFill(unit.Pos, passable)
-		for h, dist := range field {
-			if dist > 0 && dist <= stats.Move {
-				view.MoveHexes = append(view.MoveHexes, HexView{Col: h.Col, Row: h.Row})
-			}
-		}
+		view.MoveHexes = hexesWithin(unit.Pos, stats.Move, scenario)
 		if unit.Template.Melee || len(unit.Template.States) == 0 {
 			view.CloseMove = stats.Move / 2
-			for h, dist := range field {
-				if dist > 0 && dist <= view.CloseMove {
-					view.CloseMoveHexes = append(view.CloseMoveHexes, HexView{Col: h.Col, Row: h.Row})
-				}
-			}
+			view.CloseMoveHexes = hexesWithin(unit.Pos, view.CloseMove, scenario)
 		}
 	}
 
@@ -132,13 +130,35 @@ func deployedUnitOptions(board game.Board, core rules.CoreRules, unit game.UnitI
 			view.CloseFireTargets = append(view.CloseFireTargets, other.ID)
 		}
 		if unit.CanFire() {
-			dist := hex.Distance(unit.Pos, other.Pos)
-			if dist >= stats.MinRange && dist <= stats.MaxRange && hex.InFiringArc(unit.Pos, unit.Facing, other.Pos) {
-				view.FireTargets = append(view.FireTargets, other.ID)
-			}
+			// Any enemy is a valid Fire target regardless of current
+			// range/arc (docs/dev-plan.md section 7.6): the prediction
+			// (GET /api/predict) says "out of range or arc" if it
+			// actually is, once the order is being confirmed.
+			view.FireTargets = append(view.FireTargets, other.ID)
 		}
 	}
 	return view
+}
+
+// hexesWithin returns every hex on scenario's map within dist of pos
+// (exclusive of pos itself), ignoring every unit on the board
+// (docs/dev-plan.md section 7.6: a reach guide, not a pathfinding
+// result — the map edge is the only limit).
+func hexesWithin(pos hex.Offset, dist int, scenario rules.Scenario) []HexView {
+	var hexes []HexView
+	if dist <= 0 {
+		return hexes
+	}
+	for col := 0; col < scenario.Map.Columns; col++ {
+		for row := 0; row < scenario.Map.Rows; row++ {
+			h := hex.Offset{Col: col, Row: row}
+			d := hex.Distance(pos, h)
+			if d > 0 && d <= dist {
+				hexes = append(hexes, HexView{Col: col, Row: row})
+			}
+		}
+	}
+	return hexes
 }
 
 func canEnterState(unit game.UnitInstance, state string) bool {

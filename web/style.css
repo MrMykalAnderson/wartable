@@ -327,6 +327,15 @@ button {
   stroke-width: 1;
   opacity: 0.45;
 }
+/* Straight-line stop estimate for a Move order beyond this turn's
+   reach (docs/dev-plan.md section 7.6): the real path is only worked
+   out at execution, so this is explicitly labelled an estimate. */
+.ghost-estimate-label {
+  font-size: 10px;
+  font-style: italic;
+  fill: #333;
+  opacity: 0.75;
+}
 .ghost-north {
   fill: #6f93c9;
 }
