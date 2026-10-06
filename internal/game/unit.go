@@ -69,3 +69,21 @@ func (u UnitInstance) TakeHit() (next UnitInstance, destroyed bool) {
 	u.Strength = Half
 	return u, false
 }
+
+// canMove, canFire and canTurn report what a unit can currently do, given
+// its state (docs/core-rules.md section 3.3). Units without states (e.g.
+// infantry, cavalry) can always do all three.
+func (u UnitInstance) canMove() bool {
+	s, ok := u.Template.States[u.State]
+	return !ok || s.CanMove
+}
+
+func (u UnitInstance) canFire() bool {
+	s, ok := u.Template.States[u.State]
+	return !ok || s.CanFire
+}
+
+func (u UnitInstance) canTurn() bool {
+	s, ok := u.Template.States[u.State]
+	return !ok || s.CanTurn
+}

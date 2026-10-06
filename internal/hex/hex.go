@@ -6,6 +6,7 @@ package hex
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 )
 
@@ -163,4 +164,22 @@ func CubeDistance(a, b Cube) int {
 // section 2.2).
 func Distance(a, b Offset) int {
 	return CubeDistance(a.ToCube(), b.ToCube())
+}
+
+// DirectionToward returns the direction whose step is most aligned with
+// the vector from "from" to "to": the edge pointing most directly at a
+// hex that may be distant and not on any single direction's exact line
+// (docs/core-rules.md section 4.1, turning to face a target without
+// moving). If from == to, N is returned arbitrarily.
+func DirectionToward(from, to Offset) Direction {
+	delta := to.ToCube().sub(from.ToCube())
+	best, bestDot := N, math.MinInt
+	for _, d := range Directions {
+		step := cubeStep[d]
+		dot := step.Q*delta.Q + step.R*delta.R + step.S*delta.S
+		if dot > bestDot {
+			best, bestDot = d, dot
+		}
+	}
+	return best
 }

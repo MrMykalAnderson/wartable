@@ -10,7 +10,28 @@ import (
 const (
 	unitsPath     = "../../data/units/standard.yaml"
 	coreRulesPath = "../../data/rules/core.yaml"
+	scenarioPath  = "../../data/scenarios/starter-battle.yaml"
 )
+
+func loadTestScenario(t *testing.T, templates map[string]rules.Unit) rules.Scenario {
+	t.Helper()
+	s, err := rules.LoadScenario(scenarioPath, templates)
+	if err != nil {
+		t.Fatalf("LoadScenario: %v", err)
+	}
+	return s
+}
+
+// reserveUnit builds a full-strength UnitInstance not yet on the map, for
+// GameState.Reserves.
+func reserveUnit(t *testing.T, templates map[string]rules.Unit, id, side, templateID string) UnitInstance {
+	t.Helper()
+	tmpl, ok := templates[templateID]
+	if !ok {
+		t.Fatalf("reserveUnit: unknown template %q", templateID)
+	}
+	return UnitInstance{ID: id, Side: side, Template: tmpl, Strength: Full, State: tmpl.DeployState}
+}
 
 func loadTestRules(t *testing.T) (map[string]rules.Unit, rules.CoreRules) {
 	t.Helper()

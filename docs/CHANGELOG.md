@@ -11,6 +11,23 @@ section 11 (EX-3, EX-4) and the direction table in section 2.1.
 
 `go vet ./...` and `go test ./...` pass.
 
+## M4: Orders and turns
+
+Added `internal/orders` (order sheet parsing: unit/order/target/facing
+fields, "#" comments, duplicate-order and bad-facing detection, with all
+sheet errors reported together) and extended `internal/game` with
+`GameState`, `Initiative`/`TieBreak`, `BuildExecutionOrder`, and
+`ExecuteOrder`/`ExecuteTurn` covering every order type (Deploy, Move,
+Close and Attack, Fire, Close and Fire, Ready/Mobilise), movement with
+the contact/ambush rules, and artillery state gating (can-move/can-fire,
+and the flat Close-and-Fire prohibition). Tests cover EX-1 (initiative and
+execution order) plus multi-order scenarios: ambush during a Move, Close
+and Attack both adjacent and after closing, ambush-by-a-different-enemy,
+Fire and Close and Fire, and a full `ExecuteTurn` mixing Deploy/Move/Fire
+across both sides, including a destroyed unit's later order being skipped.
+
+`go vet ./...` and `go test ./...` pass.
+
 ## M3: Combat
 
 Added `internal/game`: `UnitInstance`/`Board` (support, adjacency, retreat

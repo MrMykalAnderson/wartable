@@ -125,6 +125,23 @@ func TestDistance(t *testing.T) {
 	}
 }
 
+func TestDirectionToward(t *testing.T) {
+	cases := []struct {
+		from, to string
+		want     Direction
+	}{
+		{"F6", "F2", N},  // straight line.
+		{"F6", "F10", S}, // straight line, other way.
+		{"F6", "G6", NE}, // adjacent.
+	}
+	for _, c := range cases {
+		from, to := mustParse(t, c.from), mustParse(t, c.to)
+		if got := DirectionToward(from, to); got != c.want {
+			t.Errorf("DirectionToward(%s, %s) = %v, want %v", c.from, c.to, got, c.want)
+		}
+	}
+}
+
 func TestAdjacentDirection(t *testing.T) {
 	a, b := mustParse(t, "F6"), mustParse(t, "G6")
 	dir, ok := AdjacentDirection(a, b)
