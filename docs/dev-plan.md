@@ -212,6 +212,10 @@ From `Playthrough notes 1.md`. Rules first, then interface.
 
 Don't start M6 until the engine (M1–M5) is solid; the point of the web tools is to explore rules, which only works if the engine is trustworthy.
 
+### 7.4 Parked (don't start without being asked)
+
+- **Map-first layout.** The map should be the main focus and fill the screen. All panels (orders, unit details, event playback, sandbox) become either docked strips around the map edges or floating, movable windows. A large layout change; do it as one piece of work when asked, not piecemeal.
+
 ## 8. Definition of done (every change)
 
 - `go vet ./...` and `go test ./...` pass.
