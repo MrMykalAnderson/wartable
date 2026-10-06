@@ -160,9 +160,36 @@ Each milestone ends with passing tests, a short note in `docs/CHANGELOG.md`, and
 | M4 | Orders and turns | Order parsing, initiative with tie-break token, alternating execution, all order types, artillery states. Test EX-1, plus multi-order scenarios. |
 | M5 | CLI | `wartable new`, `wartable turn <state> <north.txt> <south.txt>`, prints an ASCII map and the event log; game state saved as JSON. Win conditions from the scenario. |
 | M6 | Web viewer | Local web server: draws the hex map with units and facing, loads a saved game, steps through a turn's events one at a time. |
-| M7 | Web play and sandbox | Enter orders for both players in the browser (hot-seat), and edit rules data in the browser to replay a turn under different values. |
+| M7 | Web play and sandbox | Enter orders for both players in the browser (hot-seat) **by clicking on the map**, and edit rules data in the browser to replay a turn under different values. See 7.1. |
+| M8 | Online two-player play | Games stored on the server; each player gets a private link and sees only their own orders until both have submitted. See 7.2. |
 
 For M6 onward, draw units as described in core-rules.md 3.3 and shown in `docs/images/`: a type symbol in a box, the front edge red, the flank edges green, half-strength units visibly marked. Draw them as SVG (don't embed the PNGs) so tokens can rotate to any facing and scale cleanly.
+
+### 7.1 M7: click-to-order
+
+Typing order text is fine for testing but too slow for playtesting. In M7, orders are built by clicking:
+
+- Click one of your units to select it; the page highlights the hexes it can reach and the enemies it can target.
+- Click a hex for a Move, or an enemy for Close and Attack, Fire or Close and Fire (offer the valid order types for that target). Choose a facing with a small six-way picker on the destination hex, or let it default.
+- Orders appear in a list beside the map in execution order; they can be reordered (drag or up/down buttons) and deleted.
+- The list produces the same order-sheet text as section 6, so the engine, CLI and saved games don't change. Show the text too, so it can be copied.
+- Previews are guidance only: they must use the engine's own rules (e.g. via an API call), never a second copy of the rules in JavaScript.
+
+Keep the visual style plain for now. Usability matters now; visual polish (art, typography, animation) waits until the rules settle.
+
+### 7.2 M8: online two-player play
+
+Secret orders are the heart of the game, so hot-seat is for testing only. M8 makes real remote games possible, kept as simple as possible:
+
+- **No accounts yet.** Creating a game returns two private player links (long random tokens in the URL), one for North and one for South, plus an optional read-only spectator link.
+- Each player sees the map and their own order list. They can't see the other player's orders, only whether they have submitted.
+- When both have submitted, the server runs the turn, saves it, and both players see the event replay.
+- A player can edit and resubmit until the other player has also submitted; after that the turn is locked.
+- Games are stored on disk (one JSON file per game, or SQLite), and every turn's order sheets are kept so any game can be replayed.
+- Simple polling (every few seconds) is enough to notice the other player submitting; no websockets needed yet.
+- Include a short `docs/deploy.md` on running it on a small hosted server, but don't pick a host without asking.
+
+Accounts, lobbies and matchmaking come later, if ever.
 
 Don't start M6 until the engine (M1–M5) is solid; the point of the web tools is to explore rules, which only works if the engine is trustworthy.
 
