@@ -191,6 +191,24 @@ Secret orders are the heart of the game, so hot-seat is for testing only. M8 mak
 
 Accounts, lobbies and matchmaking come later, if ever.
 
+### 7.3 Playtest round 1 changes (do before finishing M7)
+
+From `Playthrough notes 1.md`. Rules first, then interface.
+
+**Rules (see core-rules.md, already updated):**
+
+- **Range bands.** Range is now minimum–maximum. Add `min_range` to every unit in the data (default 1); artillery is 3–5. Half strength lowers only the maximum. Apply the minimum to every ranged attack (Fire, Close and Fire, Barrage).
+- **Artillery Barrage (passive order).** At the start of every Execution Phase, before written orders, every Ready artillery unit fires at every enemy in its band and arc. Resolve all passive fire for both sides simultaneously: compute every attack from start-of-phase positions, then apply all hits. Multiple hits on one unit stack. The artillery still gets its normal order. Emit a clear event per shot.
+- Add worked example **EX-7** as a test, and update the golden replay tests (their results will change). Note the changes in the changelog.
+
+**Interface:**
+
+1. **Show pending orders on the map** while planning: a ghost token for Deploy, a path line ending in a ghost token with its facing for Move, an arrow to the target for attacks and Fire.
+2. **Click a unit on the map to select it** for ordering (currently only possible from the orders panel).
+3. **Unit details**: hovering or selecting a unit shows a card with its current stats (half strength applied), facing, artillery state, and a short description of the unit type.
+4. **Step-by-step turn playback**, prominent and obvious: one plain-English line per event, a Next button (and Back if easy), with the map updating at each step. Barrage shots are steps too.
+5. **Range visualiser** for the selected unit: green hexes it can move to this turn, red hexes it can fire into (band + arc). For Ready artillery, also show its barrage zone. All of this must come from the engine (e.g. `/api/options`), never recomputed in JavaScript.
+
 Don't start M6 until the engine (M1–M5) is solid; the point of the web tools is to explore rules, which only works if the engine is trustworthy.
 
 ## 8. Definition of done (every change)

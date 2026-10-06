@@ -55,7 +55,6 @@ All units start off the map. On turn 1 (and later turns), units enter with **Dep
 All Core Rules apply except:
 
 - **No terrain or barriers.**
-- **No passive orders** (artillery does not limber up automatically).
 - **No reinforcements.** Destroyed units do not come back.
 
 ## Winning

@@ -83,7 +83,7 @@ Every unit has these stats:
 | **Cost** | How much of the army's capacity the unit uses (also called capacity cost). |
 | **Move** | The most hexes the unit can move with one order. |
 | **Def** | Defence. Resists being hit and damaged. |
-| **Range** | How far, in hexes, the unit can make ranged attacks. "—" means no ranged attack. |
+| **Range** | The distances, in hexes, at which the unit can make ranged attacks, written as minimum–maximum (e.g. 3–5). A single number means a minimum of 1. "—" means no ranged attack. |
 | **RngDmg** | Ranged damage. Compared against the target's Defence. |
 | **Attack** | Used to win melee combat, and to hit with ranged attacks. |
 | **AttDmg** | Attack damage. Compared against the loser's Defence after melee. |
@@ -96,7 +96,7 @@ A unit is either at **full strength** or **half strength**.
 
 - A full-strength unit that takes a **hit** drops to half strength. Turn its token over.
 - A half-strength unit that takes a hit is **destroyed** and removed from the map.
-- A half-strength unit has **−1 to every stat** except Cost (minimum 0).
+- A half-strength unit has **−1 to every stat** except Cost (minimum 0). For Range, only the maximum drops; the minimum stays the same.
 
 ### 3.3 Unit tokens
 
@@ -145,7 +145,7 @@ Long-ranged guns that must be set up before they can fire, and are vulnerable wh
 
 | Cost | Move | Def | Range | RngDmg | Attack | AttDmg |
 | --- | --- | --- | --- | --- | --- | --- |
-| 15 | 4 | 4 Ready / 2 Mobilised | 5 | 3 | 3 *(ranged only, Provisional)* | — |
+| 15 | 4 | 4 Ready / 2 Mobilised | 3–5 | 3 | 3 *(ranged only, Provisional)* | — |
 
 *"We will rain fire from the sky!"*
 
@@ -160,6 +160,12 @@ Long-ranged guns that must be set up before they can fire, and are vulnerable wh
 - A **Ready** order switches a Mobilised unit to Ready. A **Mobilise** order switches a Ready unit to Mobilised. Either order uses the unit's order for the turn.
 - **(Provisional)** A Ready or Mobilise order may also set the unit's facing. Without this, Ready artillery could never turn.
 - Artillery cannot make melee attacks (it cannot be given a Close and Attack order). It can still defend in melee.
+
+**Artillery passive order: Barrage.** At the start of every Execution Phase, before any written orders, each **Ready** artillery unit makes a ranged attack against **every** enemy unit inside its range band (3–5 hexes) and firing arc. See [5.3](#53-execution-phase).
+
+- The barrage is in addition to the artillery's normal order for the turn, so the same gun can still Fire later in the turn.
+- Units too close (1–2 hexes) are safe from the barrage, and from all artillery fire.
+- The intended play: **never stop inside enemy artillery range.** Guns sit behind a friendly fighting line, covering the ground in front of it, and enemies must close quickly or go around.
 
 ## 4. Facing
 
@@ -210,7 +216,14 @@ The player with the **lower total has initiative** and their first order is carr
 
 ### 5.3 Execution Phase
 
-Orders are carried out alternately: the initiative player's 1st order, the other player's 1st order, the initiative player's 2nd order, and so on. When one player runs out of orders, the other player's remaining orders are carried out back to back.
+**Step 1: passive orders.** First, all passive orders take effect (for the standard units, that is the artillery [Barrage](#artillery)). Passive fire from **both** sides happens at the same moment:
+
+1. Work out every passive attack using the positions at the start of the phase: which targets are in range and arc, and each hit and damage check, including support.
+2. Then apply all the hits together. A unit hit by more than one gun takes a hit from each, so a full-strength unit hit twice is destroyed.
+
+Because everything is worked out before anything is applied, it never matters whose guns fire first, and a unit destroyed in the barrage still counts as support for that barrage.
+
+**Step 2: written orders.** Orders are then carried out alternately: the initiative player's 1st order, the other player's 1st order, the initiative player's 2nd order, and so on. When one player runs out of orders, the other player's remaining orders are carried out back to back.
 
 Each order is carried out **completely**, including any combat it causes, before the next order starts. Nothing happens at the end of the phase: units that are adjacent to enemies only fight when an order makes them.
 
@@ -348,7 +361,7 @@ If that hex is off the map, occupied, or adjacent to any enemy, the loser can't 
 
 ## 9. Ranged combat
 
-A ranged attack needs the target to be within the shooter's **Range** and inside its **firing arc** (see [Section 4](#4-facing)). Nothing blocks line of sight on open ground.
+A ranged attack needs the target to be within the shooter's **Range** (no closer than the minimum and no further than the maximum) and inside its **firing arc** (see [Section 4](#4-facing)). Nothing blocks line of sight on open ground.
 
 **Hit check.** Compare the shooter's **Attack + support** with the target's **Def + support**. If the shooter's total is **higher**, the attack hits. Otherwise it misses and nothing happens.
 
@@ -422,6 +435,16 @@ Ready Artillery A fires at Infantry B, 4 hexes away and inside A's arc.
 
 If B had one adjacent ally, the hit check would be 3 vs 3: a miss.
 
+### EX-7: Barrage
+
+North's **1st Guns** (artillery, Ready) is at **F2 facing S**. At the start of the Execution Phase, South has **3rd Foot** (infantry) at **F5** and **4th Horse** (cavalry) at **F4**.
+
+- 4th Horse is 2 hexes away: inside the minimum range, so it isn't fired on.
+- 3rd Foot is 3 hexes away, directly ahead: inside the band and the arc, so it is fired on.
+- Hit check: 1st Guns Attack **3** vs 3rd Foot Def 2 + 1 support (4th Horse is adjacent) = **3**. Not higher: a miss.
+
+If 4th Horse had not been there, the hit check would be 3 vs 2 (a hit), and the damage check RngDmg 3 vs Def 2 would put 3rd Foot at half strength. Either way, 1st Guns can still carry out its own written order later in the turn.
+
 ## 12. Provisional rules and open questions
 
 These rules were filled in to make the game playable and need confirming in playtesting:
@@ -432,12 +455,13 @@ These rules were filled in to make the game playable and need confirming in play
 4. **Deploying into or next to an enemy fails.**
 5. **Unreachable destinations:** the unit heads for the closest reachable hex.
 6. **Ambush by several enemies:** each attacks in turn, clockwise from N.
+7. **Half strength and range:** only the maximum range drops (artillery becomes 3–4).
+8. **Barrage strength:** firing at every target plus a normal order is deliberately strong. If it dominates, the first levers to try are artillery Cost, or a limit on barrage targets.
 
 Open design questions:
 
 - How much damage should exceeding Def by a lot do? (Currently any margin is one hit.)
 - Retreat vs rout: should badly beaten units turn their back when knocked back?
-- Passive orders (e.g. artillery limbering up when threatened) need a general design.
 - Initiative bidding, morale, terrain and barriers.
 - A larger unit roster with rock-paper-scissors balance.
 
@@ -449,7 +473,7 @@ New units use the standard stat block. A unit entry has:
 - **Stat table:** Cost, Move, Def, Range, RngDmg, Attack, AttDmg.
 - **Flavour text** in italics.
 - **Special orders**, if any: orders only this unit can use.
-- **Passive orders**, if any: rules that trigger automatically. (Passive orders are not yet part of the core rules.)
+- **Passive orders**, if any: rules that trigger automatically at the start of the Execution Phase (see [5.3](#53-execution-phase)). They are resolved simultaneously for both sides.
 
 ## 14. Glossary
 
@@ -457,6 +481,7 @@ New units use the standard stat block. A unit entry has:
 | --- | --- |
 | Adjacent | Sharing an edge. Distance 1. |
 | Ambushed | A unit that blundered into contact. It defends with −1 Def. |
+| Barrage | Artillery's passive order: Ready guns fire at every enemy in their range band and arc at the start of the Execution Phase. |
 | Capacity | The total Cost an army may field. |
 | Contact | A moving unit entering a hex adjacent to an enemy. |
 | DZ | Deployment zone. |
@@ -466,6 +491,8 @@ New units use the standard stat block. A unit entry has:
 | Half strength | A unit that has taken one hit. −1 to all stats. |
 | Hit | One step of damage: full to half strength, or half strength to destroyed. |
 | Initiative | Whose first order is carried out first. |
+| Passive order | A rule that triggers automatically, without being written on the orders sheet. Resolved at the start of the Execution Phase. |
+| Range band | The distances between a unit's minimum and maximum range. |
 | Knockback | The loser of a melee retreating one hex directly away from the winner. |
 | Rear | The three edges behind a unit. |
 | Support | +1 in the hit check for each adjacent friendly unit. |
