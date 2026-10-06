@@ -11,6 +11,16 @@ section 11 (EX-3, EX-4) and the direction table in section 2.1.
 
 `go vet ./...` and `go test ./...` pass.
 
+## M3: Combat
+
+Added `internal/game`: `UnitInstance`/`Board` (support, adjacency, retreat
+checks) and `ResolveMelee`/`ResolveRanged`, covering support, position
+bonus, ambush, hit/damage checks, knockback and destruction. Tests cover
+worked examples EX-2 through EX-6, plus the half-strength-destroyed and
+blocked-retreat-destroyed branches EX-4's note calls out.
+
+`go vet ./...` and `go test ./...` pass.
+
 ## M2: Rules data
 
 Added `data/units/standard.yaml`, `data/rules/core.yaml` and
