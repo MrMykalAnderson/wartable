@@ -70,20 +70,22 @@ func (u UnitInstance) TakeHit() (next UnitInstance, destroyed bool) {
 	return u, false
 }
 
-// canMove, canFire and canTurn report what a unit can currently do, given
+// CanMove, CanFire and CanTurn report what a unit can currently do, given
 // its state (docs/core-rules.md section 3.3). Units without states (e.g.
-// infantry, cavalry) can always do all three.
-func (u UnitInstance) canMove() bool {
+// infantry, cavalry) can always do all three. Exported for the web
+// viewer's order-preview API (cmd/wartable-web), which must reuse these
+// rather than re-deriving them in JavaScript.
+func (u UnitInstance) CanMove() bool {
 	s, ok := u.Template.States[u.State]
 	return !ok || s.CanMove
 }
 
-func (u UnitInstance) canFire() bool {
+func (u UnitInstance) CanFire() bool {
 	s, ok := u.Template.States[u.State]
 	return !ok || s.CanFire
 }
 
-func (u UnitInstance) canTurn() bool {
+func (u UnitInstance) CanTurn() bool {
 	s, ok := u.Template.States[u.State]
 	return !ok || s.CanTurn
 }

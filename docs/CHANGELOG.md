@@ -27,6 +27,35 @@ tie-break token correctly carrying over between turns).
 
 `go vet ./...` and `go test ./...` pass.
 
+## M7 (part 1): click-to-order
+
+Replaced the web viewer's free-text order textareas with click-to-order
+(docs/dev-plan.md section 7.1): click a unit, then click a highlighted
+hex, an outlined enemy, or a state button on the map to give it an
+order, choosing a facing (or Auto) where one applies; orders collect
+into a reorderable, deletable list per side, which also renders as the
+same order-sheet text `wartable turn` reads (shown read-only, for
+copying). Added `GET /api/options` (new `cmd/wartable-web/options.go`),
+which the engine computes — reachable Move hexes, valid Deploy hexes,
+and which enemies are valid Close-and-Attack/Fire/Close-and-Fire
+targets — so the frontend never re-derives rules in JavaScript.
+Exported `UnitInstance.CanMove/CanFire/CanTurn` and `game.PassableFor`
+from `internal/game` for the handler to reuse.
+
+Found and fixed two real UI bugs while testing in a live browser (not
+just curl): the "targetable" highlight ring was invisible because the
+facing-indicator lines painted over the token's own border (fixed with
+a separate ring element), and the facing-picker/state-button/type-
+chooser panels stayed visible when they should have been hidden,
+because a `.chooser { display: flex }` rule unconditionally overrode
+the `hidden` attribute (fixed with an explicit `.chooser[hidden]`
+override). Verified end-to-end via claude-in-chrome: deploying a full
+army, moving, Close and Attack with a type choice offered correctly,
+and Ready with an explicit facing all produced the expected order text
+and executed correctly, with no console errors.
+
+`go vet ./...` and `go test ./...` pass.
+
 ## M6: Web viewer
 
 Added `cmd/wartable-web` (a local HTTP server: `GET /api/game`,

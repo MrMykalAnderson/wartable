@@ -25,7 +25,7 @@ func applyAmbush(board Board, core rules.CoreRules, ambushedID string) (Board, [
 // executeMove executes a Move order (docs/core-rules.md section 6.2): up
 // to its full Move, stopping on contact with any enemy, which ambushes it.
 func executeMove(state GameState, core rules.CoreRules, mover UnitInstance, o orders.Order) (GameState, []Event) {
-	if !mover.canMove() {
+	if !mover.CanMove() {
 		return state, []Event{{Kind: "order-skipped", Unit: mover.ID, Detail: "cannot move in its current state"}}
 	}
 	dest, ok := resolveHexTarget(state.Board, o)
@@ -79,7 +79,7 @@ func executeCloseAndAttack(state GameState, core rules.CoreRules, mover UnitInst
 	if hex.Distance(mover.Pos, target.Pos) == 1 {
 		return fight(state)
 	}
-	if !mover.canMove() {
+	if !mover.CanMove() {
 		return state, []Event{{Kind: "order-skipped", Unit: mover.ID, Detail: "cannot move in its current state"}}
 	}
 
@@ -118,7 +118,7 @@ func executeCloseAndAttack(state GameState, core rules.CoreRules, mover UnitInst
 // ranged attack against the named target. ResolveRanged itself does
 // nothing if the target is out of range or outside the firing arc.
 func executeFire(state GameState, core rules.CoreRules, shooter UnitInstance, o orders.Order) (GameState, []Event) {
-	if !shooter.canFire() {
+	if !shooter.CanFire() {
 		return state, []Event{{Kind: "order-skipped", Unit: shooter.ID, Detail: "cannot fire in its current state"}}
 	}
 	target, ok := state.Board.Unit(o.TargetUnit)
@@ -148,7 +148,7 @@ func executeCloseAndFire(state GameState, core rules.CoreRules, mover UnitInstan
 
 	startPos, startFacing := mover.Pos, mover.Facing
 	half := mover.Stats(core).Move / 2
-	full, _ := hex.ShortestPath(mover.Pos, target.Pos, passableFor(state.Board, mover.ID))
+	full, _ := hex.ShortestPath(mover.Pos, target.Pos, PassableFor(state.Board, mover.ID))
 
 	facingFor := func(path []hex.Offset) hex.Direction {
 		if d, ok := directionOfLastStep(startPos, path); ok {

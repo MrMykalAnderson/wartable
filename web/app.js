@@ -1,6 +1,12 @@
-// Wartable web viewer (docs/dev-plan.md section 7, M6): draws the hex
-// map with units and facing, loads a saved game via /api/game, and runs
-// a turn via /api/turn, stepping through its event log one at a time.
+// Wartable web viewer and order builder (docs/dev-plan.md section 7, M6
+// and M7.1): draws the hex map with units and facing, loads a saved
+// game, builds orders by clicking the map, runs a turn, and steps
+// through its event log one event at a time.
+//
+// Order previews (which hexes/enemies a unit can be ordered against) are
+// never computed here: they always come from GET /api/options, which
+// asks the engine. This file only turns clicks into order objects and
+// renders what the server already decided.
 //
 // The map always shows the board's current state (as loaded, or as
 // returned after running a turn) — stepping through events narrates
@@ -27,8 +33,15 @@ const TYPE_SYMBOLS = {
 let state = {
   game: null,
   events: [],
-  stepIndex: -1, // -1 means "no event selected yet".
+  stepIndex: -1,
+  activeSide: "north",
+  orders: { north: [], south: [] },
+  selection: null, // unit ID currently being given an order, or null.
+  options: null, // the selected unit's /api/options response.
+  pendingOrder: null, // {type, unit, targetHex?, targetUnit?} awaiting a facing pick.
 };
+
+// ---- hex geometry -----------------------------------------------------
 
 function hexCenter(col, row) {
   const x = MARGIN + col * HEX_SIZE * 1.5;
@@ -74,6 +87,12 @@ function columnLabel(col) {
   return s;
 }
 
+function hexName(col, row) {
+  return `${columnLabel(col)}${row + 1}`;
+}
+
+// ---- map rendering ------------------------------------------------------
+
 function renderMap(game) {
   const svg = document.getElementById("map");
   svg.innerHTML = "";
@@ -82,7 +101,6 @@ function renderMap(game) {
   svg.setAttribute("width", width);
   svg.setAttribute("height", height);
 
-  // Grid.
   for (let row = 0; row < game.rows; row++) {
     for (let col = 0; col < game.columns; col++) {
       const { x, y } = hexCenter(col, row);
@@ -93,6 +111,10 @@ function renderMap(game) {
           fill: "none",
           stroke: "#b9ad90",
           "stroke-width": "1",
+          "pointer-events": "all",
+          class: "hex-cell",
+          "data-col": col,
+          "data-row": row,
         })
       );
       if (row === 0) {
@@ -108,7 +130,6 @@ function renderMap(game) {
     }
   }
 
-  // Units.
   for (const unit of game.units) {
     drawUnit(svg, unit);
   }
@@ -122,6 +143,18 @@ function drawUnit(svg, unit) {
 
   const group = svgEl("g", { "data-unit-id": unit.id, class: "unit" + (unit.strength === "half" ? " unit-half" : "") });
 
+  // A ring just outside the token, shown only while targetable: the
+  // token's own border is fully covered by the facing-indicator lines
+  // below, so the "can be targeted" highlight needs its own element.
+  const ringPts = hexVertices(x, y, radius * 1.22);
+  group.appendChild(
+    svgEl("polygon", {
+      points: ringPts.map((p) => p.join(",")).join(" "),
+      fill: "none",
+      class: "target-ring",
+    })
+  );
+
   group.appendChild(
     svgEl("polygon", {
       points: pts.map((p) => p.join(",")).join(" "),
@@ -129,13 +162,14 @@ function drawUnit(svg, unit) {
       "fill-opacity": "0.85",
       stroke: "#222",
       "stroke-width": "1",
+      class: "token-body",
     })
   );
 
   // Edge markers: front (red), the two flanks (green), rear (gray),
   // per docs/core-rules.md section 3.3's token convention.
   for (let d = 0; d < 6; d++) {
-    const diff = ((d - facingIndex) % 6 + 6) % 6;
+    const diff = (((d - facingIndex) % 6) + 6) % 6;
     let cls = "unit-rear";
     if (diff === 0) cls = "unit-front";
     else if (diff === 1 || diff === 5) cls = "unit-flank";
@@ -152,7 +186,6 @@ function drawUnit(svg, unit) {
     );
   }
 
-  // Type symbol.
   const symbol = TYPE_SYMBOLS[unit.type];
   if (symbol === "cross") {
     const r = radius * 0.4;
@@ -182,13 +215,274 @@ function renderGameInfo(game) {
     `reserves — ${reserveLine("north")} / ${reserveLine("south")}`;
 }
 
+// ---- order highlights ---------------------------------------------------
+
+function clearHighlights() {
+  document.querySelectorAll("#map .hex-cell").forEach((c) => {
+    c.classList.remove("selectable", "highlight-move", "highlight-deploy");
+  });
+  document.querySelectorAll("#map .unit").forEach((g) => g.classList.remove("targetable"));
+}
+
+function renderHighlights() {
+  clearHighlights();
+  const opts = state.options;
+  if (!opts) return;
+
+  const hexes = opts.isReserve ? opts.deployHexes : opts.moveHexes;
+  const cls = opts.isReserve ? "highlight-deploy" : "highlight-move";
+  for (const h of hexes || []) {
+    const cell = document.querySelector(`#map .hex-cell[data-col="${h.col}"][data-row="${h.row}"]`);
+    if (cell) cell.classList.add("selectable", cls);
+  }
+
+  const targetable = new Set([...(opts.meleeTargets || []), ...(opts.fireTargets || []), ...(opts.closeFireTargets || [])]);
+  targetable.forEach((id) => {
+    const g = document.querySelector(`#map .unit[data-unit-id="${CSS.escape(id)}"]`);
+    if (g) g.classList.add("targetable");
+  });
+}
+
+document.getElementById("map").addEventListener("click", (e) => {
+  const unitEl = e.target.closest(".unit");
+  if (unitEl) {
+    onUnitClick(unitEl.getAttribute("data-unit-id"));
+    return;
+  }
+  const cellEl = e.target.closest(".hex-cell");
+  if (cellEl && cellEl.classList.contains("selectable")) {
+    onHexClick(Number(cellEl.getAttribute("data-col")), Number(cellEl.getAttribute("data-row")));
+  }
+});
+
+// ---- order building ------------------------------------------------------
+
+function currentPath() {
+  return document.getElementById("path").value.trim();
+}
+
+function unitHasOrder(side, unitId) {
+  return state.orders[side].some((o) => o.unit === unitId);
+}
+
+function renderAvailableUnits() {
+  const list = document.getElementById("available-units");
+  list.innerHTML = "";
+  if (!state.game) return;
+  const side = state.activeSide;
+
+  const onBoard = state.game.units.filter((u) => u.side === side && !unitHasOrder(side, u.id));
+  const reserves = (state.game.reserves[side] || []).filter((id) => !unitHasOrder(side, id));
+
+  const addButton = (id) => {
+    const li = document.createElement("li");
+    const btn = document.createElement("button");
+    btn.textContent = id;
+    if (state.selection === id) btn.classList.add("selected");
+    btn.addEventListener("click", () => selectUnit(id));
+    li.appendChild(btn);
+    list.appendChild(li);
+  };
+  onBoard.forEach((u) => addButton(u.id));
+  reserves.forEach((id) => addButton(id));
+}
+
+async function selectUnit(unitId) {
+  const path = currentPath();
+  if (!path) return;
+  try {
+    const res = await fetch(`/api/options?path=${encodeURIComponent(path)}&side=${state.activeSide}&unit=${encodeURIComponent(unitId)}`);
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || res.statusText);
+    state.selection = unitId;
+    state.options = body;
+    state.pendingOrder = null;
+    renderAvailableUnits();
+    renderHighlights();
+    renderBuilder();
+  } catch (err) {
+    document.getElementById("turn-status").textContent = String(err.message || err);
+  }
+}
+
+function clearSelection() {
+  state.selection = null;
+  state.options = null;
+  state.pendingOrder = null;
+  renderAvailableUnits();
+  clearHighlights();
+  renderBuilder();
+}
+
+function renderBuilder() {
+  const builder = document.getElementById("order-builder");
+  const label = document.getElementById("builder-label");
+  const typeChooser = document.getElementById("type-chooser");
+  const stateButtons = document.getElementById("state-buttons");
+  const facingPicker = document.getElementById("facing-picker");
+
+  if (!state.selection) {
+    builder.hidden = true;
+    return;
+  }
+  builder.hidden = false;
+  typeChooser.hidden = true;
+  typeChooser.innerHTML = "";
+
+  if (state.pendingOrder) {
+    label.textContent = `${state.pendingOrder.unit}: ${state.pendingOrder.type}${state.pendingOrder.targetHex ? " to " + hexName(state.pendingOrder.targetHex.col, state.pendingOrder.targetHex.row) : ""} — pick a facing (or Auto)`;
+    stateButtons.hidden = true;
+    facingPicker.hidden = false;
+    return;
+  }
+
+  facingPicker.hidden = true;
+  const opts = state.options;
+  label.textContent = opts.isReserve
+    ? `${state.selection}: click a highlighted hex to Deploy`
+    : `${state.selection}: click a highlighted hex to Move, an outlined enemy to attack, or a state button`;
+
+  const buttons = [];
+  if (opts.canReady) buttons.push("Ready");
+  if (opts.canMobilise) buttons.push("Mobilise");
+  stateButtons.innerHTML = "";
+  if (buttons.length === 0) {
+    stateButtons.hidden = true;
+  } else {
+    stateButtons.hidden = false;
+    buttons.forEach((type) => {
+      const b = document.createElement("button");
+      b.textContent = type;
+      b.addEventListener("click", () => startFacingPick({ type, unit: state.selection }));
+      stateButtons.appendChild(b);
+    });
+  }
+}
+
+function startFacingPick(partial) {
+  state.pendingOrder = partial;
+  renderBuilder();
+}
+
+function onHexClick(col, row) {
+  if (!state.selection || !state.options) return;
+  const opts = state.options;
+  const type = opts.isReserve ? "Deploy" : "Move";
+  const validSet = opts.isReserve ? opts.deployHexes : opts.moveHexes;
+  if (!(validSet || []).some((h) => h.col === col && h.row === row)) return;
+  startFacingPick({ type, unit: state.selection, targetHex: { col, row } });
+}
+
+function onUnitClick(unitId) {
+  if (!state.selection || !state.options) return;
+  const opts = state.options;
+  const types = [];
+  if ((opts.meleeTargets || []).includes(unitId)) types.push("Close and Attack");
+  if ((opts.fireTargets || []).includes(unitId)) types.push("Fire");
+  if ((opts.closeFireTargets || []).includes(unitId)) types.push("Close and Fire");
+  if (types.length === 0) return;
+  if (types.length === 1) {
+    commitOrder({ type: types[0], unit: state.selection, targetUnit: unitId });
+    return;
+  }
+  const chooser = document.getElementById("type-chooser");
+  chooser.innerHTML = "";
+  chooser.hidden = false;
+  types.forEach((type) => {
+    const b = document.createElement("button");
+    b.textContent = type;
+    b.addEventListener("click", () => commitOrder({ type, unit: state.selection, targetUnit: unitId }));
+    chooser.appendChild(b);
+  });
+}
+
+document.getElementById("facing-picker").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-facing]");
+  if (!btn || !state.pendingOrder) return;
+  const facing = btn.getAttribute("data-facing");
+  const order = { ...state.pendingOrder };
+  if (facing) order.facing = facing;
+  commitOrder(order);
+});
+
+document.getElementById("cancel-order").addEventListener("click", clearSelection);
+
+function commitOrder(order) {
+  state.orders[state.activeSide].push(order);
+  clearSelection();
+  renderOrderLists();
+}
+
+function orderLine(o) {
+  let detail = "";
+  if (o.targetHex) detail = ` | ${hexName(o.targetHex.col, o.targetHex.row)}`;
+  else if (o.targetUnit) detail = ` | ${o.targetUnit}`;
+  const facing = o.facing ? ` | facing ${o.facing}` : "";
+  return `${o.unit} | ${o.type}${detail}${facing}`;
+}
+
+function renderOrderLists() {
+  for (const side of ["north", "south"]) {
+    const list = document.getElementById(`order-list-${side}`);
+    list.innerHTML = "";
+    state.orders[side].forEach((o, i) => {
+      const li = document.createElement("li");
+      const text = document.createElement("span");
+      text.textContent = orderLine(o);
+      li.appendChild(text);
+
+      const up = document.createElement("button");
+      up.textContent = "↑";
+      up.disabled = i === 0;
+      up.addEventListener("click", () => moveOrder(side, i, -1));
+      li.appendChild(up);
+
+      const down = document.createElement("button");
+      down.textContent = "↓";
+      down.disabled = i === state.orders[side].length - 1;
+      down.addEventListener("click", () => moveOrder(side, i, 1));
+      li.appendChild(down);
+
+      const del = document.createElement("button");
+      del.textContent = "✕";
+      del.addEventListener("click", () => {
+        state.orders[side].splice(i, 1);
+        renderOrderLists();
+        renderAvailableUnits();
+      });
+      li.appendChild(del);
+
+      list.appendChild(li);
+    });
+    document.getElementById(`order-text-${side}`).textContent = state.orders[side].map(orderLine).join("\n");
+  }
+}
+
+function moveOrder(side, index, delta) {
+  const arr = state.orders[side];
+  const j = index + delta;
+  if (j < 0 || j >= arr.length) return;
+  [arr[index], arr[j]] = [arr[j], arr[index]];
+  renderOrderLists();
+}
+
+document.getElementById("side-toggle").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-side]");
+  if (!btn) return;
+  state.activeSide = btn.getAttribute("data-side");
+  document.querySelectorAll(".side-btn").forEach((b) => b.classList.toggle("active", b === btn));
+  clearSelection();
+});
+
+// ---- event stepping -------------------------------------------------------
+
 function highlightUnit(unitId) {
   document.querySelectorAll("#map .unit").forEach((g) => g.classList.remove("selected"));
   if (!unitId) return;
   const g = document.querySelector(`#map .unit[data-unit-id="${CSS.escape(unitId)}"]`);
   if (g) {
     g.classList.add("selected");
-    const poly = g.querySelector("polygon");
+    const poly = g.querySelector(".token-body");
     if (poly) poly.setAttribute("stroke-width", "4");
   }
 }
@@ -219,6 +513,14 @@ function renderStep() {
   renderEventList();
 }
 
+// ---- API calls --------------------------------------------------------
+
+function resetOrders() {
+  state.orders = { north: [], south: [] };
+  clearSelection();
+  renderOrderLists();
+}
+
 async function loadGame(path) {
   const status = document.getElementById("load-status");
   status.textContent = "";
@@ -229,17 +531,21 @@ async function loadGame(path) {
     state.game = body;
     state.events = [];
     state.stepIndex = -1;
+    resetOrders();
     renderMap(state.game);
     renderGameInfo(state.game);
+    renderAvailableUnits();
     renderStep();
   } catch (err) {
     status.textContent = String(err.message || err);
   }
 }
 
-async function runTurn(path, north, south) {
+async function runTurn(path) {
   const status = document.getElementById("turn-status");
   status.textContent = "";
+  const north = state.orders.north.map(orderLine).join("\n");
+  const south = state.orders.south.map(orderLine).join("\n");
   try {
     const res = await fetch("/api/turn", {
       method: "POST",
@@ -251,8 +557,10 @@ async function runTurn(path, north, south) {
     state.game = body.game;
     state.events = body.events || [];
     state.stepIndex = state.events.length ? 0 : -1;
+    resetOrders();
     renderMap(state.game);
     renderGameInfo(state.game);
+    renderAvailableUnits();
     if (body.outcome && body.outcome.over) {
       const who = body.outcome.winner ? `${body.outcome.winner} wins` : "draw";
       status.textContent = `Game over: ${who} (${body.outcome.reason})`;
@@ -264,14 +572,11 @@ async function runTurn(path, north, south) {
 }
 
 document.getElementById("load").addEventListener("click", () => {
-  loadGame(document.getElementById("path").value.trim());
+  loadGame(currentPath());
 });
 
 document.getElementById("run-turn").addEventListener("click", () => {
-  const path = document.getElementById("path").value.trim();
-  const north = document.getElementById("north-orders").value;
-  const south = document.getElementById("south-orders").value;
-  runTurn(path, north, south);
+  runTurn(currentPath());
 });
 
 document.getElementById("step-prev").addEventListener("click", () => {

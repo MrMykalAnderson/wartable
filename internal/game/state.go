@@ -32,10 +32,10 @@ func (s GameState) withReserve(side string, units []UnitInstance) GameState {
 	return s
 }
 
-// passableFor is the hex.PassableFunc for mover's movement: on the map,
+// PassableFor is the hex.PassableFunc for mover's movement: on the map,
 // and empty except for mover's own current hex (docs/core-rules.md section
-// 7.1).
-func passableFor(board Board, moverID string) hex.PassableFunc {
+// 7.1). Exported for the web viewer's order-preview API.
+func PassableFor(board Board, moverID string) hex.PassableFunc {
 	return func(o hex.Offset) bool {
 		if !board.InBounds(o) {
 			return false
@@ -83,7 +83,7 @@ type MoveOutcome struct {
 // destination fallback) and stopping on contact with any enemy (section
 // 7.3).
 func moveTowards(board Board, mover UnitInstance, dest hex.Offset, maxSteps int) MoveOutcome {
-	full, _ := hex.ShortestPath(mover.Pos, dest, passableFor(board, mover.ID))
+	full, _ := hex.ShortestPath(mover.Pos, dest, PassableFor(board, mover.ID))
 	var out MoveOutcome
 	for i := 0; i < len(full) && i < maxSteps; i++ {
 		out.Path = append(out.Path, full[i])

@@ -20,6 +20,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/game", handleGame)
 	mux.HandleFunc("/api/turn", handleTurn)
+	mux.HandleFunc("/api/options", handleOptions)
 	mux.Handle("/", http.FileServer(http.Dir("web")))
 
 	fmt.Printf("wartable-web listening on http://%s (serving web/ from the current directory)\n", *addr)

@@ -134,3 +134,138 @@ button {
 .unit-flank { stroke: #27ae60; }
 .unit-rear { stroke: #555; }
 .unit-half { opacity: 0.55; }
+
+.hint {
+  font-size: 0.82rem;
+  color: #665;
+  margin: 0 0 0.5rem;
+}
+
+.side-toggle {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+}
+
+.side-btn {
+  padding: 0.3rem 0.8rem;
+  border: 1px solid var(--border);
+  background: #efe9db;
+  border-radius: 3px;
+}
+
+.side-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.unit-list {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.unit-list li button {
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 3px;
+  font-size: 0.85rem;
+}
+
+.unit-list li button.selected {
+  background: #fff2cc;
+  border-color: var(--accent);
+}
+
+.unit-list:empty::after {
+  content: "none";
+  color: #887;
+  font-size: 0.85rem;
+}
+
+.order-builder {
+  border: 1px dashed var(--accent);
+  border-radius: 4px;
+  padding: 0.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+}
+
+#builder-label {
+  font-weight: bold;
+  margin-bottom: 0.4rem;
+}
+
+.chooser {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.4rem;
+}
+
+.chooser[hidden] {
+  display: none;
+}
+
+.chooser button {
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 3px;
+  font-size: 0.8rem;
+}
+
+.order-list {
+  margin: 0 0 0.4rem;
+  padding-left: 1.2rem;
+  font-size: 0.82rem;
+}
+
+.order-list li {
+  margin-bottom: 0.2rem;
+}
+
+.order-list button {
+  font-size: 0.7rem;
+  padding: 0 0.3rem;
+  margin-left: 0.2rem;
+}
+
+.order-text {
+  background: #f3efe3;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0.4rem;
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+  margin: 0 0 0.75rem;
+  min-height: 1.5em;
+}
+
+#map .hex-cell {
+  cursor: default;
+}
+#map .hex-cell.selectable {
+  cursor: pointer;
+}
+#map .hex-cell.highlight-move {
+  fill: #cfe8c8;
+}
+#map .hex-cell.highlight-deploy {
+  fill: #c8dcf0;
+}
+#map .unit.targetable {
+  cursor: pointer;
+}
+.target-ring {
+  stroke-width: 3;
+  stroke-dasharray: 4 3;
+}
+#map .unit.targetable .target-ring {
+  stroke: #d4a017;
+}

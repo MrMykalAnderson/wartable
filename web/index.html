@@ -25,8 +25,41 @@
   <section class="side-panel">
     <div class="orders-box">
       <h2>Orders</h2>
-      <label>North<textarea id="north-orders" rows="6" spellcheck="false"></textarea></label>
-      <label>South<textarea id="south-orders" rows="6" spellcheck="false"></textarea></label>
+      <p class="hint">Click a unit below, then click a hex, an enemy, or a state button on the map panel to give it an order.</p>
+
+      <div class="side-toggle" id="side-toggle">
+        <button data-side="north" class="side-btn active">North</button>
+        <button data-side="south" class="side-btn">South</button>
+      </div>
+
+      <h3>Unordered units</h3>
+      <ul id="available-units" class="unit-list"></ul>
+
+      <div id="order-builder" class="order-builder" hidden>
+        <div id="builder-label"></div>
+        <div id="type-chooser" class="chooser" hidden></div>
+        <div id="state-buttons" class="chooser" hidden></div>
+        <div id="facing-picker" class="chooser" hidden>
+          <span>Facing:</span>
+          <button data-facing="N">N</button>
+          <button data-facing="NE">NE</button>
+          <button data-facing="SE">SE</button>
+          <button data-facing="S">S</button>
+          <button data-facing="SW">SW</button>
+          <button data-facing="NW">NW</button>
+          <button data-facing="">Auto</button>
+        </div>
+        <button id="cancel-order">Cancel</button>
+      </div>
+
+      <h3>North's orders</h3>
+      <ol id="order-list-north" class="order-list"></ol>
+      <pre id="order-text-north" class="order-text"></pre>
+
+      <h3>South's orders</h3>
+      <ol id="order-list-south" class="order-list"></ol>
+      <pre id="order-text-south" class="order-text"></pre>
+
       <button id="run-turn">Run turn</button>
       <span id="turn-status"></span>
     </div>
