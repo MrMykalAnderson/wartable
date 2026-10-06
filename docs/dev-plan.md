@@ -30,6 +30,7 @@ Work on a branch per milestone (e.g. `m1-hex`), commit often, and push when a mi
 | [core-rules.md](core-rules.md) | Every game rule and every number. |
 | [starter-battle.md](starter-battle.md) | The MVP scenario: map, deployment, armies, win conditions. |
 | This file | How the software is built. It does **not** restate rules. |
+| [drafts/](drafts/) | Rules still being designed. **Not a source of truth:** don't build from them. |
 
 Rules for working with them:
 
