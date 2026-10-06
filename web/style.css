@@ -318,6 +318,22 @@ button {
   fill: #c97b6f;
 }
 
+/* The route a "moved" event's unit actually took (latest interface
+   pass: show the path, not just the destination). */
+#path-layer {
+  pointer-events: none;
+}
+.taken-path {
+  stroke: #b8860b;
+  stroke-width: 2.5;
+  opacity: 0.85;
+}
+.taken-path-dot {
+  fill: #b8860b;
+  stroke: #fff;
+  stroke-width: 1;
+}
+
 /* Unit detail card (docs/dev-plan.md section 7.3, interface item 3). */
 .unit-card {
   margin-top: 0.5rem;

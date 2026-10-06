@@ -41,7 +41,7 @@ func executeMove(state GameState, core rules.CoreRules, mover UnitInstance, o or
 	}
 	state.Board = state.Board.WithUnit(mover)
 
-	events := []Event{{Kind: "moved", Unit: mover.ID, Detail: fmt.Sprintf("moved to %s", mover.Pos), Board: state.Board}}
+	events := []Event{{Kind: "moved", Unit: mover.ID, Detail: fmt.Sprintf("moved to %s", mover.Pos), Board: state.Board, Path: outcome.Path}}
 	if outcome.Contact {
 		var ambushEvents []Event
 		state.Board, ambushEvents = applyAmbush(state.Board, core, mover.ID)
@@ -95,7 +95,13 @@ func executeCloseAndAttack(state GameState, core rules.CoreRules, mover UnitInst
 
 	events := []Event{}
 	if len(outcome.Path) > 0 {
-		events = append(events, Event{Kind: "moved", Unit: mover.ID, Detail: fmt.Sprintf("closed to %s", mover.Pos), Board: state.Board})
+		events = append(events, Event{
+			Kind:   "moved",
+			Unit:   mover.ID,
+			Detail: fmt.Sprintf("closing on %s (now at %s)", target.ID, mover.Pos),
+			Board:  state.Board,
+			Path:   outcome.Path,
+		})
 	}
 
 	if hex.Distance(mover.Pos, target.Pos) == 1 {
@@ -183,7 +189,13 @@ func executeCloseAndFire(state GameState, core rules.CoreRules, mover UnitInstan
 
 	var events []Event
 	if len(path) > 0 {
-		events = append(events, Event{Kind: "moved", Unit: mover.ID, Detail: fmt.Sprintf("closed to %s", mover.Pos), Board: state.Board})
+		events = append(events, Event{
+			Kind:   "moved",
+			Unit:   mover.ID,
+			Detail: fmt.Sprintf("closing on %s to fire (now at %s)", target.ID, mover.Pos),
+			Board:  state.Board,
+			Path:   path,
+		})
 	}
 	if fired {
 		state.Board = applyRanged(state.Board, result)

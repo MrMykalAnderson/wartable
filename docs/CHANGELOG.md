@@ -11,6 +11,39 @@ section 11 (EX-3, EX-4) and the direction table in section 2.1.
 
 `go vet ./...` and `go test ./...` pass.
 
+## Web viewer: show the path taken and the order's actual target
+
+Playtesting found two more things: a Close order's "moved" event said
+things like "closed to D6", which reads like a Move order to a hex even
+though Close and Attack/Close and Fire always target a *unit*; and
+there was no way to see the route a unit took to get where it ended up,
+only its final position.
+
+Added a `Path` field to `game.Event` (the hexes a "moved" event's unit
+actually entered, in order; already computed by `moveTowards` and the
+Close and Fire step loop, just not kept) and exposed it on `EventView`.
+Close and Attack/Close and Fire's move-leg `Detail` now names the
+target unit ("closing on South 1st Infantry (now at F5)" instead of
+"closed to F5"); plain Move keeps "moved to X", since a Move order
+really does target a hex. The web viewer's step detail panel now shows
+"Path: F3 → F4 → F5", and the map draws the actual route as a solid
+line with waypoint dots while that step is selected (reusing the
+existing hex-center math, under a new `#path-layer`, separate from the
+pending-order ghost layer).
+
+Also regenerated `state.json` via `wartable new`: the previous save's
+units had their stats embedded at creation time, so it was still
+playing with pre-range-band artillery (0-5 instead of 3-5) even though
+`data/units/standard.yaml` was already correct — a fresh game picks up
+current rules data. The stale save was kept as a timestamped backup.
+
+`go vet ./...` and `go test ./...` pass (regenerated the `annihilation`
+golden replay's expected output for the new "closing on X" wording;
+`turnlimit` was unaffected). Verified end-to-end in a real browser:
+deployed both sides, ran a Close and Attack across several hexes, and
+confirmed the event text, the "Path: ..." line, and the drawn path line
+on the map all matched the actual route taken.
+
 ## Web viewer: step-by-step map replay, turn history, calculation breakdowns
 
 Four interface fixes requested after playing through a real game in the

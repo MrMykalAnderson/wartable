@@ -701,16 +701,62 @@ function describeRanged(r) {
   return lines;
 }
 
+// describePath turns an event's Path (the hexes its unit actually
+// entered, in order) into a readable line, so a Close order's move leg
+// shows the route taken rather than just the hex it stopped at.
+function describePath(e) {
+  if (!e.path || e.path.length === 0) return [];
+  return [`Path: ${e.path.map((h) => hexName(h.col, h.row)).join(" → ")}`];
+}
+
 function renderStepDetail(e) {
   const detail = document.getElementById("step-detail");
   detail.innerHTML = "";
   if (!e) return;
-  const lines = e.melee ? describeMelee(state.game.coreRules, e.melee) : e.ranged ? describeRanged(e.ranged) : [];
+  const lines = [
+    ...describePath(e),
+    ...(e.melee ? describeMelee(state.game.coreRules, e.melee) : e.ranged ? describeRanged(e.ranged) : []),
+  ];
   lines.forEach((line) => {
     const div = document.createElement("div");
     div.textContent = line;
     detail.appendChild(div);
   });
+}
+
+// priorBoardForStep returns the board exactly as it stood right before
+// the currently-viewed step, for finding where a "moved" event's unit
+// started from (events only snapshot the board right after themselves).
+function priorBoardForStep() {
+  const entry = currentTurnEntry();
+  if (!entry) return null;
+  if (state.stepIndex <= 0) return entry.boardBefore;
+  return entry.events[state.stepIndex - 1].board;
+}
+
+// renderPathOverlay draws the route a "moved" event's unit actually took
+// (docs/dev-plan.md section 7.3, latest interface pass), as a solid line
+// from its pre-event position through every hex in event.path.
+function renderPathOverlay(e) {
+  const svg = document.getElementById("map");
+  const old = document.getElementById("path-layer");
+  if (old) old.remove();
+  if (!e || !e.path || e.path.length === 0) return;
+  const prior = priorBoardForStep();
+  const startUnit = prior && prior.units.find((u) => u.id === e.unit);
+  if (!startUnit) return;
+
+  const layer = svgEl("g", { id: "path-layer" });
+  svg.appendChild(layer);
+  const points = [hexCenter(startUnit.col, startUnit.row), ...e.path.map((h) => hexCenter(h.col, h.row))];
+  for (let i = 0; i < points.length - 1; i++) {
+    layer.appendChild(
+      svgEl("line", { x1: points[i].x, y1: points[i].y, x2: points[i + 1].x, y2: points[i + 1].y, class: "taken-path" })
+    );
+  }
+  for (let i = 1; i < points.length - 1; i++) {
+    layer.appendChild(svgEl("circle", { cx: points[i].x, cy: points[i].y, r: 3, class: "taken-path-dot" }));
+  }
 }
 
 // renderTurnNav reflects whether a past turn is being reviewed or the
@@ -746,10 +792,12 @@ function renderStep() {
     const e = events[state.stepIndex];
     summary.textContent = e.summary;
     renderStepDetail(e);
+    renderPathOverlay(e);
     highlightUnit(e.unit);
   } else {
     summary.textContent = currentTurnEntry() ? "(start of turn)" : "";
     renderStepDetail(null);
+    renderPathOverlay(null);
     highlightUnit(null);
   }
   renderEventList();

@@ -13,14 +13,18 @@ type GameState struct {
 }
 
 // Event is one auditable step of turn execution (docs/dev-plan.md section
-// 4): Melee/Ranged carry the exact numbers used when set, and Board is
-// the board exactly as it stood immediately after this event, for
-// replaying a turn step by step (docs/dev-plan.md section 7.3).
+// 4): Melee/Ranged carry the exact numbers used when set, Board is the
+// board exactly as it stood immediately after this event, for replaying
+// a turn step by step (docs/dev-plan.md section 7.3), and Path is the
+// hexes a "moved" event's unit actually entered, in order (excluding
+// where it started), for showing the route it took rather than just
+// where it ended up.
 type Event struct {
 	Kind   string
 	Unit   string
 	Detail string
 	Board  Board
+	Path   []hex.Offset
 	Melee  *MeleeResult
 	Ranged *RangedResult
 }

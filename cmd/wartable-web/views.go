@@ -239,22 +239,32 @@ func newRangedView(r *game.RangedResult) *RangedView {
 // EventView is one turn-execution event as seen by the web viewer: Kind
 // and Unit for programmatic use (e.g. highlighting Unit on the map),
 // Summary for a one-line display, Board for replaying the map at this
-// exact step, and Melee/Ranged for a full calculation breakdown.
+// exact step, Path for the route a "moved" event's unit actually took,
+// and Melee/Ranged for a full calculation breakdown.
 type EventView struct {
 	Kind    string      `json:"kind"`
 	Unit    string      `json:"unit"`
 	Summary string      `json:"summary"`
 	Board   BoardView   `json:"board"`
+	Path    []HexView   `json:"path,omitempty"`
 	Melee   *MeleeView  `json:"melee,omitempty"`
 	Ranged  *RangedView `json:"ranged,omitempty"`
 }
 
 func newEventView(e game.Event, core rules.CoreRules) EventView {
+	var path []HexView
+	if len(e.Path) > 0 {
+		path = make([]HexView, len(e.Path))
+		for i, h := range e.Path {
+			path[i] = HexView{Col: h.Col, Row: h.Row}
+		}
+	}
 	return EventView{
 		Kind:    e.Kind,
 		Unit:    e.Unit,
 		Summary: e.Summary(),
 		Board:   newBoardView(e.Board, core),
+		Path:    path,
 		Melee:   newMeleeView(e.Melee),
 		Ranged:  newRangedView(e.Ranged),
 	}
