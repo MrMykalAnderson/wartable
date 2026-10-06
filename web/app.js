@@ -241,22 +241,36 @@ function clearHighlights() {
 }
 
 // renderHighlights draws the selected unit's range visualiser (docs/dev-
-// plan.md section 7.3, interface item 5): green for hexes it can move to
-// or Deploy into (clickable), red for hexes it can fire into (band +
-// arc; for Ready artillery this is also its passive Barrage zone), a
-// ring around every enemy it has a valid order against, and (docs/dev-
-// plan.md section 7.5, interface item 1) a purple dot over the shorter
-// half-move reach a Close and Attack/Fire order can actually use.
+// plan.md section 7.3, interface item 5): green for the hexes within its
+// Move (or, for a reserve unit, the hexes it can Deploy into), red for
+// hexes it can fire into (band + arc; for Ready artillery this is also
+// its passive Barrage zone), a ring around every enemy it has a valid
+// order against, and (docs/dev-plan.md section 7.5, interface item 1) a
+// purple dot over the shorter half-move reach a Close order can
+// actually use.
+//
+// For a Move order, the green area is a reach *guide*, not a
+// restriction (docs/dev-plan.md section 7.6): every hex on the map is
+// clickable, since a Move order's path is only worked out at execution,
+// by which time other units will have moved — planning can't know
+// what's actually in the way. Deploy stays restricted to DeployHexes,
+// since placing a reserve unit is immediate, not a path.
 function renderHighlights() {
   clearHighlights();
   const opts = state.options;
   if (!opts) return;
 
-  const hexes = opts.isReserve ? opts.deployHexes : opts.moveHexes;
-  const cls = opts.isReserve ? "highlight-deploy" : "highlight-move";
-  for (const h of hexes || []) {
-    const cell = document.querySelector(`#map .hex-cell[data-col="${h.col}"][data-row="${h.row}"]`);
-    if (cell) cell.classList.add("selectable", cls);
+  if (opts.isReserve) {
+    for (const h of opts.deployHexes || []) {
+      const cell = document.querySelector(`#map .hex-cell[data-col="${h.col}"][data-row="${h.row}"]`);
+      if (cell) cell.classList.add("selectable", "highlight-deploy");
+    }
+  } else {
+    document.querySelectorAll("#map .hex-cell").forEach((c) => c.classList.add("selectable"));
+    for (const h of opts.moveHexes || []) {
+      const cell = document.querySelector(`#map .hex-cell[data-col="${h.col}"][data-row="${h.row}"]`);
+      if (cell) cell.classList.add("highlight-move");
+    }
   }
   for (const h of opts.fireHexes || []) {
     const cell = document.querySelector(`#map .hex-cell[data-col="${h.col}"][data-row="${h.row}"]`);
@@ -471,10 +485,15 @@ function startFacingPick(partial) {
 function onHexClick(col, row) {
   if (!state.selection || !state.options) return;
   const opts = state.options;
-  const type = opts.isReserve ? "Deploy" : "Move";
-  const validSet = opts.isReserve ? opts.deployHexes : opts.moveHexes;
-  if (!(validSet || []).some((h) => h.col === col && h.row === row)) return;
-  startFacingPick({ type, unit: state.selection, targetHex: { col, row } });
+  if (opts.isReserve) {
+    if (!(opts.deployHexes || []).some((h) => h.col === col && h.row === row)) return;
+    startFacingPick({ type: "Deploy", unit: state.selection, targetHex: { col, row } });
+    return;
+  }
+  // Any hex is a valid Move objective (docs/dev-plan.md section 7.6):
+  // the path is only worked out at execution, since other units will
+  // have moved by then.
+  startFacingPick({ type: "Move", unit: state.selection, targetHex: { col, row } });
 }
 
 function onUnitClick(unitId) {
@@ -618,11 +637,31 @@ function renderOrderLists() {
   renderOrderGhosts();
 }
 
+// toCube/hexDistance mirror internal/hex's offset-to-cube conversion and
+// distance formula (docs/dev-plan.md section 5), purely to position the
+// pending-Move ghost below — not a rule decision, the same category as
+// the hexCenter/hexVertices geometry already computed client-side.
+function toCube(h) {
+  const q = h.col;
+  const r = h.row - (h.col - (h.col & 1)) / 2;
+  return { q, r, s: -q - r };
+}
+
+function hexDistance(a, b) {
+  const ca = toCube(a);
+  const cb = toCube(b);
+  return (Math.abs(ca.q - cb.q) + Math.abs(ca.r - cb.r) + Math.abs(ca.s - cb.s)) / 2;
+}
+
 // renderOrderGhosts shows pending orders on the map while planning
 // (docs/dev-plan.md section 7.3, interface item 1): a faint token at a
-// Deploy or Move order's destination, with a dashed path from the unit's
-// current hex, and a dashed line to the target for an attack or Fire
-// order.
+// Deploy order's destination, or a dashed line to the target for an
+// attack or Fire order. A Move order's objective can be anywhere on the
+// map (docs/dev-plan.md section 7.6), so its ghost token instead marks a
+// straight-line *estimate* of where the unit would stop this turn (full
+// Move, ignoring every other unit — the real path is only worked out at
+// execution), labelled "≈ here" whenever that's short of the actual
+// objective.
 function renderOrderGhosts() {
   const svg = document.getElementById("map");
   const old = document.getElementById("ghost-layer");
@@ -637,14 +676,32 @@ function renderOrderGhosts() {
       const startPos = unit ? hexCenter(unit.col, unit.row) : null;
 
       if (o.targetHex) {
-        const { x, y } = hexCenter(o.targetHex.col, o.targetHex.row);
-        if (startPos) {
-          layer.appendChild(svgEl("line", { x1: startPos.x, y1: startPos.y, x2: x, y2: y, class: "ghost-path" }));
+        const target = hexCenter(o.targetHex.col, o.targetHex.row);
+        let gx = target.x;
+        let gy = target.y;
+        let isEstimate = false;
+        if (o.type === "Move" && unit && startPos) {
+          const dist = hexDistance({ col: unit.col, row: unit.row }, o.targetHex);
+          const moveStat = unit.stats.move;
+          if (dist > moveStat && dist > 0) {
+            const ratio = moveStat / dist;
+            gx = startPos.x + (target.x - startPos.x) * ratio;
+            gy = startPos.y + (target.y - startPos.y) * ratio;
+            isEstimate = true;
+          }
         }
-        const pts = hexVertices(x, y, HEX_SIZE * 0.55);
+        if (startPos) {
+          layer.appendChild(svgEl("line", { x1: startPos.x, y1: startPos.y, x2: target.x, y2: target.y, class: "ghost-path" }));
+        }
+        const pts = hexVertices(gx, gy, HEX_SIZE * 0.55);
         layer.appendChild(
           svgEl("polygon", { points: pts.map((p) => p.join(",")).join(" "), class: `ghost-token ghost-${side}` })
         );
+        if (isEstimate) {
+          const label = svgEl("text", { x: gx, y: gy - HEX_SIZE * 0.75, "text-anchor": "middle", class: "ghost-estimate-label" });
+          label.textContent = "≈ here";
+          layer.appendChild(label);
+        }
       } else if (o.targetUnit) {
         const target = state.game.units.find((u) => u.id === o.targetUnit);
         if (startPos && target) {

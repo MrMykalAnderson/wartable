@@ -55,9 +55,56 @@ func TestHandleOptionsDeployedUnit(t *testing.T) {
 	if len(got.CloseFireTargets) != 1 || got.CloseFireTargets[0] != "B" {
 		t.Errorf("CloseFireTargets = %v, want [B] (non-artillery)", got.CloseFireTargets)
 	}
-	// B is out of cavalry's Range (2) at distance 4, so Fire shouldn't list it.
-	if len(got.FireTargets) != 0 {
-		t.Errorf("FireTargets = %v, want none (out of range)", got.FireTargets)
+	// B is out of cavalry's Range (2) at distance 4, but any enemy is a
+	// valid Fire target regardless of current range (docs/dev-plan.md
+	// section 7.6): the prediction says "out of range" instead.
+	if len(got.FireTargets) != 1 || got.FireTargets[0] != "B" {
+		t.Errorf("FireTargets = %v, want [B] (any enemy is a valid Fire target)", got.FireTargets)
+	}
+}
+
+// TestHandleOptionsMoveHexesIgnoreObstacles checks docs/dev-plan.md
+// section 7.6: the reach highlight is pure distance, ignoring every
+// unit on the board, since a Move order's path is only worked out at
+// execution (by which time other units will have moved).
+func TestHandleOptionsMoveHexesIgnoreObstacles(t *testing.T) {
+	chdirToRepoRoot(t)
+	units, core, _, err := save.LoadRulesData()
+	if err != nil {
+		t.Fatalf("LoadRulesData: %v", err)
+	}
+
+	mover := game.UnitInstance{ID: "A", Side: "north", Template: units["infantry"], Pos: hex.Offset{Col: 5, Row: 5}, Facing: hex.N, Strength: game.Full}
+	blockerPos := hex.Offset{Col: 5, Row: 4}
+	blocker := game.UnitInstance{ID: "Blocker", Side: "north", Template: units["infantry"], Pos: blockerPos, Facing: hex.N, Strength: game.Full}
+	path := writeTestSave(t, save.File{
+		State: game.GameState{Board: game.Board{Columns: 12, Rows: 10, Units: []game.UnitInstance{mover, blocker}}},
+	})
+
+	var got OptionsView
+	getJSON(t, "/api/options?path="+path+"&side=north&unit=A", &got)
+
+	wantMove := mover.Stats(core).Move
+	wantCount := 0
+	for col := 0; col < 12; col++ {
+		for row := 0; row < 10; row++ {
+			d := hex.Distance(mover.Pos, hex.Offset{Col: col, Row: row})
+			if d > 0 && d <= wantMove {
+				wantCount++
+			}
+		}
+	}
+	if len(got.MoveHexes) != wantCount {
+		t.Errorf("MoveHexes has %d hexes, want %d (every hex within Move %d, ignoring Blocker)", len(got.MoveHexes), wantCount, wantMove)
+	}
+	foundBeyondBlocker := false
+	for _, h := range got.MoveHexes {
+		if h.Col == blockerPos.Col && h.Row == blockerPos.Row-1 {
+			foundBeyondBlocker = true
+		}
+	}
+	if !foundBeyondBlocker {
+		t.Errorf("MoveHexes = %+v, want it to include the hex directly behind Blocker (obstacles are ignored)", got.MoveHexes)
 	}
 }
 

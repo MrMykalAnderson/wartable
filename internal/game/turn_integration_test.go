@@ -7,6 +7,46 @@ import (
 	"github.com/MrMykalAnderson/wartable/internal/orders"
 )
 
+// TestExecuteTurnRearUnitPassesThroughVacatedHex checks docs/dev-plan.md
+// section 7.6: two friendly units in a column, the rear one ordered to a
+// hex beyond the front one. Both orders are valid (planning can't know
+// the front unit will have moved out of the way by the time the rear
+// one's path is actually worked out, at execution); since both orders
+// are North's and run in the order written, the front unit moves first,
+// so the rear unit can pass straight through the hex it vacates.
+func TestExecuteTurnRearUnitPassesThroughVacatedHex(t *testing.T) {
+	templates, core := loadTestRules(t)
+	scenario := loadTestScenario(t, templates)
+
+	front := newUnit(t, templates, "Front", "north", "infantry", "F5", hex.N)
+	rear := newUnit(t, templates, "Rear", "north", "infantry", "F6", hex.N)
+	state := GameState{Board: starterBoard(front, rear)}
+
+	northSheet := `
+Front | Move | G5
+Rear  | Move | F2
+`
+	northOrders, err := orders.Parse(northSheet)
+	if err != nil {
+		t.Fatalf("Parse(north): %v", err)
+	}
+
+	tieBreak := &TieBreak{Holder: "north"}
+	state, _, err = ExecuteTurn(state, core, scenario, tieBreak, northOrders, nil)
+	if err != nil {
+		t.Fatalf("ExecuteTurn: %v", err)
+	}
+
+	gotFront, ok := state.Board.Unit("Front")
+	if !ok || gotFront.Pos != mustParse(t, "G5") {
+		t.Errorf("Front = %+v, %v, want G5 (moved out of Rear's way)", gotFront, ok)
+	}
+	gotRear, ok := state.Board.Unit("Rear")
+	if !ok || gotRear.Pos != mustParse(t, "F2") {
+		t.Errorf("Rear = %+v, %v, want F2 (straight through F5, vacated by Front earlier in the same turn)", gotRear, ok)
+	}
+}
+
 // TestExecuteTurnMultiOrderScenario runs a full turn mixing Deploy, Move,
 // Fire and Ready orders across both sides, checking that initiative,
 // alternating execution and order skipping (for a unit destroyed earlier

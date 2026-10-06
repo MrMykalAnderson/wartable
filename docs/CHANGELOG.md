@@ -11,6 +11,51 @@ section 11 (EX-3, EX-4) and the direction table in section 2.1.
 
 `go vet ./...` and `go test ./...` pass.
 
+## Playtest round 3 fix: planning shows reach, not paths (dev-plan.md section 7.6)
+
+The planner was working out movement against the board as it is *now*,
+so a unit ordered to move behind a friend that's also moving showed as
+blocked — impossible to know while planning, since paths are only
+worked out at execution (core-rules.md 6.2, 6.6), by which time other
+units have moved.
+
+`GET /api/options`'s `moveHexes`/`closeMoveHexes` are now pure
+distance from the unit's current position (a new `hexesWithin` helper),
+ignoring every other unit on the board — the map edge is the only
+limit. `fireTargets` is now unconditional too (every enemy the unit
+could fire at, like `meleeTargets`/`closeFireTargets` already were),
+not filtered by current range/arc. These fields are a reach *guide*
+now, not a legality gate.
+
+To match: the web viewer accepts a click on *any* hex as a Move order
+(Deploy stays restricted to its zone, since placing a reserve unit is
+immediate, not a path), and the pending-order ghost for a Move beyond
+this turn's reach now shows a straight-line stop *estimate* — "≈
+here" — instead of a token sitting exactly at the written objective,
+which was misleading when that's further than the unit can actually
+reach this turn. The estimate is plain client-side geometry (mirroring
+`internal/hex`'s offset-to-cube distance formula, the same category as
+the existing `hexCenter`/`hexVertices` SVG math), not a rule decision;
+the real stat it scales by (the unit's Move) still comes from the
+server.
+
+Added `TestHandleOptionsMoveHexesIgnoreObstacles` (`cmd/wartable-web`)
+and `TestExecuteTurnRearUnitPassesThroughVacatedHex` (`internal/game`,
+the scenario the dev plan asked for directly: two friendly units in a
+column, the rear one ordered beyond the front one — both orders
+accepted, and the rear unit correctly passes straight through the hex
+the front one vacates earlier in the same turn's execution). The
+engine itself needed no change for this: paths were already worked out
+against the live board at execution time: only the planning-time
+preview was showing a false restriction.
+
+`go vet ./...` and `go test ./...` pass. Verified end-to-end in a real
+browser: selected a unit, clicked a hex well outside its green reach
+highlight, confirmed the order was accepted and the ghost showed a
+dashed line to the true objective with a "≈ here" token partway along
+it, then ran the turn and confirmed the unit actually moved its full
+Move toward that objective, landing close to the estimate.
+
 ## Web viewer: new game button and save management
 
 Closed the long-standing web TODO: a "New game" button, plus a proper
