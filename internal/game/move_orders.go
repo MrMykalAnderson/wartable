@@ -8,12 +8,23 @@ import (
 	"github.com/MrMykalAnderson/wartable/internal/rules"
 )
 
-// applyAmbush resolves an ambush of ambushedID and converts the result
-// into events, each carrying the board as it stood right after it.
-func applyAmbush(board Board, core rules.CoreRules, ambushedID string) (Board, []Event) {
-	board, events := resolveAmbush(board, core, ambushedID)
-	if _, ok := board.Unit(ambushedID); !ok {
-		events = append(events, Event{Kind: "unit-destroyed", Unit: ambushedID, Detail: "destroyed during ambush", Board: board})
+// applyAmbush resolves contact at a moving unit's stopping point
+// (docs/core-rules.md section 7.4): first an ambush by every adjacent
+// enemy that can make melee attacks, then — if the mover is still on
+// the map and still next to enemies that can't (such as artillery) — an
+// overrun, where the mover attacks each of them in turn instead. Events
+// from both phases carry the board as it stood right after each combat.
+func applyAmbush(board Board, core rules.CoreRules, moverID string) (Board, []Event) {
+	board, events := resolveAmbush(board, core, moverID)
+	if _, ok := board.Unit(moverID); !ok {
+		events = append(events, Event{Kind: "unit-destroyed", Unit: moverID, Detail: "destroyed during ambush", Board: board})
+		return board, events
+	}
+	var overrunEvents []Event
+	board, overrunEvents = resolveOverrun(board, core, moverID)
+	events = append(events, overrunEvents...)
+	if _, ok := board.Unit(moverID); !ok {
+		events = append(events, Event{Kind: "unit-destroyed", Unit: moverID, Detail: "destroyed during overrun", Board: board})
 	}
 	return board, events
 }
@@ -30,7 +41,7 @@ func executeMove(state GameState, core rules.CoreRules, mover UnitInstance, o or
 	}
 
 	startPos, startFacing := mover.Pos, mover.Facing
-	outcome := moveTowards(state.Board, mover, dest, mover.Stats(core).Move)
+	outcome := moveTowards(state.Board, mover, dest, mover.Stats(core).Move, "")
 
 	mover.Pos = currentPos(startPos, outcome.Path)
 	mover.Facing = startFacing
@@ -81,7 +92,7 @@ func executeCloseAndAttack(state GameState, core rules.CoreRules, mover UnitInst
 
 	startPos := mover.Pos
 	half := mover.Stats(core).Move / 2
-	outcome := moveTowards(state.Board, mover, target.Pos, half)
+	outcome := moveTowards(state.Board, mover, target.Pos, half, target.ID)
 
 	mover.Pos = currentPos(startPos, outcome.Path)
 	if d, ok := directionOfLastStep(startPos, outcome.Path); ok {
@@ -150,7 +161,7 @@ func executeCloseAndFire(state GameState, core rules.CoreRules, mover UnitInstan
 
 	startPos, startFacing := mover.Pos, mover.Facing
 	half := mover.Stats(core).Move / 2
-	full, _ := hex.ShortestPath(mover.Pos, target.Pos, PassableFor(state.Board, mover.ID))
+	full := safeShortestPath(state.Board, mover, target.Pos, target.ID)
 
 	facingFor := func(path []hex.Offset) hex.Direction {
 		if d, ok := directionOfLastStep(startPos, path); ok {
@@ -210,6 +221,36 @@ func executeCloseAndFire(state GameState, core rules.CoreRules, mover UnitInstan
 	return state, events
 }
 
+// checkNoMansLand returns a warning event for every pair of adjacent
+// enemy units still on the board (docs/core-rules.md section 5.3's "no
+// man's land" table tip): every contact should end in a fight that
+// knocks one side back or destroys it, so two enemies still adjacent
+// means a rule was missed somewhere. Called after every order and
+// after the barrage (docs/dev-plan.md section 7.7).
+func checkNoMansLand(board Board) []Event {
+	var events []Event
+	reported := map[[2]string]bool{}
+	for _, u := range board.Units {
+		for _, enemy := range board.AdjacentEnemies(u.Side, u.Pos) {
+			key := [2]string{u.ID, enemy.ID}
+			if u.ID > enemy.ID {
+				key = [2]string{enemy.ID, u.ID}
+			}
+			if reported[key] {
+				continue
+			}
+			reported[key] = true
+			events = append(events, Event{
+				Kind:   "warning",
+				Unit:   u.ID,
+				Detail: fmt.Sprintf("no man's land violation: %s and %s are adjacent enemies", key[0], key[1]),
+				Board:  board,
+			})
+		}
+	}
+	return events
+}
+
 // ExecuteOrder executes a single order against state, returning the new
 // state and the events it produced.
 func ExecuteOrder(state GameState, core rules.CoreRules, scenario rules.Scenario, side string, o orders.Order) (GameState, []Event) {
@@ -267,11 +308,13 @@ func ExecuteTurn(state GameState, core rules.CoreRules, scenario rules.Scenario,
 		r := shot.Result
 		events = append(events, Event{Kind: "barrage", Unit: r.ShooterID, Detail: "barrage", Board: shot.Board, Ranged: &r})
 	}
+	events = append(events, checkNoMansLand(state.Board)...)
 
 	for _, step := range steps {
 		var stepEvents []Event
 		state, stepEvents = ExecuteOrder(state, core, scenario, step.Side, step.Order)
 		events = append(events, stepEvents...)
+		events = append(events, checkNoMansLand(state.Board)...)
 	}
 	return state, events, nil
 }

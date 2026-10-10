@@ -84,7 +84,7 @@ Turn 5
 [moved] South 1st Infantry: moved to D9
 [moved] North 1st Artillery: moved to J6
 [moved] North 1st Cavalry: moved to H8
-[melee] South 1st Artillery (3 +1 support) vs North 1st Cavalry (2 -1 ambush): margin 3, destroyed
+[melee] South 1st Cavalry (3 +1 support +1 flank) vs North 1st Cavalry (2 -1 ambush): margin 4, destroyed
 [unit-destroyed] North 1st Cavalry: destroyed during ambush
 [moved] North 2nd Infantry: closing on South 2nd Infantry (now at F5)
 [melee] North 2nd Infantry (2 +1 flank) vs South 2nd Infantry (2): margin 1, hit, knocked back to F7
@@ -154,8 +154,7 @@ Turn 8
 Turn 9
 
 [moved] North 1st Artillery: moved to I10
-[melee] South 1st Artillery (3 +1 support +1 flank) vs North 1st Artillery (2 -1 ambush): margin 4, destroyed
-[unit-destroyed] North 1st Artillery: destroyed during ambush
+[melee] North 1st Artillery (3 +3 rear) vs South 1st Artillery (2 +1 support): margin 3, destroyed
 
     A  B  C  D  E  F  G  H  I  J  K  L  
   1 .  .  .  .  .  .  .  .  .  .  .  .  
@@ -166,7 +165,39 @@ Turn 9
   6 .  .  .  .  .  .  .  .  .  .  .  .  
   7 .  .  .  .  .  .  .  .  .  .  .  .  
   8 .  .  .  .  .  .  .  .  .  .  .  .  
-  9 .  .  .  si .  si SC SA .  .  .  .  
- 10 .  .  .  .  .  .  .  .  .  .  .  .  
+  9 .  .  .  si .  si SC .  .  .  .  .  
+ 10 .  .  .  .  .  .  .  .  NA .  .  .  
+Turn 10
+
+[moved] South 1st Cavalry: closing on North 1st Artillery (now at H9)
+[melee] South 1st Cavalry (3 +1 flank) vs North 1st Artillery (2): margin 2, hit, knocked back to J10
+
+    A  B  C  D  E  F  G  H  I  J  K  L  
+  1 .  .  .  .  .  .  .  .  .  .  .  .  
+  2 .  .  .  .  .  .  .  .  .  .  .  .  
+  3 .  .  .  .  .  .  .  .  .  .  .  .  
+  4 .  .  .  .  .  .  .  .  .  .  .  .  
+  5 .  .  .  .  .  .  .  .  .  .  .  .  
+  6 .  .  .  .  .  .  .  .  .  .  .  .  
+  7 .  .  .  .  .  .  .  .  .  .  .  .  
+  8 .  .  .  .  .  .  .  .  .  .  .  .  
+  9 .  .  .  si .  si .  SC .  .  .  .  
+ 10 .  .  .  .  .  .  .  .  .  na .  .  
+Turn 11
+
+[moved] South 1st Cavalry: closing on North 1st Artillery (now at I10)
+[melee] South 1st Cavalry (3 +1 flank) vs North 1st Artillery (1): margin 3, destroyed
+
+    A  B  C  D  E  F  G  H  I  J  K  L  
+  1 .  .  .  .  .  .  .  .  .  .  .  .  
+  2 .  .  .  .  .  .  .  .  .  .  .  .  
+  3 .  .  .  .  .  .  .  .  .  .  .  .  
+  4 .  .  .  .  .  .  .  .  .  .  .  .  
+  5 .  .  .  .  .  .  .  .  .  .  .  .  
+  6 .  .  .  .  .  .  .  .  .  .  .  .  
+  7 .  .  .  .  .  .  .  .  .  .  .  .  
+  8 .  .  .  .  .  .  .  .  .  .  .  .  
+  9 .  .  .  si .  si .  .  .  .  .  .  
+ 10 .  .  .  .  .  .  .  .  SC .  .  .  
 
 south wins: north annihilated

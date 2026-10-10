@@ -1,11 +1,48 @@
 package game
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/MrMykalAnderson/wartable/internal/hex"
 	"github.com/MrMykalAnderson/wartable/internal/orders"
 )
+
+// TestCheckNoMansLandDetectsViolation checks docs/dev-plan.md section
+// 7.7's invariant: two adjacent enemy units produce a warning event
+// naming both, since docs/core-rules.md section 5.3 says this should
+// never happen after an order resolves.
+func TestCheckNoMansLandDetectsViolation(t *testing.T) {
+	templates, _ := loadTestRules(t)
+	a := newUnit(t, templates, "A", "north", "infantry", "F5", hex.N)
+	b := newUnit(t, templates, "B", "south", "infantry", "F6", hex.N)
+	board := starterBoard(a, b)
+
+	events := checkNoMansLand(board)
+	if len(events) != 1 {
+		t.Fatalf("checkNoMansLand = %+v, want exactly 1 warning", events)
+	}
+	if events[0].Kind != "warning" {
+		t.Errorf("Kind = %q, want warning", events[0].Kind)
+	}
+	if !strings.Contains(events[0].Detail, "A") || !strings.Contains(events[0].Detail, "B") {
+		t.Errorf("Detail = %q, want it to name both A and B", events[0].Detail)
+	}
+}
+
+// TestCheckNoMansLandNoFalsePositive checks that non-adjacent or
+// same-side units never produce a warning.
+func TestCheckNoMansLandNoFalsePositive(t *testing.T) {
+	templates, _ := loadTestRules(t)
+	a := newUnit(t, templates, "A", "north", "infantry", "F5", hex.N)
+	ally := newUnit(t, templates, "Ally", "north", "infantry", "F6", hex.N)
+	enemy := newUnit(t, templates, "Enemy", "south", "infantry", "A1", hex.N)
+	board := starterBoard(a, ally, enemy)
+
+	if events := checkNoMansLand(board); len(events) != 0 {
+		t.Errorf("checkNoMansLand = %+v, want none (Ally is friendly, Enemy is far away)", events)
+	}
+}
 
 // TestExecuteTurnRearUnitPassesThroughVacatedHex checks docs/dev-plan.md
 // section 7.6: two friendly units in a column, the rear one ordered to a

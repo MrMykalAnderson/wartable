@@ -43,6 +43,11 @@ let state = {
   selection: null, // unit ID currently being given an order, or null.
   options: null, // the selected unit's /api/options response.
   pendingOrder: null, // {type, unit, targetHex?, targetUnit?} awaiting a facing pick.
+  // movePreviews[unitId] = the safe-route path (docs/dev-plan.md section
+  // 7.7) a committed Move order would actually take, fetched from
+  // GET /api/predict once the order is added; used by the ghost instead
+  // of a straight-line guess once it arrives.
+  movePreviews: {},
 };
 
 // ---- hex geometry -----------------------------------------------------
@@ -589,6 +594,10 @@ function commitOrder(order) {
   state.orders[state.activeSide].push(order);
   clearSelection();
   renderOrderLists();
+  if (order.type === "Move" && order.targetHex) {
+    delete state.movePreviews[order.unit]; // clear any stale preview until the fresh one arrives.
+    fetchMovePreview(order.unit, order.targetHex);
+  }
 }
 
 function orderLine(o) {
@@ -624,6 +633,7 @@ function renderOrderLists() {
       const del = document.createElement("button");
       del.textContent = "✕";
       del.addEventListener("click", () => {
+        delete state.movePreviews[o.unit];
         state.orders[side].splice(i, 1);
         renderOrderLists();
         renderAvailableUnits();
@@ -653,15 +663,50 @@ function hexDistance(a, b) {
   return (Math.abs(ca.q - cb.q) + Math.abs(ca.r - cb.r) + Math.abs(ca.s - cb.s)) / 2;
 }
 
+// ORDER_LINE_CLASS maps an order type to its line style (docs/dev-
+// plan.md section 7.7, interface item 1): Move solid, Close and Attack
+// dashed, Fire dotted, Close and Fire dash-dot. Deploy reuses Move's
+// style (it's also "go here"). Ready/Mobilise have no line (see the
+// marker branch in renderOrderGhosts).
+const ORDER_LINE_CLASS = {
+  Move: "order-line-move",
+  Deploy: "order-line-move",
+  "Close and Attack": "order-line-close-attack",
+  Fire: "order-line-fire",
+  "Close and Fire": "order-line-close-fire",
+};
+
+// fetchMovePreview asks the engine what a committed Move order would
+// actually do this turn (the safe route, docs/core-rules.md section
+// 7.2) and caches it for renderOrderGhosts to use once it arrives,
+// replacing the straight-line guess with the real route.
+async function fetchMovePreview(unitId, targetHex) {
+  const path = currentPath();
+  if (!path) return;
+  try {
+    const url =
+      `/api/predict?path=${encodeURIComponent(path)}&side=${state.activeSide}` +
+      `&unit=${encodeURIComponent(unitId)}&type=Move&col=${targetHex.col}&row=${targetHex.row}`;
+    const res = await fetch(url);
+    const body = await res.json();
+    if (!res.ok) return;
+    state.movePreviews[unitId] = body.path || [];
+    renderOrderGhosts();
+  } catch {
+    // Keep the straight-line estimate if the preview fetch fails.
+  }
+}
+
 // renderOrderGhosts shows pending orders on the map while planning
-// (docs/dev-plan.md section 7.3, interface item 1): a faint token at a
-// Deploy order's destination, or a dashed line to the target for an
-// attack or Fire order. A Move order's objective can be anywhere on the
-// map (docs/dev-plan.md section 7.6), so its ghost token instead marks a
-// straight-line *estimate* of where the unit would stop this turn (full
-// Move, ignoring every other unit — the real path is only worked out at
-// execution), labelled "≈ here" whenever that's short of the actual
-// objective.
+// (docs/dev-plan.md section 7.3, interface item 1; section 7.7: the
+// side's colour, and a line style per order type — see
+// ORDER_LINE_CLASS, with a small marker instead for Ready/Mobilise,
+// which have no target). A Move order's objective can be anywhere on
+// the map (docs/dev-plan.md section 7.6), so its ghost token marks a
+// stop *estimate* instead of sitting exactly on the objective: the real
+// safe route once fetchMovePreview's response arrives (hex-accurate),
+// or a straight-line guess before then. Either way it's labelled "≈
+// here" whenever that's short of the actual objective.
 function renderOrderGhosts() {
   const svg = document.getElementById("map");
   const old = document.getElementById("ghost-layer");
@@ -674,13 +719,38 @@ function renderOrderGhosts() {
     for (const o of state.orders[side]) {
       const unit = state.game.units.find((u) => u.id === o.unit);
       const startPos = unit ? hexCenter(unit.col, unit.row) : null;
+      const lineClass = ORDER_LINE_CLASS[o.type] || "order-line-close-attack";
+
+      if (o.type === "Ready" || o.type === "Mobilise") {
+        if (startPos) {
+          layer.appendChild(
+            svgEl("circle", {
+              cx: startPos.x + HEX_SIZE * 0.5,
+              cy: startPos.y - HEX_SIZE * 0.5,
+              r: HEX_SIZE * 0.16,
+              class: `order-state-marker ghost-${side}`,
+            })
+          );
+        }
+        continue;
+      }
 
       if (o.targetHex) {
         const target = hexCenter(o.targetHex.col, o.targetHex.row);
         let gx = target.x;
         let gy = target.y;
         let isEstimate = false;
-        if (o.type === "Move" && unit && startPos) {
+        let routePoints = startPos ? [startPos] : [];
+
+        const preview = o.type === "Move" ? state.movePreviews[o.unit] : null;
+        if (preview && preview.length > 0) {
+          routePoints = routePoints.concat(preview.map((h) => hexCenter(h.col, h.row)));
+          const stop = preview[preview.length - 1];
+          gx = routePoints[routePoints.length - 1].x;
+          gy = routePoints[routePoints.length - 1].y;
+          isEstimate = stop.col !== o.targetHex.col || stop.row !== o.targetHex.row;
+        } else if (o.type === "Move" && unit && startPos) {
+          // No server preview yet: a quick straight-line guess.
           const dist = hexDistance({ col: unit.col, row: unit.row }, o.targetHex);
           const moveStat = unit.stats.move;
           if (dist > moveStat && dist > 0) {
@@ -689,9 +759,21 @@ function renderOrderGhosts() {
             gy = startPos.y + (target.y - startPos.y) * ratio;
             isEstimate = true;
           }
+          routePoints = startPos ? [startPos, { x: gx, y: gy }] : [];
+        } else {
+          routePoints = startPos ? [startPos, target] : [];
         }
-        if (startPos) {
-          layer.appendChild(svgEl("line", { x1: startPos.x, y1: startPos.y, x2: target.x, y2: target.y, class: "ghost-path" }));
+
+        for (let i = 0; i < routePoints.length - 1; i++) {
+          layer.appendChild(
+            svgEl("line", {
+              x1: routePoints[i].x,
+              y1: routePoints[i].y,
+              x2: routePoints[i + 1].x,
+              y2: routePoints[i + 1].y,
+              class: `${lineClass} order-line-${side}`,
+            })
+          );
         }
         const pts = hexVertices(gx, gy, HEX_SIZE * 0.55);
         layer.appendChild(
@@ -706,7 +788,9 @@ function renderOrderGhosts() {
         const target = state.game.units.find((u) => u.id === o.targetUnit);
         if (startPos && target) {
           const end = hexCenter(target.col, target.row);
-          layer.appendChild(svgEl("line", { x1: startPos.x, y1: startPos.y, x2: end.x, y2: end.y, class: "ghost-arrow" }));
+          layer.appendChild(
+            svgEl("line", { x1: startPos.x, y1: startPos.y, x2: end.x, y2: end.y, class: `${lineClass} order-line-${side}` })
+          );
         }
       }
     }
@@ -835,6 +919,25 @@ function describePath(e) {
   return [`Path: ${e.path.map((h) => hexName(h.col, h.row)).join(" → ")}`];
 }
 
+// renderStartOfTurnOrders shows the order sheets actually submitted
+// that turn (docs/dev-plan.md section 7.7: full history includes the
+// order sheets, not just the event log), at the "start of turn" step
+// before any of its events.
+function renderStartOfTurnOrders(entry) {
+  const detail = document.getElementById("step-detail");
+  detail.innerHTML = "";
+  if (!entry) return;
+  const lines = [];
+  if (entry.northOrders) lines.push("North's orders:", ...entry.northOrders.split("\n").filter(Boolean));
+  if (entry.southOrders) lines.push("South's orders:", ...entry.southOrders.split("\n").filter(Boolean));
+  if (lines.length === 0) lines.push("(no orders submitted)");
+  lines.forEach((line) => {
+    const div = document.createElement("div");
+    div.textContent = line;
+    detail.appendChild(div);
+  });
+}
+
 function renderStepDetail(e) {
   const detail = document.getElementById("step-detail");
   detail.innerHTML = "";
@@ -921,8 +1024,9 @@ function renderStep() {
     renderPathOverlay(e);
     highlightUnit(e.unit);
   } else {
-    summary.textContent = currentTurnEntry() ? "(start of turn)" : "";
-    renderStepDetail(null);
+    const entry = currentTurnEntry();
+    summary.textContent = entry ? "(start of turn)" : "";
+    renderStartOfTurnOrders(entry);
     renderPathOverlay(null);
     highlightUnit(null);
   }
@@ -956,6 +1060,7 @@ function turnNavNext() {
 
 function resetOrders() {
   state.orders = { north: [], south: [] };
+  state.movePreviews = {};
   clearSelection();
   renderOrderLists();
 }
@@ -968,7 +1073,16 @@ async function loadGame(path) {
     const body = await res.json();
     if (!res.ok) throw new Error(body.error || res.statusText);
     state.game = body;
-    state.turnHistory = [];
+    // docs/dev-plan.md section 7.7: the save keeps every turn's order
+    // sheets and event log, so history is available right after
+    // loading, not just for turns played in this browser session.
+    state.turnHistory = (body.history || []).map((t) => ({
+      turn: t.turn,
+      boardBefore: t.boardBefore,
+      events: t.events,
+      northOrders: t.northOrders,
+      southOrders: t.southOrders,
+    }));
     state.historyIndex = -1;
     state.stepIndex = -1;
     resetOrders();
@@ -996,7 +1110,7 @@ async function runTurn(path) {
     const body = await res.json();
     if (!res.ok) throw new Error(body.error || res.statusText);
     state.game = body.game;
-    state.turnHistory.push({ turn: turnNumber, boardBefore: boardBeforeTurn, events: body.events || [] });
+    state.turnHistory.push({ turn: turnNumber, boardBefore: boardBeforeTurn, events: body.events || [], northOrders: north, southOrders: south });
     state.historyIndex = state.turnHistory.length - 1;
     state.stepIndex = -1;
     resetOrders();

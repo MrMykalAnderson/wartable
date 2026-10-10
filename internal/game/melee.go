@@ -39,8 +39,10 @@ type MeleeResult struct {
 	Hits int
 
 	// LoserDestroyed is true if the loser ends up destroyed without a
-	// knockback being attempted: either Hits is 2, or Hits is 1 and the
-	// loser was already at half strength (docs/core-rules.md section 3.2).
+	// knockback being attempted: Hits is 2, the loser was already at
+	// half strength (docs/core-rules.md section 3.2), or the loser is
+	// dug in (Ready artillery, section 3.4: never knocked back, any
+	// margin of loss destroys it).
 	LoserDestroyed bool
 	Knockback      *Knockback // nil if LoserDestroyed is true.
 }
@@ -117,7 +119,7 @@ func ResolveMelee(board Board, core rules.CoreRules, attackerID, defenderID stri
 	if margin >= 3 {
 		result.Hits = 2
 	}
-	if result.Hits == 2 || defender.Strength == Half {
+	if result.Hits == 2 || defender.Strength == Half || defender.DugIn() {
 		result.LoserDestroyed = true
 		return result, nil
 	}

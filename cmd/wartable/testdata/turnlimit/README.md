@@ -34,9 +34,12 @@ Notable moments (by turn):
 - **Turn 6**: `North 1st Cavalry` moves to E9 and passes through
   untouched — both South infantry units are already gone by this point.
 - **Turn 8**: `South 1st Cavalry`, attacking across the flank, destroys
-  `North 1st Infantry` and then `North 2nd Infantry` outright as they
-  both move into F5 (margin 3 each time): no knockback is attempted at
-  that margin, so neither retreat hex ever comes into it.
+  `North 1st Infantry` and then `North 2nd Infantry` outright (margin 3
+  each time: no knockback is attempted at that margin). The second
+  infantry's safe route (docs/dev-plan.md section 7.7) now stops it one
+  hex short, at F6 rather than F5 — the first infantry's destruction
+  left F5 adjacent to the cavalry — but it's ambushed there just the
+  same, with an identical outcome.
 - **Turns 9-11**: survivors retreat out of contact range on both sides.
 - **Turn 12**: the turn limit is reached with North's artillery and
   cavalry against South's cavalry and artillery. Both sides field one
@@ -46,3 +49,8 @@ Notable moments (by turn):
 This game's order files are unchanged from before this combat rewrite;
 only `golden.txt` was regenerated, to show how much a single rules
 change can ripple through a whole played-out game.
+
+Regenerated again for docs/dev-plan.md section 7.7 (safe-route
+pathfinding, artillery overrun instead of ambushing, dug-in Ready
+artillery): only the one safe-route change above, since this game
+never involves artillery in melee. Order files unchanged.

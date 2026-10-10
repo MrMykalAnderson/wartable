@@ -26,20 +26,22 @@ func runTurn(args []string, out io.Writer) error {
 		return err
 	}
 
-	northOrders, err := parseOrderFile(northPath)
+	northRaw, northOrders, err := parseOrderFile(northPath)
 	if err != nil {
 		return err
 	}
-	southOrders, err := parseOrderFile(southPath)
+	southRaw, southOrders, err := parseOrderFile(southPath)
 	if err != nil {
 		return err
 	}
 
+	boardBefore := f.State.Board
 	newState, events, err := game.ExecuteTurn(f.State, core, scenario, &f.TieBreak, northOrders, southOrders)
 	if err != nil {
 		return fmt.Errorf("execute turn: %w", err)
 	}
 	f.State = newState
+	f.RecordTurn(boardBefore, northRaw, southRaw, events)
 
 	fmt.Fprintf(out, "Turn %d\n\n", f.Turn)
 	for _, e := range events {
@@ -54,16 +56,16 @@ func runTurn(args []string, out io.Writer) error {
 	return save.Write(statePath, f)
 }
 
-func parseOrderFile(path string) ([]orders.Order, error) {
-	raw, err := os.ReadFile(path)
+func parseOrderFile(path string) (raw string, ords []orders.Order, err error) {
+	rawBytes, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", path, err)
+		return "", nil, fmt.Errorf("read %s: %w", path, err)
 	}
-	ords, err := orders.Parse(string(raw))
+	ords, err = orders.Parse(string(rawBytes))
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+		return "", nil, fmt.Errorf("%s: %w", path, err)
 	}
-	return ords, nil
+	return string(rawBytes), ords, nil
 }
 
 // reportOutcome checks the Starter Battle's win conditions

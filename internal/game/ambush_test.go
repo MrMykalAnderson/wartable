@@ -59,3 +59,96 @@ func TestAmbushEndsWhenKnockbackWouldBeAdjacentToAnotherEnemy(t *testing.T) {
 		t.Errorf("C should be untouched: an ambush never draws in an enemy that wasn't adjacent at the start")
 	}
 }
+
+// TestAmbushSkipsNonMeleeEnemies checks the docs/dev-plan.md section 7.7
+// bug fix: artillery can't make melee attacks, so it never attacks in
+// an ambush, even when it's the only enemy adjacent to the moving unit.
+func TestAmbushSkipsNonMeleeEnemies(t *testing.T) {
+	templates, core := loadTestRules(t)
+	gun := newUnit(t, templates, "Gun", "north", "artillery", "F3", hex.S)
+	gun.State = "mobilised" // not dug in, so any knockback/destroy below is unambiguous.
+	mover := newUnit(t, templates, "Rider", "south", "cavalry", "F4", hex.N)
+	board := starterBoard(gun, mover)
+
+	board, events := resolveAmbush(board, core, "Rider")
+	if len(events) != 0 {
+		t.Errorf("resolveAmbush events = %+v, want none (artillery never attacks in an ambush)", events)
+	}
+	if _, ok := board.Unit("Rider"); !ok {
+		t.Errorf("Rider missing, want it untouched by the (non-existent) ambush")
+	}
+}
+
+// TestOverrunEX9Destroyed checks EX-9's first case: 3rd Foot overruns
+// Ready (dug-in) artillery across its rear and destroys it outright at
+// margin 1, well below the margin 3+ that would destroy a non-dug-in
+// unit.
+func TestOverrunEX9Destroyed(t *testing.T) {
+	templates, core := loadTestRules(t)
+	gun := newUnit(t, templates, "1st Guns", "north", "artillery", "F3", hex.S)
+	gun.State = "ready"
+	foot := newUnit(t, templates, "3rd Foot", "south", "infantry", "F2", hex.N)
+	board := starterBoard(gun, foot)
+
+	board, events := applyAmbush(board, core, "3rd Foot")
+
+	var overrun *MeleeResult
+	for _, e := range events {
+		if e.Kind == "melee" && e.Detail == "overrun" {
+			overrun = e.Melee
+		}
+	}
+	if overrun == nil {
+		t.Fatalf("events = %+v, want an overrun melee event", events)
+	}
+	if overrun.AttackerID != "3rd Foot" || overrun.DefenderID != "1st Guns" || overrun.Edge != hex.Rear {
+		t.Errorf("overrun = %+v, want 3rd Foot attacking 1st Guns' rear", overrun)
+	}
+	if overrun.Ambushed {
+		t.Errorf("overrun.Ambushed = true, want false (no ambush penalty)")
+	}
+	if overrun.Margin != 1 {
+		t.Errorf("overrun.Margin = %d, want 1", overrun.Margin)
+	}
+	if !overrun.LoserDestroyed {
+		t.Errorf("overrun.LoserDestroyed = false, want true (Ready artillery is dug in: any margin of loss destroys it)")
+	}
+	if _, ok := board.Unit("1st Guns"); ok {
+		t.Errorf("1st Guns still on board, want destroyed")
+	}
+	if _, ok := board.Unit("3rd Foot"); !ok {
+		t.Errorf("3rd Foot missing, want it to survive (it won)")
+	}
+}
+
+// TestOverrunEX9Repelled checks EX-9's second case: 3rd Foot attacks
+// the gun's front and is repelled, knocked back one hex further away.
+func TestOverrunEX9Repelled(t *testing.T) {
+	templates, core := loadTestRules(t)
+	gun := newUnit(t, templates, "1st Guns", "north", "artillery", "F3", hex.S)
+	gun.State = "ready"
+	foot := newUnit(t, templates, "3rd Foot", "south", "infantry", "F4", hex.N)
+	board := starterBoard(gun, foot)
+
+	board, events := applyAmbush(board, core, "3rd Foot")
+
+	var overrun *MeleeResult
+	for _, e := range events {
+		if e.Kind == "melee" && e.Detail == "overrun" {
+			overrun = e.Melee
+		}
+	}
+	if overrun == nil {
+		t.Fatalf("events = %+v, want an overrun melee event", events)
+	}
+	if overrun.Edge != hex.Front || overrun.Margin != -2 || overrun.Hits != 0 {
+		t.Errorf("overrun = %+v, want front attack at margin -2, repelled", overrun)
+	}
+	foot2, ok := board.Unit("3rd Foot")
+	if !ok || foot2.Pos != mustParse(t, "F5") {
+		t.Errorf("3rd Foot = %+v, %v, want knocked back to F5", foot2, ok)
+	}
+	if _, ok := board.Unit("1st Guns"); !ok {
+		t.Errorf("1st Guns missing, want it to survive (it won)")
+	}
+}

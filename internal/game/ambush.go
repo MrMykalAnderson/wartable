@@ -52,10 +52,13 @@ func applyRanged(board Board, r RangedResult) Board {
 }
 
 // resolveAmbush resolves an ambush (docs/core-rules.md section 7.4): each
-// enemy currently adjacent to the ambushed unit attacks it in melee, one
-// at a time in clockwise order from N, rechecking adjacency after each
-// combat (an attacker knocked out of adjacency doesn't get its attack),
-// and stopping once the ambushed unit is destroyed. Each returned event's
+// adjacent enemy that can make melee attacks attacks the ambushed unit,
+// one at a time in clockwise order from N, rechecking adjacency after
+// each combat (an attacker knocked out of adjacency doesn't get its
+// attack), and stopping once the ambushed unit is destroyed. Artillery
+// never attacks in an ambush (it can't make melee attacks at all); if
+// it's the only enemy adjacent, the ambush is a no-op and the moving
+// unit overruns it instead (see resolveOverrun). Each returned event's
 // Board is the board exactly as it stood after that one combat, for
 // step-by-step replay.
 func resolveAmbush(board Board, core rules.CoreRules, ambushedID string) (Board, []Event) {
@@ -65,7 +68,7 @@ func resolveAmbush(board Board, core rules.CoreRules, ambushedID string) (Board,
 		if !ok {
 			return board, events
 		}
-		enemies := board.AdjacentEnemies(ambushed.Side, ambushed.Pos)
+		enemies := meleeCapable(board.AdjacentEnemies(ambushed.Side, ambushed.Pos))
 		if len(enemies) == 0 {
 			return board, events
 		}
@@ -76,4 +79,52 @@ func resolveAmbush(board Board, core rules.CoreRules, ambushedID string) (Board,
 		board = applyMelee(board, result)
 		events = append(events, Event{Kind: "melee", Unit: result.AttackerID, Detail: "ambush attack", Board: board, Melee: &result})
 	}
+}
+
+// resolveOverrun resolves an overrun (docs/core-rules.md section 7.4):
+// once a moving unit has survived any ambush, if it's still next to
+// enemies that can't make melee attacks (artillery), it attacks each of
+// them in turn, clockwise from its N edge, as the attacker with no
+// ambush penalty, stopping as soon as it's repelled (margin <= 0).
+func resolveOverrun(board Board, core rules.CoreRules, moverID string) (Board, []Event) {
+	var events []Event
+	for {
+		mover, ok := board.Unit(moverID)
+		if !ok {
+			return board, events
+		}
+		targets := nonMeleeCapable(board.AdjacentEnemies(mover.Side, mover.Pos))
+		if len(targets) == 0 {
+			return board, events
+		}
+		result, err := ResolveMelee(board, core, moverID, targets[0].ID, false)
+		if err != nil {
+			return board, events
+		}
+		board = applyMelee(board, result)
+		events = append(events, Event{Kind: "melee", Unit: result.AttackerID, Detail: "overrun", Board: board, Melee: &result})
+		if result.Hits == 0 {
+			return board, events // The mover was repelled: the overrun stops.
+		}
+	}
+}
+
+func meleeCapable(units []UnitInstance) []UnitInstance {
+	var out []UnitInstance
+	for _, u := range units {
+		if u.Template.Melee {
+			out = append(out, u)
+		}
+	}
+	return out
+}
+
+func nonMeleeCapable(units []UnitInstance) []UnitInstance {
+	var out []UnitInstance
+	for _, u := range units {
+		if !u.Template.Melee {
+			out = append(out, u)
+		}
+	}
+	return out
 }

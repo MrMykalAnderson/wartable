@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -16,7 +17,7 @@ import (
 // turnCount is how many of each scenario's turn order files to replay:
 // annihilation ends early (the whole point of the scenario), so it has
 // fewer turn files than the 12-turn limit.
-func TestGoldenAnnihilation(t *testing.T) { testGolden(t, "annihilation", 9) }
+func TestGoldenAnnihilation(t *testing.T) { testGolden(t, "annihilation", 11) }
 func TestGoldenTurnLimit(t *testing.T)    { testGolden(t, "turnlimit", 12) }
 
 func testGolden(t *testing.T, scenario string, turns int) {
@@ -46,6 +47,16 @@ func testGolden(t *testing.T, scenario string, turns int) {
 		if err := runTurn([]string{statePath, north, south}, &out); err != nil {
 			t.Fatalf("runTurn(turn %d): %v", n, err)
 		}
+	}
+
+	// No man's land (docs/dev-plan.md section 7.7): a played-out game
+	// should never trip the invariant that two enemy units are left
+	// adjacent after an order. A golden replay tripping it would mean
+	// the warning text got silently baked into golden.txt as if it were
+	// expected, so check for it directly rather than relying on the
+	// byte-for-byte comparison below to catch it.
+	if strings.Contains(out.String(), "no man's land violation") {
+		t.Errorf("golden replay for %s tripped the no man's land invariant: a [warning] event appears in its output", scenario)
 	}
 
 	want, err := os.ReadFile(goldenPath)

@@ -103,7 +103,10 @@ func newCoreRulesView(core rules.CoreRules) CoreRulesView {
 	return v
 }
 
-// GameView is a saved game as seen by the web viewer.
+// GameView is a saved game as seen by the web viewer. History is every
+// turn played so far (docs/dev-plan.md section 7.7), so the viewer can
+// step through any past turn right after loading, not just ones played
+// in the current browser session.
 type GameView struct {
 	ScenarioID     string              `json:"scenarioId"`
 	Turn           int                 `json:"turn"`
@@ -113,6 +116,7 @@ type GameView struct {
 	Units          []UnitView          `json:"units"`
 	Reserves       map[string][]string `json:"reserves"`
 	CoreRules      CoreRulesView       `json:"coreRules"`
+	History        []TurnRecordView    `json:"history"`
 }
 
 func newGameView(f save.File, core rules.CoreRules) GameView {
@@ -125,6 +129,10 @@ func newGameView(f save.File, core rules.CoreRules) GameView {
 		}
 		reserves[side] = ids
 	}
+	history := make([]TurnRecordView, len(f.History))
+	for i, t := range f.History {
+		history[i] = newTurnRecordView(t, core)
+	}
 	return GameView{
 		ScenarioID:     f.ScenarioID,
 		Turn:           f.Turn,
@@ -134,6 +142,32 @@ func newGameView(f save.File, core rules.CoreRules) GameView {
 		Units:          board.Units,
 		Reserves:       reserves,
 		CoreRules:      newCoreRulesView(core),
+		History:        history,
+	}
+}
+
+// TurnRecordView is one played turn's full record as seen by the web
+// viewer: the order sheets submitted and the resulting event log, with
+// the board exactly as it stood before the turn ran.
+type TurnRecordView struct {
+	Turn        int         `json:"turn"`
+	NorthOrders string      `json:"northOrders"`
+	SouthOrders string      `json:"southOrders"`
+	BoardBefore BoardView   `json:"boardBefore"`
+	Events      []EventView `json:"events"`
+}
+
+func newTurnRecordView(t save.TurnRecord, core rules.CoreRules) TurnRecordView {
+	events := make([]EventView, len(t.Events))
+	for i, e := range t.Events {
+		events[i] = newEventView(e, core)
+	}
+	return TurnRecordView{
+		Turn:        t.Turn,
+		NorthOrders: t.NorthOrders,
+		SouthOrders: t.SouthOrders,
+		BoardBefore: newBoardView(t.BoardBefore, core),
+		Events:      events,
 	}
 }
 

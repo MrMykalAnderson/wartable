@@ -4,36 +4,34 @@ A full Starter Battle, played by hand through the CLI, ending in
 annihilation (docs/starter-battle.md "Winning", rule 1). See
 `golden_test.go` (`TestGoldenAnnihilation`).
 
-Regenerated for docs/dev-plan.md section 7.5's combat rewrite (margin
-decides the result; a margin of 3+ destroys any unit outright, with no
-knockback attempted at all): North now loses its whole force by **turn
-9** instead of turn 12, so `north-10.txt` through `north-12.txt` (and
-their `south-*` counterparts) were deleted — nothing was left to order.
-`golden_test.go` now takes a turn count per scenario rather than a
-hardcoded 12.
+Regenerated for docs/dev-plan.md section 7.7's playtest round 4 changes
+(artillery never ambushes and is overrun instead; Ready artillery is
+dug in — destroyed by any margin of loss, never knocked back; safe-
+route pathfinding). Turns 1-9 are unchanged from before; with the
+ambush bug fixed (artillery could previously attack in an ambush it
+should never have taken part in), North's cavalry survives longer and
+the game no longer ends by turn 9, so `north-10.txt`/`south-10.txt` and
+`north-11.txt`/`south-11.txt` were added to finish it off.
+`golden_test.go`'s turn count for this scenario moved from 9 to 11.
 
 Notable moments (by turn):
 
 - **Turn 2**: `North 2nd Infantry | Deploy | D2` fails — D2 is already
   occupied by `North 1st Infantry` (docs/core-rules.md section 12,
   provisional rule 4).
-- **Turn 4**: a half-strength `North 1st Infantry` (Attack reduced to 1)
-  closes on `South 1st Infantry` and attacks its **rear**; margin 2 is
-  still only a hit at that reduced Attack, so South is knocked back
-  rather than destroyed.
-- **Turn 5**: `North 1st Cavalry` is ambushed by `South 1st Artillery`
-  at margin 3 and destroyed outright, at full strength, with no
-  knockback attempted. `North 2nd Infantry` separately closes on
-  `South 2nd Infantry` and hits its flank for a knockback.
-- **Turns 7-9**: `South 1st Cavalry`, built up to +2 support, destroys
-  `North 2nd Infantry` and then `North 1st Infantry` in separate
-  ambushes (margins 4 and 6); `South 1st Artillery` finishes the game by
-  destroying `North 1st Artillery` in an ambush at margin 4. South wins:
-  north annihilated.
+- **Turns 5, 7, 8**: `South 1st Cavalry`, picking up support as the
+  game goes on, destroys `North 1st Cavalry`, `North 2nd Infantry` and
+  `North 1st Infantry` in separate ambushes.
+- **Turn 9**: `North 1st Artillery` (Mobilised, so able to move) moves
+  into contact with `South 1st Artillery`. Neither can make melee
+  attacks, so there's no ambush — instead North's gun **overruns**
+  South's, destroying it at margin 3. Overrun isn't limited to
+  melee-capable movers: the rule text only excludes artillery from
+  Close and Attack orders and from attacking *in* an ambush.
+- **Turns 10-11**: `South 1st Cavalry` hunts down North's last unit
+  (its own artillery) and destroys it. South wins: north annihilated.
 
-Margin 3+ bypasses knockback entirely now, so neither golden game
-produces a blocked-knockback destruction any more (both did, before
-this rewrite). That case is still covered directly by
-`TestMeleeEX4DestroyedIfRetreatBlocked` and
-`TestAmbushEndsWhenKnockbackWouldBeAdjacentToAnotherEnemy` in
-`internal/game`.
+This game doesn't happen to exercise Ready (dug-in) artillery losing a
+melee, or a unit taking the safe route around an enemy — both are
+covered directly by `TestOverrunEX9Destroyed`/`TestOverrunEX9Repelled`
+and `TestSafeRouteEX8` in `internal/game`.

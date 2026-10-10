@@ -90,3 +90,10 @@ func (u UnitInstance) CanTurn() bool {
 	s, ok := u.Template.States[u.State]
 	return !ok || s.CanTurn
 }
+
+// DugIn reports whether u is dug in: Ready artillery, which can't be
+// knocked back and is destroyed outright if it loses a melee by any
+// margin (docs/core-rules.md section 3.4).
+func (u UnitInstance) DugIn() bool {
+	return u.State == "ready"
+}
