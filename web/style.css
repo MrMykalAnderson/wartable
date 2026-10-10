@@ -285,6 +285,31 @@ button {
   margin-left: 0.2rem;
 }
 
+/* The six-way facing control (docs/dev-plan.md section 7.9): shown on
+   an order-list entry, and (as .facing-dot, on the map) on its ghost. */
+.facing-control {
+  display: inline-flex;
+  gap: 0.1rem;
+  margin-left: 0.4rem;
+}
+.facing-btn {
+  font-size: 0.62rem;
+  padding: 0 0.2rem;
+  margin-left: 0 !important;
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 2px;
+  color: #887f6a;
+}
+.facing-btn-active {
+  background: #4a4a4a;
+  color: #fff;
+  border-color: #4a4a4a;
+}
+.facing-btn-auto {
+  font-style: italic;
+}
+
 .order-text {
   background: #f3efe3;
   border: 1px solid var(--border);
@@ -354,14 +379,19 @@ button {
 #map .hex-cell.selectable {
   cursor: pointer;
 }
+/* Translucent (docs/dev-plan.md section 7.9): terrain must stay visible
+   underneath a deployment-zone or reach overlay, not be hidden by it. */
 #map .hex-cell.highlight-move {
   fill: #cfe8c8;
+  fill-opacity: 0.45;
 }
 #map .hex-cell.highlight-deploy {
   fill: #c8dcf0;
+  fill-opacity: 0.45;
 }
 #map .hex-cell.highlight-fire {
   fill: #f0c2c2;
+  fill-opacity: 0.45;
 }
 #map .unit.targetable {
   cursor: pointer;
@@ -554,6 +584,20 @@ button {
 .close-move-dot {
   fill: #7a3fa0;
   opacity: 0.75;
+}
+
+/* The ghost's own six-way facing control (docs/dev-plan.md section
+   7.9): one small dot per direction around the ghost token, the filled
+   one showing the order's current (explicit or automatic) facing. */
+.facing-dot {
+  fill: #fff;
+  stroke: #4a4a4a;
+  stroke-width: 1;
+  cursor: pointer;
+  pointer-events: auto; /* #ghost-layer disables pointer events by default. */
+}
+.facing-dot-active {
+  fill: #4a4a4a;
 }
 
 /* Attack/Fire prediction, before the order is confirmed (docs/dev-

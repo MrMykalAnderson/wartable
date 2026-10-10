@@ -145,6 +145,38 @@ function hexName(col, row) {
 // game.terrain/game.objectives, computed server-side — nothing here
 // decides a rule. Drawn into its own layer, underneath the hex-cell
 // grid so clicks still land on the plain hex-cell elements.
+// roadCurve draws a road chain through the midpoints of the hex edges
+// it crosses, starting and ending at the end hexes' own centres, then
+// smooths it with Chaikin corner-cutting (docs/dev-plan.md section 7.9:
+// a road that alternates two directions, e.g. NE/SE/NE/SE = due east,
+// has all its edge midpoints on one straight line, so this reads
+// straight instead of zig-zagging through hex centres). Ports
+// docs/maps/twotowns.py's road_curve exactly; purely how a road is
+// drawn, not which hexes are road (never a rule decision).
+function roadCurve(chain, passes = 3) {
+  let pts = [[hexCenter(chain[0].col, chain[0].row).x, hexCenter(chain[0].col, chain[0].row).y]];
+  for (let i = 0; i < chain.length - 1; i++) {
+    const a = hexCenter(chain[i].col, chain[i].row);
+    const b = hexCenter(chain[i + 1].col, chain[i + 1].row);
+    pts.push([(a.x + b.x) / 2, (a.y + b.y) / 2]);
+  }
+  const last = hexCenter(chain[chain.length - 1].col, chain[chain.length - 1].row);
+  pts.push([last.x, last.y]);
+
+  for (let pass = 0; pass < passes; pass++) {
+    const out = [pts[0]];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [x1, y1] = pts[i];
+      const [x2, y2] = pts[i + 1];
+      out.push([0.75 * x1 + 0.25 * x2, 0.75 * y1 + 0.25 * y2]);
+      out.push([0.25 * x1 + 0.75 * x2, 0.25 * y1 + 0.75 * y2]);
+    }
+    out.push(pts[pts.length - 1]);
+    pts = out;
+  }
+  return pts;
+}
+
 function renderTerrain(svg, game) {
   const terrain = game.terrain;
   if (!terrain) return;
@@ -168,7 +200,7 @@ function renderTerrain(svg, game) {
 
   for (const chain of terrain.roads || []) {
     if (chain.length < 2) continue;
-    const points = chain.map((h) => { const c = hexCenter(h.col, h.row); return `${c.x},${c.y}`; }).join(" ");
+    const points = roadCurve(chain).map((p) => `${p[0]},${p[1]}`).join(" ");
     layer.appendChild(svgEl("polyline", { points, fill: "none", class: "terrain-road" }));
   }
   for (const edge of terrain.river || []) {
@@ -221,20 +253,30 @@ function zoomBy(factor, anchorClientX, anchorClientY) {
   applyView();
 }
 
-function renderMap(game) {
+// renderMap draws board (either the live game, or a historical
+// board snapshot from turn/event replay — see currentDisplayBoard).
+// Terrain and objective ownership always come from state.game, the live
+// scenario data, never from board itself: a historical BoardView
+// snapshot carries only columns/rows/units, not terrain (docs/dev-
+// plan.md section 7.9 — every view of the map must always draw the
+// terrain layer, including mid-replay). The terrain itself is static
+// for the whole game, so this is never stale; only objective ownership
+// shown during replay is always "as of now" rather than as of that
+// historical step, which is an acceptable gap for now.
+function renderMap(board) {
   const svg = document.getElementById("map");
   svg.innerHTML = "";
-  const width = MARGIN * 2 + (game.columns - 1) * HEX_SIZE * 1.5 + HEX_SIZE;
-  const height = MARGIN * 2 + (game.rows - 1) * HEX_SIZE * Math.sqrt(3) + HEX_SIZE * Math.sqrt(3);
+  const width = MARGIN * 2 + (board.columns - 1) * HEX_SIZE * 1.5 + HEX_SIZE;
+  const height = MARGIN * 2 + (board.rows - 1) * HEX_SIZE * Math.sqrt(3) + HEX_SIZE * Math.sqrt(3);
   const isNewMap = !state.mapContentSize || state.mapContentSize.width !== width || state.mapContentSize.height !== height;
   state.mapContentSize = { width, height };
   if (isNewMap) resetView(width, height);
   else applyView();
 
-  renderTerrain(svg, game);
+  renderTerrain(svg, state.game || board);
 
-  for (let row = 0; row < game.rows; row++) {
-    for (let col = 0; col < game.columns; col++) {
+  for (let row = 0; row < board.rows; row++) {
+    for (let col = 0; col < board.columns; col++) {
       const { x, y } = hexCenter(col, row);
       const pts = hexVertices(x, y, HEX_SIZE);
       svg.appendChild(
@@ -262,7 +304,7 @@ function renderMap(game) {
     }
   }
 
-  for (const unit of game.units) {
+  for (const unit of board.units) {
     drawUnit(svg, unit);
   }
 }
@@ -606,17 +648,25 @@ function clearSelection() {
 }
 
 // ATTACK_TYPES are the order types that need a predicted-result
-// confirmation (docs/dev-plan.md section 7.5, interface item 2) rather
-// than a facing pick: they always target a unit, and the engine, not the
-// player, decides the resulting facing.
+// confirmation (docs/dev-plan.md section 7.5, interface item 2) before
+// they're added: they always target a unit, and the engine, not the
+// player, decides the resulting facing. Every other order type commits
+// the moment its target is clicked (docs/dev-plan.md section 7.9:
+// facing is optional, so no pick-a-facing step blocks it); its facing
+// can be adjusted afterward from the order-list entry or its ghost.
 const ATTACK_TYPES = ["Close and Attack", "Fire", "Close and Fire"];
+
+// FACING_ADJUSTABLE_TYPES are the order types with an adjustable facing
+// (docs/dev-plan.md section 7.9; core-rules.md section 12 provisional
+// rule 2 for Ready/Mobilise) — not the attack types, whose facing the
+// engine alone decides.
+const FACING_ADJUSTABLE_TYPES = ["Move", "Deploy", "Ready", "Mobilise"];
 
 function renderBuilder() {
   const builder = document.getElementById("order-builder");
   const label = document.getElementById("builder-label");
   const typeChooser = document.getElementById("type-chooser");
   const stateButtons = document.getElementById("state-buttons");
-  const facingPicker = document.getElementById("facing-picker");
   const predictPanel = document.getElementById("predict-panel");
 
   if (!state.selection) {
@@ -627,27 +677,18 @@ function renderBuilder() {
   typeChooser.hidden = true;
   typeChooser.innerHTML = "";
 
-  if (state.pendingOrder && ATTACK_TYPES.includes(state.pendingOrder.type)) {
+  if (state.pendingOrder) { // only ever an attack type awaiting its predicted-result confirmation now.
     label.textContent = `${state.pendingOrder.unit}: ${state.pendingOrder.type} ${state.pendingOrder.targetUnit}`;
     stateButtons.hidden = true;
-    facingPicker.hidden = true;
     predictPanel.hidden = false;
     return;
   }
   predictPanel.hidden = true;
 
-  if (state.pendingOrder) {
-    label.textContent = `${state.pendingOrder.unit}: ${state.pendingOrder.type}${state.pendingOrder.targetHex ? " to " + hexName(state.pendingOrder.targetHex.col, state.pendingOrder.targetHex.row) : ""} — pick a facing (or Auto)`;
-    stateButtons.hidden = true;
-    facingPicker.hidden = false;
-    return;
-  }
-
-  facingPicker.hidden = true;
   const opts = state.options;
   label.textContent = opts.isReserve
     ? `${state.selection}: click a highlighted hex to Deploy`
-    : `${state.selection}: click a highlighted hex to Move, an outlined enemy to attack, or a state button`;
+    : `${state.selection}: click any hex to Move, an occupied hex for more choices, an outlined enemy to attack, or a state button`;
   if (opts.hasBarrage) {
     label.textContent += " (red hexes are also its passive Barrage zone: it auto-fires there every turn while Ready)";
   }
@@ -666,61 +707,97 @@ function renderBuilder() {
     buttons.forEach((type) => {
       const b = document.createElement("button");
       b.textContent = type;
-      b.addEventListener("click", () => startFacingPick({ type, unit: state.selection }));
+      b.addEventListener("click", () => commitOrder({ type, unit: state.selection }));
       stateButtons.appendChild(b);
     });
   }
 }
 
-function startFacingPick(partial) {
-  state.pendingOrder = partial;
-  renderBuilder();
+// offerChoices shows choices as buttons in the shared type-chooser
+// (docs/dev-plan.md section 7.9) if there's more than one, or just runs
+// the one choice immediately if there's only one — the same pattern
+// multi-attack-type disambiguation already used, now generalized to
+// "Move here"/"Select this unit"/attack types together.
+function offerChoices(choices) {
+  const chooser = document.getElementById("type-chooser");
+  chooser.innerHTML = "";
+  if (choices.length === 0) return;
+  if (choices.length === 1) {
+    choices[0].action();
+    return;
+  }
+  chooser.hidden = false;
+  choices.forEach(({ label: text, action }) => {
+    const b = document.createElement("button");
+    b.textContent = text;
+    b.addEventListener("click", () => {
+      chooser.hidden = true;
+      chooser.innerHTML = "";
+      action();
+    });
+    chooser.appendChild(b);
+  });
+}
+
+// handleTargetClick is the single entry point for a click on the map
+// while a unit is selected, whether it landed on an empty hex or
+// another unit's token — any hex can be an order target, including an
+// occupied one (docs/dev-plan.md section 7.9): occupantId is the unit
+// standing at (col,row), if any.
+function handleTargetClick(col, row, occupantId) {
+  if (!state.selection || !state.options) return;
+  const opts = state.options;
+
+  if (opts.isReserve) {
+    if (occupantId) return; // deployHexes is already filtered to empty hexes.
+    if (!(opts.deployHexes || []).some((h) => h.col === col && h.row === row)) return;
+    commitOrder({ type: "Deploy", unit: state.selection, targetHex: { col, row } });
+    return;
+  }
+
+  const choices = [
+    { label: "Move here", action: () => commitOrder({ type: "Move", unit: state.selection, targetHex: { col, row } }) },
+  ];
+  if (occupantId) {
+    const occupant = state.game.units.find((u) => u.id === occupantId);
+    if (occupant && occupant.side === state.activeSide) {
+      if (occupantId !== state.selection && !unitHasOrder(state.activeSide, occupantId)) {
+        choices.push({ label: "Select this unit", action: () => selectUnit(occupantId) });
+      }
+    } else if (occupant) {
+      if ((opts.meleeTargets || []).includes(occupantId)) {
+        choices.push({ label: "Close and Attack", action: () => startAttackConfirm({ type: "Close and Attack", unit: state.selection, targetUnit: occupantId }) });
+      }
+      if ((opts.fireTargets || []).includes(occupantId)) {
+        choices.push({ label: "Fire", action: () => startAttackConfirm({ type: "Fire", unit: state.selection, targetUnit: occupantId }) });
+      }
+      if ((opts.closeFireTargets || []).includes(occupantId)) {
+        choices.push({ label: "Close and Fire", action: () => startAttackConfirm({ type: "Close and Fire", unit: state.selection, targetUnit: occupantId }) });
+      }
+    }
+  }
+  offerChoices(choices);
 }
 
 function onHexClick(col, row) {
-  if (!state.selection || !state.options) return;
-  const opts = state.options;
-  if (opts.isReserve) {
-    if (!(opts.deployHexes || []).some((h) => h.col === col && h.row === row)) return;
-    startFacingPick({ type: "Deploy", unit: state.selection, targetHex: { col, row } });
-    return;
-  }
-  // Any hex is a valid Move objective (docs/dev-plan.md section 7.6):
-  // the path is only worked out at execution, since other units will
-  // have moved by then.
-  startFacingPick({ type: "Move", unit: state.selection, targetHex: { col, row } });
+  const occupant = state.game && state.game.units.find((u) => u.col === col && u.row === row);
+  handleTargetClick(col, row, occupant ? occupant.id : null);
 }
 
 function onUnitClick(unitId) {
   const unit = state.game && state.game.units.find((u) => u.id === unitId);
-  // Clicking a unit on your own side selects it for ordering (docs/dev-plan.md
-  // section 7.3, interface item 2), whether or not something else was
-  // already selected; clicking an already-ordered unit does nothing.
-  if (unit && unit.side === state.activeSide) {
-    if (!unitHasOrder(state.activeSide, unitId)) selectUnit(unitId);
+  if (!unit) return;
+  // With nothing selected, clicking your own unit selects it for
+  // ordering (docs/dev-plan.md section 7.3, interface item 2);
+  // clicking an already-ordered unit does nothing. With a unit already
+  // selected, clicking another unit's hex offers choices instead (see
+  // handleTargetClick) rather than always reselecting it — that was
+  // the bug stopping a friendly unit's hex ever being a Move objective.
+  if (!state.selection) {
+    if (unit.side === state.activeSide && !unitHasOrder(state.activeSide, unitId)) selectUnit(unitId);
     return;
   }
-
-  if (!state.selection || !state.options) return;
-  const opts = state.options;
-  const types = [];
-  if ((opts.meleeTargets || []).includes(unitId)) types.push("Close and Attack");
-  if ((opts.fireTargets || []).includes(unitId)) types.push("Fire");
-  if ((opts.closeFireTargets || []).includes(unitId)) types.push("Close and Fire");
-  if (types.length === 0) return;
-  if (types.length === 1) {
-    startAttackConfirm({ type: types[0], unit: state.selection, targetUnit: unitId });
-    return;
-  }
-  const chooser = document.getElementById("type-chooser");
-  chooser.innerHTML = "";
-  chooser.hidden = false;
-  types.forEach((type) => {
-    const b = document.createElement("button");
-    b.textContent = type;
-    b.addEventListener("click", () => startAttackConfirm({ type, unit: state.selection, targetUnit: unitId }));
-    chooser.appendChild(b);
-  });
+  handleTargetClick(unit.col, unit.row, unitId);
 }
 
 // startAttackConfirm shows a predicted result (docs/dev-plan.md section
@@ -769,15 +846,6 @@ document.getElementById("confirm-order").addEventListener("click", () => {
   if (state.pendingOrder) commitOrder(state.pendingOrder);
 });
 
-document.getElementById("facing-picker").addEventListener("click", (e) => {
-  const btn = e.target.closest("button[data-facing]");
-  if (!btn || !state.pendingOrder) return;
-  const facing = btn.getAttribute("data-facing");
-  const order = { ...state.pendingOrder };
-  if (facing) order.facing = facing;
-  commitOrder(order);
-});
-
 document.getElementById("cancel-order").addEventListener("click", clearSelection);
 
 function commitOrder(order) {
@@ -798,6 +866,65 @@ function orderLine(o) {
   return `${o.unit} | ${o.type}${detail}${facing}`;
 }
 
+// effectiveFacing is the facing order o will end with if it runs now
+// (docs/dev-plan.md section 7.9): o.facing if the player set one,
+// otherwise the automatic facing the engine will compute — a Move's
+// preview path's last step once it's arrived (see fetchMovePreview),
+// a Deploy's scenario default, or (Ready/Mobilise, which only change
+// facing if told to, core-rules.md section 12 provisional rule 2) the
+// unit's current facing. null if not yet knowable (e.g. a Move whose
+// preview hasn't arrived yet).
+function effectiveFacing(o, side) {
+  if (o.facing) return o.facing;
+  if (!state.game) return null;
+  if (o.type === "Deploy") return (state.game.defaultFacing || {})[side] || null;
+  if (o.type === "Move") {
+    const unit = state.game.units.find((u) => u.id === o.unit);
+    const preview = state.movePreviews[o.unit];
+    if (!unit || !preview || preview.length === 0) return null;
+    const from = preview.length > 1 ? preview[preview.length - 2] : { col: unit.col, row: unit.row };
+    return directionBetween(from, preview[preview.length - 1]);
+  }
+  if (o.type === "Ready" || o.type === "Mobilise") {
+    const unit = state.game.units.find((u) => u.id === o.unit);
+    return unit ? unit.facing : null;
+  }
+  return null;
+}
+
+function setOrderFacing(side, index, facing) {
+  const o = state.orders[side][index];
+  if (!o) return;
+  if (facing) o.facing = facing;
+  else delete o.facing;
+  renderOrderLists(); // re-renders the list text and the ghosts.
+}
+
+// buildFacingControl is the small six-way control for adjusting an
+// order's facing afterward (docs/dev-plan.md section 7.9), shown on
+// both the order-list entry (here) and the order's ghost (see
+// appendFacingWheel) — the same six buttons, just laid out differently.
+function buildFacingControl(side, index, o) {
+  const span = document.createElement("span");
+  span.className = "facing-control";
+  const current = effectiveFacing(o, side);
+  DIRECTIONS.forEach((d) => {
+    const b = document.createElement("button");
+    b.textContent = d;
+    b.title = `Set facing ${d}`;
+    b.className = "facing-btn" + (o.facing === d ? " facing-btn-active" : "");
+    b.addEventListener("click", () => setOrderFacing(side, index, d));
+    span.appendChild(b);
+  });
+  const auto = document.createElement("button");
+  auto.textContent = "auto";
+  auto.title = current ? `Automatic facing (currently ${current})` : "Automatic facing";
+  auto.className = "facing-btn facing-btn-auto" + (o.facing ? "" : " facing-btn-active");
+  auto.addEventListener("click", () => setOrderFacing(side, index, null));
+  span.appendChild(auto);
+  return span;
+}
+
 function renderOrderLists() {
   for (const side of ["north", "south"]) {
     const list = document.getElementById(`order-list-${side}`);
@@ -807,6 +934,9 @@ function renderOrderLists() {
       const text = document.createElement("span");
       text.textContent = orderLine(o);
       li.appendChild(text);
+      if (FACING_ADJUSTABLE_TYPES.includes(o.type)) {
+        li.appendChild(buildFacingControl(side, i, o));
+      }
 
       const up = document.createElement("button");
       up.textContent = "↑";
@@ -897,6 +1027,37 @@ async function fetchMovePreview(unitId, targetHex) {
 // safe route once fetchMovePreview's response arrives (hex-accurate),
 // or a straight-line guess before then. Either way it's labelled "≈
 // here" whenever that's short of the actual objective.
+// appendFacingWheel draws the small six-way control for adjusting an
+// order's facing directly on its ghost (docs/dev-plan.md section 7.9):
+// one small dot at each of a hex's six edge midpoints around (cx,cy),
+// the same edge geometry a unit token's own front/flank/rear markers
+// use, so it lines up with the map's own orientation. The dot at the
+// current effective facing (explicit or automatic — see
+// effectiveFacing) is shown filled in; the rest are outlined.
+function appendFacingWheel(layer, side, index, cx, cy, current) {
+  const radius = HEX_SIZE * 0.55;
+  const pts = hexVertices(cx, cy, radius);
+  DIRECTIONS.forEach((d, i) => {
+    const [ai, bi] = edgeVertexIndices(i);
+    const mx = (pts[ai][0] + pts[bi][0]) / 2;
+    const my = (pts[ai][1] + pts[bi][1]) / 2;
+    const dot = svgEl("circle", {
+      cx: mx,
+      cy: my,
+      r: HEX_SIZE * 0.1,
+      class: "facing-dot" + (d === current ? " facing-dot-active" : ""),
+    });
+    const title = svgEl("title", {});
+    title.textContent = `Set facing ${d}`;
+    dot.appendChild(title);
+    dot.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setOrderFacing(side, index, d);
+    });
+    layer.appendChild(dot);
+  });
+}
+
 function renderOrderGhosts() {
   const svg = document.getElementById("map");
   const old = document.getElementById("ghost-layer");
@@ -906,23 +1067,26 @@ function renderOrderGhosts() {
   svg.appendChild(layer);
 
   for (const side of ["north", "south"]) {
-    for (const o of state.orders[side]) {
+    state.orders[side].forEach((o, index) => {
       const unit = state.game.units.find((u) => u.id === o.unit);
       const startPos = unit ? hexCenter(unit.col, unit.row) : null;
       const lineClass = ORDER_LINE_CLASS[o.type] || "order-line-close-attack";
 
       if (o.type === "Ready" || o.type === "Mobilise") {
         if (startPos) {
+          const mx = startPos.x + HEX_SIZE * 0.5;
+          const my = startPos.y - HEX_SIZE * 0.5;
           layer.appendChild(
             svgEl("circle", {
-              cx: startPos.x + HEX_SIZE * 0.5,
-              cy: startPos.y - HEX_SIZE * 0.5,
+              cx: mx,
+              cy: my,
               r: HEX_SIZE * 0.16,
               class: `order-state-marker ghost-${side}`,
             })
           );
+          appendFacingWheel(layer, side, index, mx, my, effectiveFacing(o, side));
         }
-        continue;
+        return;
       }
 
       if (o.targetHex) {
@@ -974,6 +1138,10 @@ function renderOrderGhosts() {
           label.textContent = "≈ here";
           layer.appendChild(label);
         }
+        // Move/Deploy have an adjustable facing (docs/dev-plan.md
+        // section 7.9); attack orders (targetUnit, below) don't — the
+        // engine alone decides theirs.
+        appendFacingWheel(layer, side, index, gx, gy, effectiveFacing(o, side));
       } else if (o.targetUnit) {
         const target = state.game.units.find((u) => u.id === o.targetUnit);
         if (startPos && target) {
@@ -983,7 +1151,7 @@ function renderOrderGhosts() {
           );
         }
       }
-    }
+    });
   }
 }
 

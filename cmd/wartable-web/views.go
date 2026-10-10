@@ -189,6 +189,11 @@ type GameView struct {
 	History        []TurnRecordView    `json:"history"`
 	Terrain        *TerrainView        `json:"terrain,omitempty"`
 	Objectives     map[string]string   `json:"objectives,omitempty"`
+	// DefaultFacing is each side's facing on Deploy if an order doesn't
+	// set one explicitly (docs/dev-plan.md section 7.9: facing is
+	// optional), for the frontend to show what a pending Deploy order
+	// will end up facing without having to ask the server.
+	DefaultFacing map[string]string `json:"defaultFacing"`
 }
 
 func newGameView(f save.File, core rules.CoreRules, scenario rules.Scenario) GameView {
@@ -217,6 +222,7 @@ func newGameView(f save.File, core rules.CoreRules, scenario rules.Scenario) Gam
 		History:        history,
 		Terrain:        newTerrainView(scenario.Terrain),
 		Objectives:     f.State.Objectives,
+		DefaultFacing:  scenario.DefaultFacing,
 	}
 }
 

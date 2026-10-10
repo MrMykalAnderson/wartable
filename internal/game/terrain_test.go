@@ -47,6 +47,23 @@ func TestRoadMarchStopsBehindBlockingUnit(t *testing.T) {
 	}
 }
 
+// TestPreviewMovePathIgnoresBlockingUnit checks docs/dev-plan.md section
+// 7.9: unlike actually executing the order (TestRoadMarchStopsBehindBlockingUnit),
+// a Move prediction's path estimate ignores every unit, so a friendly
+// unit standing on the road doesn't shorten the previewed road march.
+func TestPreviewMovePathIgnoresBlockingUnit(t *testing.T) {
+	templates, core := loadTestRules(t)
+	scenario := loadTestTwoTowns(t, templates)
+	mover := newUnit(t, templates, "2nd Foot", "north", "infantry", "K7", hex.N)
+	blocker := newUnit(t, templates, "Blocker", "north", "infantry", "N6", hex.N)
+	board := boardFor(scenario, mover, blocker)
+
+	path := PreviewMovePath(core, board, mover, mustParse(t, "S5"))
+	if len(path) == 0 || path[len(path)-1] != mustParse(t, "Q5") {
+		t.Errorf("PreviewMovePath = %v, want it to reach Q5 regardless of the blocker on N6", path)
+	}
+}
+
 // TestFordingEX11 checks EX-11 from docs/core-rules.md section 11:
 // North's 3rd Foot (infantry) at K6, on the river bank, ordered to L5
 // directly across the (unbridged) river edge: it fords, moving that
