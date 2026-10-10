@@ -257,7 +257,7 @@ From Mykal's full game (`Testaftermovementplanningupdate.json`). Rules already u
 **Interface.**
 
 - **Order lines in the side's colour**, with the line style showing the order type: Move solid, Close and Attack dashed, Fire dotted, Close and Fire dash-dot (or similar), Ready/Mobilise a small marker on the unit. Add a small legend.
-- The pending-move estimate ("about here") should follow the **safe route** on the current board as a hint, still labelled as an estimate.
+- The pending-move estimate ("about here") follows the route over **terrain only, ignoring every unit** (see 7.9), still labelled as an estimate.
 
 **Saves.**
 
@@ -284,6 +284,26 @@ New rules: core-rules.md 2.3 (terrain, road march, forest, fording, river adjace
 - Draw terrain: forest, towns and hamlets as hex fills, roads as lines through hex centres, the river along hex edges, bridges marked. Show objective ownership.
 - Reach preview: road march reach along the road (+2), forest-limited reach, and a clear ford option when a unit stands on a river bank.
 - The map is 26 × 18: add **zoom and pan**. The map-first layout (7.4) will matter more now; ask Mykal before starting it.
+
+### 7.9 Playtest round 5 fixes (do next)
+
+From Mykal's first Two Towns game. All interface; no rules change.
+
+**Planning must ignore units (regression).**
+
+- The move preview (`fetchMovePreview` → `/api/predict`) runs the engine on the current board, so a unit ordered along a road behind a friend is shown as blocked by that friend. Previews and estimates must use **terrain only** (rivers, bridges, fording, road march, forest) and ignore every unit, friend or enemy, exactly like the reach highlight. (7.7 told you to use the current board; that was wrong.) Add a test: with a friendly unit standing on the road, the preview of a road march past it is unaffected.
+- **Any hex can be an order target, including occupied ones.** Today, clicking a friendly unit always selects it, so its hex can never be a Move objective. When a unit is selected and you click another unit's hex, offer the choices: "Move here" (any unit's hex) plus "Select this unit" (own side) or the attack types (enemy). With nothing selected, clicking your own unit selects it as now.
+
+**Facing is optional.**
+
+- Clicking a target adds the order straight away with **automatic facing** (the direction of the last step; for Deploy, the scenario's default). No facing step is required.
+- Facing can be set afterwards, if wanted, from a small six-way control on the order's list entry and on its ghost. Show the facing the order will end with on the ghost either way.
+
+**Display.**
+
+- **Deployment-zone and reach overlays must be translucent** (e.g. a light tint plus outline), so terrain stays visible underneath.
+- **Turn replay loses the terrain:** stepping through events (e.g. deployment) draws an empty hex grid with only units. Every view of the map must always draw the terrain layer.
+- **Straight roads.** Draw roads through the **midpoints of the hex edges** they cross (starting and ending at the end hexes' centres), then smooth with 2–3 passes of Chaikin corner-cutting. Alternating two-direction runs then render perfectly straight. Reference implementation: `road_curve` in `docs/maps/twotowns.py`. The rules (which hexes are road) don't change.
 
 ### 7.4 Parked (don't start without being asked)
 

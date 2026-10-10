@@ -152,6 +152,24 @@ data = {
     "bridges": sorted(f"{name(a)}|{name(b)}" for a, b in bridges),
 }
 
+
+# ---- road drawing ----------------------------------------------------------------------
+# Roads are drawn through the midpoints of the edges they cross, not hex centres, then
+# smoothed. A road that alternates two directions (e.g. NE, SE, NE, SE = due east) has
+# all its edge midpoints on one straight line, so it reads straight instead of zig-zagging.
+def road_curve(ch, passes=3):
+    pts = [center(ch[0])]
+    for a, b in zip(ch, ch[1:]):
+        (ax_, ay), (bx, by) = center(a), center(b)
+        pts.append(((ax_ + bx) / 2, (ay + by) / 2))
+    pts.append(center(ch[-1]))
+    for _ in range(passes):          # Chaikin corner cutting, keeping the end points
+        out = [pts[0]]
+        for (x1, y1), (x2, y2) in zip(pts, pts[1:]):
+            out += [(0.75 * x1 + 0.25 * x2, 0.75 * y1 + 0.25 * y2), (0.25 * x1 + 0.75 * x2, 0.25 * y1 + 0.75 * y2)]
+        out.append(pts[-1]); pts = out
+    return pts
+
 # ---- render --------------------------------------------------------------------------
 def render(path):
     fig, ax = plt.subplots(figsize=(16, 11), dpi=110)
@@ -164,8 +182,8 @@ def render(path):
                                     facecolor=col[t], edgecolor="#b8b2a3", lw=0.6))
         ax.text(X, -Y - 0.55, name(h), ha="center", va="center", fontsize=4.2, color="#7d776a")
     for ch in roads.values():
-        xs = [center(h)[0] for h in ch]; ys = [-center(h)[1] for h in ch]
-        ax.plot(xs, ys, color="#6b4f2a", lw=2.2, solid_capstyle="round", zorder=3)
+        xs, ys = zip(*road_curve(ch))
+        ax.plot(xs, [-y for y in ys], color="#6b4f2a", lw=2.2, solid_capstyle="round", zorder=3)
     def edge_pts(a, b):
         (ax_, ay), (bx, by) = center(a), center(b)
         mx, my = (ax_ + bx) / 2, (ay + by) / 2
