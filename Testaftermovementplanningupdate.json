@@ -1,0 +1,141 @@
+{
+  "ScenarioID": "starter-battle",
+  "Turn": 7,
+  "TieBreak": {
+    "Holder": "south"
+  },
+  "State": {
+    "Board": {
+      "Columns": 12,
+      "Rows": 10,
+      "Units": [
+        {
+          "ID": "North 1st Infantry",
+          "Side": "north",
+          "Template": {
+            "ID": "infantry",
+            "Name": "Infantry",
+            "Cost": 10,
+            "Move": 4,
+            "Def": {
+              "Flat": 2,
+              "ByState": null
+            },
+            "MinRange": 0,
+            "Range": 0,
+            "Attack": 2,
+            "Melee": true,
+            "States": null,
+            "DeployState": ""
+          },
+          "Pos": {
+            "Col": 5,
+            "Row": 1
+          },
+          "Facing": 0,
+          "Strength": 0,
+          "State": ""
+        },
+        {
+          "ID": "North 2nd Infantry",
+          "Side": "north",
+          "Template": {
+            "ID": "infantry",
+            "Name": "Infantry",
+            "Cost": 10,
+            "Move": 4,
+            "Def": {
+              "Flat": 2,
+              "ByState": null
+            },
+            "MinRange": 0,
+            "Range": 0,
+            "Attack": 2,
+            "Melee": true,
+            "States": null,
+            "DeployState": ""
+          },
+          "Pos": {
+            "Col": 6,
+            "Row": 4
+          },
+          "Facing": 0,
+          "Strength": 0,
+          "State": ""
+        },
+        {
+          "ID": "North 1st Artillery",
+          "Side": "north",
+          "Template": {
+            "ID": "artillery",
+            "Name": "Artillery",
+            "Cost": 15,
+            "Move": 4,
+            "Def": {
+              "Flat": 0,
+              "ByState": {
+                "mobilised": 2,
+                "ready": 4
+              }
+            },
+            "MinRange": 3,
+            "Range": 5,
+            "Attack": 3,
+            "Melee": false,
+            "States": {
+              "mobilised": {
+                "CanMove": true,
+                "CanFire": false,
+                "CanTurn": true
+              },
+              "ready": {
+                "CanMove": false,
+                "CanFire": true,
+                "CanTurn": false
+              }
+            },
+            "DeployState": "mobilised"
+          },
+          "Pos": {
+            "Col": 3,
+            "Row": 1
+          },
+          "Facing": 3,
+          "Strength": 1,
+          "State": "ready"
+        },
+        {
+          "ID": "North 1st Cavalry",
+          "Side": "north",
+          "Template": {
+            "ID": "cavalry",
+            "Name": "Cavalry",
+            "Cost": 20,
+            "Move": 7,
+            "Def": {
+              "Flat": 3,
+              "ByState": null
+            },
+            "MinRange": 1,
+            "Range": 2,
+            "Attack": 3,
+            "Melee": true,
+            "States": null,
+            "DeployState": ""
+          },
+          "Pos": {
+            "Col": 4,
+            "Row": 3
+          },
+          "Facing": 0,
+          "Strength": 0,
+          "State": ""
+        }
+      ]
+    },
+    "Reserves": {
+      "north": [],
+      "south": []
+    }
+  }
+}
