@@ -1,0 +1,186 @@
+# Two Towns map (DRAFT - not a rules source; Claude Code ignores docs/drafts/).
+# Flat-top hexes, A1 top-left, columns A-Z, rows 1-18; B, D, F ... sit half a hex lower.
+# terrain: one string per row, one character per column (see terrain_key).
+# roads: hex chains through hex centres. river/bridges: hex edges, written HEX|HEX.
+# Converted from Mykal's paper map (two-towns-paper.jpg) by twotowns.py.
+id: two-towns
+name: Two Towns (draft)
+columns: 26
+rows: 18
+terrain_key:
+  .: open
+  F: forest
+  T: town
+  H: hamlet
+terrain:
+- '..........................'
+- '......................TT..'
+- '......................TT..'
+- '......................TT..'
+- '..........................'
+- '...............FF.........'
+- '............FFFFFF........'
+- '...........FFFFFFFF.......'
+- '..........FFFFFFFF........'
+- '.........FFFFFFFF.......HH'
+- '.H.......FFFFFFF..........'
+- '.H........................'
+- '..........................'
+- '..........................'
+- '.TTT......................'
+- '.TTT......................'
+- '..........................'
+- '..........................'
+towns:
+  North town:
+  - B15
+  - B16
+  - C15
+  - C16
+  - D15
+  - D16
+  South town:
+  - W2
+  - W3
+  - W4
+  - X2
+  - X3
+  - X4
+hamlets:
+  West hamlet:
+  - B11
+  - B12
+  East hamlet:
+  - Y10
+  - Z10
+roads:
+  R1:
+  - D18
+  - D17
+  - C17
+  - C16
+  - C15
+  - C14
+  - B13
+  - B12
+  - B11
+  - B10
+  - B9
+  - B8
+  - A8
+  R2:
+  - A17
+  - B16
+  - C16
+  - D16
+  - E16
+  - F15
+  - G16
+  - H15
+  - I15
+  - J14
+  - K14
+  - L13
+  - M13
+  - N12
+  - O12
+  - P11
+  - Q12
+  - R11
+  - S12
+  - T11
+  - U11
+  - V11
+  - W11
+  - X10
+  - Y10
+  - Z9
+  R3:
+  - A12
+  - B11
+  - C11
+  - D11
+  - E11
+  - E10
+  - F9
+  - F8
+  - G8
+  - H7
+  - I7
+  - J6
+  - K7
+  - L6
+  - M7
+  - N6
+  - O6
+  - P5
+  - Q5
+  - R4
+  - S5
+  - T4
+  - U4
+  - V3
+  - W3
+  - X3
+  - Y3
+  - Z2
+  R4:
+  - W1
+  - W2
+  - X2
+  - X3
+  - X4
+  - X5
+  - X6
+  - Y7
+  - Y8
+  - Y9
+  - Y10
+  - Y11
+  - Z11
+  - Z12
+river:
+- J1|K1
+- J1|K2
+- J2|K2
+- J2|K3
+- J3|K3
+- J3|K4
+- J4|K4
+- K4|K5
+- K5|L4
+- K5|L5
+- K6|L5
+- L5|L6
+- L6|M6
+- M6|M7
+- M7|N6
+- M7|N7
+- M8|N7
+- N10|O10
+- N10|O11
+- N11|O11
+- N7|N8
+- N8|O8
+- N8|O9
+- N9|O10
+- N9|O9
+- O11|O12
+- O12|P11
+- O12|P12
+- O13|P12
+- O13|P13
+- O14|P13
+- P13|P14
+- P14|Q14
+- P14|Q15
+- P15|Q15
+- P15|Q16
+- P16|Q16
+- P16|Q17
+- P17|Q17
+- P17|Q18
+- P18|Q18
+bridges:
+- M7|N6
+- O12|P11
