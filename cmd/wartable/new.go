@@ -8,12 +8,16 @@ import (
 )
 
 func runNew(args []string, out io.Writer) error {
-	if len(args) != 1 {
-		return fmt.Errorf("usage: wartable new <state.json>")
+	if len(args) != 1 && len(args) != 2 {
+		return fmt.Errorf("usage: wartable new <state.json> [scenario-id]")
 	}
 	outPath := args[0]
+	scenarioID := save.DefaultScenarioID
+	if len(args) == 2 {
+		scenarioID = args[1]
+	}
 
-	units, _, scenario, err := save.LoadRulesData()
+	units, _, scenario, err := save.LoadRulesData(scenarioID)
 	if err != nil {
 		return err
 	}

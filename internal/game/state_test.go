@@ -91,7 +91,7 @@ func TestSafeRouteExemptsCloseOrderTarget(t *testing.T) {
 	// F6, F7) would be unsafe, forcing a detour even though Target is
 	// exactly what this unit is closing on.
 	withExemption := safeShortestPath(board, mover, mustParse(t, "F6"), "Target")
-	plain, _ := hex.ShortestPath(mover.Pos, mustParse(t, "F6"), PassableFor(board, mover.ID))
+	plain, _ := hex.ShortestPath(mover.Pos, mustParse(t, "F6"), PassableFor(board, mover.ID), nil)
 	if len(withExemption) != len(plain) {
 		t.Errorf("safeShortestPath (with Target exempt) = %v, want the plain shortest path %v", withExemption, plain)
 	}

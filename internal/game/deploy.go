@@ -26,8 +26,7 @@ func executeDeploy(state GameState, scenario rules.Scenario, side string, o orde
 	unit := reserves[idx]
 
 	dz, ok := scenario.DeploymentZones[side]
-	row := o.TargetHex.Row + 1 // scenario deployment zone rows are 1-based.
-	if !ok || row < dz.Rows.From || row > dz.Rows.To {
+	if !ok || !dz.Contains(o.TargetHex, scenario.Terrain) {
 		return state, []Event{{Kind: "deploy-failed", Unit: o.Unit, Detail: fmt.Sprintf("%s is outside %s's deployment zone", o.TargetHex, side), Board: state.Board}}
 	}
 	if _, occupied := state.Board.UnitAt(o.TargetHex); occupied {
@@ -66,6 +65,9 @@ func executeReadyMobilise(state GameState, mover UnitInstance, o orders.Order) (
 	}
 	if _, ok := mover.Template.States[newState]; !ok {
 		return state, []Event{{Kind: "order-skipped", Unit: mover.ID, Detail: fmt.Sprintf("%s has no %s state", mover.ID, newState), Board: state.Board}}
+	}
+	if newState == "ready" && state.Board.Terrain.IsForest(mover.Pos) {
+		return state, []Event{{Kind: "order-skipped", Unit: mover.ID, Detail: "cannot go ready in forest", Board: state.Board}}
 	}
 
 	from := mover.State

@@ -74,32 +74,37 @@ func Write(path string, f File) error {
 	return nil
 }
 
-// suggestedArmy is the Starter Battle's suggested army (docs/starter-
-// battle.md "Armies"): 2 Infantry, 1 Cavalry, 1 Artillery, Cost 55. Both
-// cmd/wartable and cmd/wartable-web always start both sides with it;
-// choosing a different army is a later milestone's concern.
-var suggestedArmy = []string{"infantry", "infantry", "cavalry", "artillery"}
+// suggestedArmies are each scenario's suggested army (docs/starter-
+// battle.md and docs/two-towns.md "Armies"). Both cmd/wartable and
+// cmd/wartable-web always start both sides with the one for the chosen
+// scenario; choosing a different army is a later milestone's concern.
+var suggestedArmies = map[string][]string{
+	"starter-battle": {"infantry", "infantry", "cavalry", "artillery"},
+	"two-towns":      {"infantry", "infantry", "infantry", "infantry", "cavalry", "cavalry", "artillery", "artillery"},
+}
 
-// NewGame builds a fresh game: both sides' reserves seeded with the
-// suggested army, turn 1, tie-break holder per the scenario. It doesn't
-// write anything to disk; call Write with the result to save it.
+// NewGame builds a fresh game: both sides' reserves seeded with
+// scenario's suggested army, turn 1, tie-break holder per the scenario.
+// It doesn't write anything to disk; call Write with the result to save
+// it.
 func NewGame(units map[string]rules.Unit, scenario rules.Scenario) File {
 	reserves := map[string][]game.UnitInstance{}
 	for _, side := range []string{"north", "south"} {
-		reserves[side] = buildArmy(units, side)
+		reserves[side] = buildArmy(units, suggestedArmies[scenario.ID], side)
 	}
 	return File{
 		ScenarioID: scenario.ID,
 		Turn:       1,
 		TieBreak:   game.TieBreak{Holder: scenario.TieBreakHolder},
 		State: game.GameState{
-			Board:    game.Board{Columns: scenario.Map.Columns, Rows: scenario.Map.Rows},
-			Reserves: reserves,
+			Board:      game.Board{Columns: scenario.Map.Columns, Rows: scenario.Map.Rows, Terrain: scenario.Terrain},
+			Reserves:   reserves,
+			Objectives: game.InitialObjectives(scenario),
 		},
 	}
 }
 
-func buildArmy(units map[string]rules.Unit, side string) []game.UnitInstance {
+func buildArmy(units map[string]rules.Unit, suggestedArmy []string, side string) []game.UnitInstance {
 	counts := map[string]int{}
 	army := make([]game.UnitInstance, 0, len(suggestedArmy))
 	for _, templateID := range suggestedArmy {
@@ -141,15 +146,22 @@ func ordinal(n int) string {
 // section 3). Both cmd/wartable and cmd/wartable-web must be run from
 // there.
 const (
-	UnitsPath     = "data/units/standard.yaml"
-	CoreRulesPath = "data/rules/core.yaml"
-	ScenarioPath  = "data/scenarios/starter-battle.yaml"
+	UnitsPath        = "data/units/standard.yaml"
+	CoreRulesPath    = "data/rules/core.yaml"
+	TerrainRulesPath = "data/rules/terrain.yaml"
+	ScenariosDir     = "data/scenarios"
+
+	// DefaultScenarioID is used wherever a caller doesn't yet have an
+	// explicit scenario choice to pass (docs/dev-plan.md section 7.8
+	// added scenario choice; before that, Starter Battle was the only
+	// one).
+	DefaultScenarioID = "starter-battle"
 )
 
-// LoadRulesData loads the unit templates, core rule numbers and the
-// Starter Battle scenario. Only the Starter Battle is supported so far;
-// a later milestone could take the scenario as a parameter.
-func LoadRulesData() (map[string]rules.Unit, rules.CoreRules, rules.Scenario, error) {
+// LoadRulesData loads the unit templates, core rule numbers (including
+// terrain effects, attached to CoreRules.Terrain) and the named
+// scenario (its data/scenarios/<scenarioID>.yaml).
+func LoadRulesData(scenarioID string) (map[string]rules.Unit, rules.CoreRules, rules.Scenario, error) {
 	units, err := rules.LoadUnits(UnitsPath)
 	if err != nil {
 		return nil, rules.CoreRules{}, rules.Scenario{}, err
@@ -158,9 +170,23 @@ func LoadRulesData() (map[string]rules.Unit, rules.CoreRules, rules.Scenario, er
 	if err != nil {
 		return nil, rules.CoreRules{}, rules.Scenario{}, err
 	}
-	scenario, err := rules.LoadScenario(ScenarioPath, units)
+	core.Terrain, err = rules.LoadTerrainEffects(TerrainRulesPath)
+	if err != nil {
+		return nil, rules.CoreRules{}, rules.Scenario{}, err
+	}
+	scenarioPath := fmt.Sprintf("%s/%s.yaml", ScenariosDir, scenarioID)
+	scenario, err := rules.LoadScenario(scenarioPath, units)
 	if err != nil {
 		return nil, rules.CoreRules{}, rules.Scenario{}, err
 	}
 	return units, core, scenario, nil
+}
+
+// AttachTerrain re-attaches scenario's terrain to f's board, since
+// Board.Terrain is never persisted to the save file (see
+// internal/game.Board). Callers that will pass f.State.Board back into
+// the engine (running a turn, computing order options or a prediction)
+// must call this right after Load.
+func (f *File) AttachTerrain(scenario rules.Scenario) {
+	f.State.Board.Terrain = scenario.Terrain
 }

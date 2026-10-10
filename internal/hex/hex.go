@@ -147,6 +147,22 @@ func AdjacentDirection(from, to Offset) (Direction, bool) {
 	return 0, false
 }
 
+// Edge is the edge between two adjacent hexes (docs/core-rules.md
+// section 2.3: rivers and bridges run along edges, not through hexes).
+// Comparable with ==, regardless of which hex is given first.
+type Edge struct {
+	A, B Offset
+}
+
+// NewEdge returns the edge between a and b, normalized so the same edge
+// always compares equal no matter the argument order.
+func NewEdge(a, b Offset) Edge {
+	if b.Col < a.Col || (b.Col == a.Col && b.Row < a.Row) {
+		a, b = b, a
+	}
+	return Edge{A: a, B: b}
+}
+
 func abs(x int) int {
 	if x < 0 {
 		return -x

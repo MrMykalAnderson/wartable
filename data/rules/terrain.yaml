@@ -1,0 +1,11 @@
+# Terrain effect numbers (docs/core-rules.md section 2.3). If a number
+# here changes, update the matching rules doc and this file in the same
+# commit.
+forest_def_bonus: 1 # defender in forest +1 Def (melee and ranged).
+town_def_bonus: 1 # defender in a town +1 Def.
+hamlet_def_bonus: 1 # defender in a hamlet +1 Def.
+cavalry_forest_penalty: 1 # cavalry -1 Attack if it or its target is in forest.
+bridge_attack_penalty: 1 # attacker attacking across a bridge edge -1.
+road_march_move_bonus: 2 # a road march (start and destination both road hexes) gets +2 Move.
+town_points: 20 # turn-limit scoring: points for owning a town.
+hamlet_points: 10 # turn-limit scoring: points for owning a hamlet.

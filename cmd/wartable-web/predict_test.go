@@ -16,7 +16,7 @@ import (
 // take (EX-8's geometry), not a straight line.
 func TestHandlePredictMoveFollowsSafeRoute(t *testing.T) {
 	chdirToRepoRoot(t)
-	units, _, _, err := save.LoadRulesData()
+	units, _, _, err := save.LoadRulesData(save.DefaultScenarioID)
 	if err != nil {
 		t.Fatalf("LoadRulesData: %v", err)
 	}

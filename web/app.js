@@ -79,6 +79,43 @@ function edgeVertexIndices(directionIndex) {
   return [a, b];
 }
 
+// CUBE_STEPS/directionBetween mirror internal/hex's cubeStep table and
+// AdjacentDirection (docs/dev-plan.md section 5), purely to find which
+// edge of a hex to draw a river/bridge line along — the same
+// geometry-only category as toCube/hexDistance below, never a rule
+// decision.
+const CUBE_STEPS = {
+  N: { q: 0, r: -1 },
+  NE: { q: 1, r: -1 },
+  SE: { q: 1, r: 0 },
+  S: { q: 0, r: 1 },
+  SW: { q: -1, r: 1 },
+  NW: { q: -1, r: 0 },
+};
+
+function directionBetween(a, b) {
+  const ca = toCube(a);
+  const cb = toCube(b);
+  const dq = cb.q - ca.q;
+  const dr = cb.r - ca.r;
+  for (const dir of DIRECTIONS) {
+    const step = CUBE_STEPS[dir];
+    if (step.q === dq && step.r === dr) return dir;
+  }
+  return null;
+}
+
+// edgeSegment returns the two endpoints of the hex edge between
+// adjacent hexes a and b, for drawing a river/bridge line along it.
+function edgeSegment(a, b) {
+  const dir = directionBetween(a, b);
+  if (dir == null) return null;
+  const { x, y } = hexCenter(a.col, a.row);
+  const pts = hexVertices(x, y, HEX_SIZE);
+  const [ai, bi] = edgeVertexIndices(DIRECTIONS.indexOf(dir));
+  return [pts[ai], pts[bi]];
+}
+
 function svgEl(tag, attrs) {
   const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
   for (const [k, v] of Object.entries(attrs || {})) el.setAttribute(k, v);
@@ -100,15 +137,101 @@ function hexName(col, row) {
   return `${columnLabel(col)}${row + 1}`;
 }
 
-// ---- map rendering ------------------------------------------------------
+// ---- terrain rendering (docs/dev-plan.md section 7.8, interface item
+// 2) ------------------------------------------------------------------
+//
+// Purely drawing: every fact drawn here (which hexes are forest, which
+// edges are river/bridges, who owns an objective) comes straight from
+// game.terrain/game.objectives, computed server-side — nothing here
+// decides a rule. Drawn into its own layer, underneath the hex-cell
+// grid so clicks still land on the plain hex-cell elements.
+function renderTerrain(svg, game) {
+  const terrain = game.terrain;
+  if (!terrain) return;
+  const layer = svgEl("g", { id: "terrain-layer" });
+  svg.appendChild(layer);
+
+  const fillHex = (h, className) => {
+    const { x, y } = hexCenter(h.col, h.row);
+    const pts = hexVertices(x, y, HEX_SIZE * 0.92);
+    layer.appendChild(svgEl("polygon", { points: pts.map((p) => p.join(",")).join(" "), class: className }));
+  };
+  for (const h of terrain.forest || []) fillHex(h, "terrain-forest");
+
+  const owner = (name) => (game.objectives || {})[name];
+  const drawObjective = (kind) => (name, hexes) => {
+    const cls = owner(name) ? `terrain-${kind} owner-${owner(name)}` : `terrain-${kind}`;
+    for (const h of hexes) fillHex(h, cls);
+  };
+  Object.entries(terrain.towns || {}).forEach(([name, hexes]) => drawObjective("town")(name, hexes));
+  Object.entries(terrain.hamlets || {}).forEach(([name, hexes]) => drawObjective("hamlet")(name, hexes));
+
+  for (const chain of terrain.roads || []) {
+    if (chain.length < 2) continue;
+    const points = chain.map((h) => { const c = hexCenter(h.col, h.row); return `${c.x},${c.y}`; }).join(" ");
+    layer.appendChild(svgEl("polyline", { points, fill: "none", class: "terrain-road" }));
+  }
+  for (const edge of terrain.river || []) {
+    const seg = edgeSegment(edge.a, edge.b);
+    if (!seg) continue;
+    layer.appendChild(svgEl("line", { x1: seg[0][0], y1: seg[0][1], x2: seg[1][0], y2: seg[1][1], class: "terrain-river" }));
+  }
+  for (const edge of terrain.bridges || []) {
+    const seg = edgeSegment(edge.a, edge.b);
+    if (!seg) continue;
+    layer.appendChild(svgEl("line", { x1: seg[0][0], y1: seg[0][1], x2: seg[1][0], y2: seg[1][1], class: "terrain-bridge" }));
+  }
+}
+
+// ---- map rendering, zoom and pan ----------------------------------------
+//
+// The SVG's width/height (CSS) cap how much screen space the map takes;
+// its viewBox is what actually zooms/pans, in the same user-space units
+// as hexCenter/hexVertices (docs/dev-plan.md section 7.8, interface
+// item 4 — the map can now be as large as Two Towns' 26x18). view is
+// kept across re-renders (every order click re-renders the map), and
+// only reset when a different game is loaded.
+let view = null;
+
+function resetView(width, height) {
+  view = { x: 0, y: 0, w: width, h: height };
+  applyView();
+}
+
+function applyView() {
+  const svg = document.getElementById("map");
+  if (view) svg.setAttribute("viewBox", `${view.x} ${view.y} ${view.w} ${view.h}`);
+}
+
+function zoomBy(factor, anchorClientX, anchorClientY) {
+  const svg = document.getElementById("map");
+  if (!view) return;
+  const rect = svg.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) return;
+  const anchorX = anchorClientX == null ? rect.left + rect.width / 2 : anchorClientX;
+  const anchorY = anchorClientY == null ? rect.top + rect.height / 2 : anchorClientY;
+  const px = view.x + ((anchorX - rect.left) / rect.width) * view.w;
+  const py = view.y + ((anchorY - rect.top) / rect.height) * view.h;
+  const newW = Math.max(200, Math.min(state.mapContentSize.width * 1.4, view.w * factor));
+  const newH = newW * (view.h / view.w);
+  view.x = px - ((anchorX - rect.left) / rect.width) * newW;
+  view.y = py - ((anchorY - rect.top) / rect.height) * newH;
+  view.w = newW;
+  view.h = newH;
+  applyView();
+}
 
 function renderMap(game) {
   const svg = document.getElementById("map");
   svg.innerHTML = "";
   const width = MARGIN * 2 + (game.columns - 1) * HEX_SIZE * 1.5 + HEX_SIZE;
   const height = MARGIN * 2 + (game.rows - 1) * HEX_SIZE * Math.sqrt(3) + HEX_SIZE * Math.sqrt(3);
-  svg.setAttribute("width", width);
-  svg.setAttribute("height", height);
+  const isNewMap = !state.mapContentSize || state.mapContentSize.width !== width || state.mapContentSize.height !== height;
+  state.mapContentSize = { width, height };
+  if (isNewMap) resetView(width, height);
+  else applyView();
+
+  renderTerrain(svg, game);
 
   for (let row = 0; row < game.rows; row++) {
     for (let col = 0; col < game.columns; col++) {
@@ -238,7 +361,14 @@ function renderGameInfo(game) {
 
 function clearHighlights() {
   document.querySelectorAll("#map .hex-cell").forEach((c) => {
-    c.classList.remove("selectable", "highlight-move", "highlight-deploy", "highlight-fire");
+    c.classList.remove(
+      "selectable",
+      "highlight-move",
+      "highlight-deploy",
+      "highlight-fire",
+      "highlight-road-march",
+      "highlight-ford"
+    );
   });
   document.querySelectorAll("#map .unit").forEach((g) => g.classList.remove("targetable"));
   const closeLayer = document.getElementById("close-move-layer");
@@ -281,6 +411,17 @@ function renderHighlights() {
     const cell = document.querySelector(`#map .hex-cell[data-col="${h.col}"][data-row="${h.row}"]`);
     if (cell) cell.classList.add("highlight-fire");
   }
+  // Road march (+2 Move along the road) and ford hexes (docs/dev-
+  // plan.md section 7.8, interface item 3) are drawn as outlines on top
+  // of whichever fill above already applies, not a fill of their own.
+  for (const h of opts.roadMarchHexes || []) {
+    const cell = document.querySelector(`#map .hex-cell[data-col="${h.col}"][data-row="${h.row}"]`);
+    if (cell) cell.classList.add("highlight-road-march");
+  }
+  for (const h of opts.fordHexes || []) {
+    const cell = document.querySelector(`#map .hex-cell[data-col="${h.col}"][data-row="${h.row}"]`);
+    if (cell) cell.classList.add("highlight-ford");
+  }
   renderCloseMoveMarkers(opts.closeMoveHexes);
 
   const targetable = new Set([...(opts.meleeTargets || []), ...(opts.fireTargets || []), ...(opts.closeFireTargets || [])]);
@@ -302,6 +443,10 @@ function renderCloseMoveMarkers(hexes) {
 }
 
 document.getElementById("map").addEventListener("click", (e) => {
+  if (suppressNextClick) {
+    suppressNextClick = false;
+    return;
+  }
   const unitEl = e.target.closest(".unit");
   if (unitEl) {
     onUnitClick(unitEl.getAttribute("data-unit-id"));
@@ -311,6 +456,51 @@ document.getElementById("map").addEventListener("click", (e) => {
   if (cellEl && cellEl.classList.contains("selectable")) {
     onHexClick(Number(cellEl.getAttribute("data-col")), Number(cellEl.getAttribute("data-row")));
   }
+});
+
+// ---- zoom and pan --------------------------------------------------------
+
+let suppressNextClick = false; // set when a drag just panned the map, so the mouseup's click doesn't also place an order.
+let panDrag = null; // {startClientX, startClientY, startViewX, startViewY, moved} while a pan is in progress.
+
+const mapSvgEl = document.getElementById("map");
+
+mapSvgEl.addEventListener("wheel", (e) => {
+  if (!view) return;
+  e.preventDefault();
+  zoomBy(e.deltaY > 0 ? 1.12 : 1 / 1.12, e.clientX, e.clientY);
+}, { passive: false });
+
+mapSvgEl.addEventListener("mousedown", (e) => {
+  if (e.button !== 0 || !view) return;
+  panDrag = { startClientX: e.clientX, startClientY: e.clientY, startViewX: view.x, startViewY: view.y, moved: false };
+});
+
+window.addEventListener("mousemove", (e) => {
+  if (!panDrag || !view) return;
+  const dx = e.clientX - panDrag.startClientX;
+  const dy = e.clientY - panDrag.startClientY;
+  if (!panDrag.moved && Math.abs(dx) < 3 && Math.abs(dy) < 3) return;
+  panDrag.moved = true;
+  mapSvgEl.classList.add("panning");
+  const rect = mapSvgEl.getBoundingClientRect();
+  if (rect.width === 0) return;
+  const scale = view.w / rect.width;
+  view.x = panDrag.startViewX - dx * scale;
+  view.y = panDrag.startViewY - dy * scale;
+  applyView();
+});
+
+window.addEventListener("mouseup", () => {
+  if (panDrag && panDrag.moved) suppressNextClick = true;
+  panDrag = null;
+  mapSvgEl.classList.remove("panning");
+});
+
+document.getElementById("zoom-in").addEventListener("click", () => zoomBy(1 / 1.3));
+document.getElementById("zoom-out").addEventListener("click", () => zoomBy(1.3));
+document.getElementById("zoom-reset").addEventListener("click", () => {
+  if (state.mapContentSize) resetView(state.mapContentSize.width, state.mapContentSize.height);
 });
 
 // ---- unit detail card (docs/dev-plan.md section 7.3, interface item 3) --
@@ -1085,6 +1275,7 @@ async function loadGame(path) {
     }));
     state.historyIndex = -1;
     state.stepIndex = -1;
+    view = null; // loading a (possibly different) game always starts at the full-map view.
     resetOrders();
     renderGameInfo(state.game);
     renderAvailableUnits();
@@ -1177,11 +1368,12 @@ async function createNewGame() {
     return;
   }
   if (!name.toLowerCase().endsWith(".json")) name += ".json";
+  const scenarioId = document.getElementById("new-game-scenario").value;
   try {
     const res = await fetch("/api/saves", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path: name }),
+      body: JSON.stringify({ path: name, scenarioId }),
     });
     const body = await res.json();
     if (!res.ok) throw new Error(body.error || res.statusText);
@@ -1202,7 +1394,10 @@ function clearGame() {
   state.stepIndex = -1;
   state.orders = { north: [], south: [] };
   clearSelection();
+  view = null;
+  state.mapContentSize = null;
   document.getElementById("map").innerHTML = "";
+  document.getElementById("map").removeAttribute("viewBox");
   document.getElementById("game-info").textContent = "";
   document.getElementById("event-list").innerHTML = "";
   document.getElementById("step-summary").textContent = "";

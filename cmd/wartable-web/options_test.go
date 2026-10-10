@@ -12,8 +12,20 @@ import (
 	"github.com/MrMykalAnderson/wartable/internal/save"
 )
 
+func mustParse(t *testing.T, s string) hex.Offset {
+	t.Helper()
+	h, err := hex.ParseOffset(s)
+	if err != nil {
+		t.Fatalf("hex.ParseOffset(%q): %v", s, err)
+	}
+	return h
+}
+
 func writeTestSave(t *testing.T, f save.File) string {
 	t.Helper()
+	if f.ScenarioID == "" {
+		f.ScenarioID = save.DefaultScenarioID
+	}
 	path := filepath.Join(t.TempDir(), "state.json")
 	if err := save.Write(path, f); err != nil {
 		t.Fatalf("save.Write: %v", err)
@@ -23,7 +35,7 @@ func writeTestSave(t *testing.T, f save.File) string {
 
 func TestHandleOptionsDeployedUnit(t *testing.T) {
 	chdirToRepoRoot(t)
-	units, core, _, err := save.LoadRulesData()
+	units, core, _, err := save.LoadRulesData(save.DefaultScenarioID)
 	if err != nil {
 		t.Fatalf("LoadRulesData: %v", err)
 	}
@@ -69,7 +81,7 @@ func TestHandleOptionsDeployedUnit(t *testing.T) {
 // execution (by which time other units will have moved).
 func TestHandleOptionsMoveHexesIgnoreObstacles(t *testing.T) {
 	chdirToRepoRoot(t)
-	units, core, _, err := save.LoadRulesData()
+	units, core, _, err := save.LoadRulesData(save.DefaultScenarioID)
 	if err != nil {
 		t.Fatalf("LoadRulesData: %v", err)
 	}
@@ -110,7 +122,7 @@ func TestHandleOptionsMoveHexesIgnoreObstacles(t *testing.T) {
 
 func TestHandleOptionsArtilleryExcludesMeleeAndCloseFire(t *testing.T) {
 	chdirToRepoRoot(t)
-	units, _, _, err := save.LoadRulesData()
+	units, _, _, err := save.LoadRulesData(save.DefaultScenarioID)
 	if err != nil {
 		t.Fatalf("LoadRulesData: %v", err)
 	}
@@ -145,7 +157,7 @@ func TestHandleOptionsArtilleryExcludesMeleeAndCloseFire(t *testing.T) {
 
 func TestHandleOptionsReserveUnit(t *testing.T) {
 	chdirToRepoRoot(t)
-	units, _, scenario, err := save.LoadRulesData()
+	units, _, scenario, err := save.LoadRulesData(save.DefaultScenarioID)
 	if err != nil {
 		t.Fatalf("LoadRulesData: %v", err)
 	}
@@ -171,6 +183,50 @@ func TestHandleOptionsReserveUnit(t *testing.T) {
 		if h.Col == 0 && h.Row == 0 {
 			t.Errorf("DeployHexes includes A1, which is occupied by Blocker")
 		}
+	}
+}
+
+// TestHandleOptionsTwoTownsRoadMarchAndFord checks docs/dev-plan.md
+// section 7.8, interface item 3, against the real Two Towns map: a
+// unit on the road gets a road-march reach guide (Move+2, road hexes
+// only), and a unit next to the unbridged river gets a ford hex.
+func TestHandleOptionsTwoTownsRoadMarchAndFord(t *testing.T) {
+	chdirToRepoRoot(t)
+	units, _, scenario, err := save.LoadRulesData("two-towns")
+	if err != nil {
+		t.Fatalf("LoadRulesData(two-towns): %v", err)
+	}
+	onRoad := game.UnitInstance{ID: "A", Side: "north", Template: units["infantry"], Pos: mustParse(t, "K7"), Facing: hex.N, Strength: game.Full}
+	onRiverBank := game.UnitInstance{ID: "B", Side: "north", Template: units["infantry"], Pos: mustParse(t, "K6"), Facing: hex.N, Strength: game.Full}
+	path := writeTestSave(t, save.File{
+		ScenarioID: scenario.ID,
+		State: game.GameState{
+			Board: game.Board{Columns: scenario.Map.Columns, Rows: scenario.Map.Rows, Units: []game.UnitInstance{onRoad, onRiverBank}},
+		},
+	})
+
+	var roadOpts OptionsView
+	getJSON(t, "/api/options?path="+path+"&side=north&unit=A", &roadOpts)
+	foundQ5 := false
+	for _, h := range roadOpts.RoadMarchHexes {
+		if h.Col == mustParse(t, "Q5").Col && h.Row == mustParse(t, "Q5").Row {
+			foundQ5 = true
+		}
+	}
+	if !foundQ5 {
+		t.Errorf("RoadMarchHexes = %+v, want Q5 included (within Move 4+2=6 along the road)", roadOpts.RoadMarchHexes)
+	}
+
+	var bankOpts OptionsView
+	getJSON(t, "/api/options?path="+path+"&side=north&unit=B", &bankOpts)
+	foundL5 := false
+	for _, h := range bankOpts.FordHexes {
+		if h.Col == mustParse(t, "L5").Col && h.Row == mustParse(t, "L5").Row {
+			foundL5 = true
+		}
+	}
+	if !foundL5 {
+		t.Errorf("FordHexes = %+v, want L5 included (directly across the unbridged K6|L5 river edge)", bankOpts.FordHexes)
 	}
 }
 

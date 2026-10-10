@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/MrMykalAnderson/wartable/internal/game"
+	"github.com/MrMykalAnderson/wartable/internal/hex"
 	"github.com/MrMykalAnderson/wartable/internal/rules"
 	"github.com/MrMykalAnderson/wartable/internal/save"
 )
@@ -103,10 +104,79 @@ func newCoreRulesView(core rules.CoreRules) CoreRulesView {
 	return v
 }
 
+// EdgeView is one edge between two adjacent hexes (docs/dev-plan.md
+// section 7.8: a river or bridge edge, drawn along the hex boundary
+// rather than filling a hex).
+type EdgeView struct {
+	A HexView `json:"a"`
+	B HexView `json:"b"`
+}
+
+func newEdgeView(e hex.Edge) EdgeView {
+	return EdgeView{A: HexView{Col: e.A.Col, Row: e.A.Row}, B: HexView{Col: e.B.Col, Row: e.B.Row}}
+}
+
+// TerrainView is a scenario's map terrain as seen by the web viewer
+// (docs/dev-plan.md section 7.8, interface item 2): the server's own
+// terrain data, laid out for drawing directly — hex fills for forest,
+// towns and hamlets, road chains as polylines through hex centres,
+// river and bridge edges along hex boundaries. Never recomputed from
+// raw rules in JavaScript.
+type TerrainView struct {
+	Forest  []HexView            `json:"forest"`
+	Roads   [][]HexView          `json:"roads"`
+	River   []EdgeView           `json:"river"`
+	Bridges []EdgeView           `json:"bridges"`
+	Towns   map[string][]HexView `json:"towns"`
+	Hamlets map[string][]HexView `json:"hamlets"`
+}
+
+func hexViews(hexes []hex.Offset) []HexView {
+	views := make([]HexView, len(hexes))
+	for i, h := range hexes {
+		views[i] = HexView{Col: h.Col, Row: h.Row}
+	}
+	return views
+}
+
+// newTerrainView returns nil for a scenario with no terrain (e.g. the
+// Starter Battle), so the frontend draws nothing extra for it.
+func newTerrainView(m *rules.TerrainMap) *TerrainView {
+	if m == nil {
+		return nil
+	}
+	v := &TerrainView{
+		Towns:   map[string][]HexView{},
+		Hamlets: map[string][]HexView{},
+	}
+	for h := range m.Forest {
+		v.Forest = append(v.Forest, HexView{Col: h.Col, Row: h.Row})
+	}
+	for _, hexes := range m.Roads {
+		v.Roads = append(v.Roads, hexViews(hexes))
+	}
+	for e := range m.River {
+		v.River = append(v.River, newEdgeView(e))
+	}
+	for e := range m.Bridge {
+		v.Bridges = append(v.Bridges, newEdgeView(e))
+	}
+	for name, hexes := range m.Towns {
+		v.Towns[name] = hexViews(hexes)
+	}
+	for name, hexes := range m.Hamlets {
+		v.Hamlets[name] = hexViews(hexes)
+	}
+	return v
+}
+
 // GameView is a saved game as seen by the web viewer. History is every
 // turn played so far (docs/dev-plan.md section 7.7), so the viewer can
 // step through any past turn right after loading, not just ones played
-// in the current browser session.
+// in the current browser session. Terrain is nil for a scenario with
+// none; Objectives maps each of its towns/hamlets to its owning side,
+// omitted entirely for an objective with no owner yet (docs/dev-plan.md
+// section 7.8).
 type GameView struct {
 	ScenarioID     string              `json:"scenarioId"`
 	Turn           int                 `json:"turn"`
@@ -117,9 +187,11 @@ type GameView struct {
 	Reserves       map[string][]string `json:"reserves"`
 	CoreRules      CoreRulesView       `json:"coreRules"`
 	History        []TurnRecordView    `json:"history"`
+	Terrain        *TerrainView        `json:"terrain,omitempty"`
+	Objectives     map[string]string   `json:"objectives,omitempty"`
 }
 
-func newGameView(f save.File, core rules.CoreRules) GameView {
+func newGameView(f save.File, core rules.CoreRules, scenario rules.Scenario) GameView {
 	board := newBoardView(f.State.Board, core)
 	reserves := make(map[string][]string, len(f.State.Reserves))
 	for side, us := range f.State.Reserves {
@@ -143,6 +215,8 @@ func newGameView(f save.File, core rules.CoreRules) GameView {
 		Reserves:       reserves,
 		CoreRules:      newCoreRulesView(core),
 		History:        history,
+		Terrain:        newTerrainView(scenario.Terrain),
+		Objectives:     f.State.Objectives,
 	}
 }
 
