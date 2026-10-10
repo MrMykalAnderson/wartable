@@ -122,7 +122,7 @@ Turn 8
 [moved] North 1st Infantry: moved to F5
 [melee] South 1st Cavalry (3 +1 flank) vs North 1st Infantry (2 -1 ambush): margin 3, destroyed
 [unit-destroyed] North 1st Infantry: destroyed during ambush
-[moved] North 2nd Infantry: moved to F5
+[moved] North 2nd Infantry: moved to F6
 [melee] South 1st Cavalry (3 +1 flank) vs North 2nd Infantry (2 -1 ambush): margin 3, destroyed
 [unit-destroyed] North 2nd Infantry: destroyed during ambush
 

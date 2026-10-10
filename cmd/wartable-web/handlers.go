@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/MrMykalAnderson/wartable/internal/game"
+	"github.com/MrMykalAnderson/wartable/internal/hex"
 	"github.com/MrMykalAnderson/wartable/internal/orders"
 	"github.com/MrMykalAnderson/wartable/internal/save"
 )
@@ -83,12 +85,14 @@ func handleTurn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	boardBefore := f.State.Board
 	newState, events, err := game.ExecuteTurn(f.State, core, scenario, &f.TieBreak, northOrders, southOrders)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 	f.State = newState
+	f.RecordTurn(boardBefore, req.North, req.South, events)
 
 	outcome := game.CheckAnnihilation(f.State)
 	if !outcome.Over && f.Turn >= scenario.TurnLimit {
@@ -113,42 +117,68 @@ func handleTurn(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// PredictionView is a predicted combat result for an attack or Fire order
-// not yet confirmed (docs/dev-plan.md section 7.5, interface item 2): the
+// PredictionView is a predicted result for an order not yet confirmed
+// (docs/dev-plan.md section 7.5, interface item 2; section 7.7): the
 // engine's own resolution, run against the current board but never
-// saved, labelled as a prediction since the target may move first. Both
-// fields are nil if the order wouldn't make contact this turn (e.g. a
-// Close order that can't reach its target within half its Move).
+// saved, labelled as a prediction since other units may move first.
+// Melee/Ranged are nil if the order wouldn't make contact this turn
+// (e.g. a Close order that can't reach its target within half its
+// Move). Path is set for a Move prediction: the safe route it would
+// actually take this turn (docs/core-rules.md section 7.2), already
+// truncated to the unit's Move.
 type PredictionView struct {
 	Melee  *MeleeView  `json:"melee,omitempty"`
 	Ranged *RangedView `json:"ranged,omitempty"`
+	Path   []HexView   `json:"path,omitempty"`
 }
 
 var predictableOrderTypes = map[string]orders.Type{
+	"Move":             orders.Move,
 	"Close and Attack": orders.CloseAndAttack,
 	"Fire":             orders.Fire,
 	"Close and Fire":   orders.CloseAndFire,
 }
 
-// handlePredict serves GET /api/predict?path=&side=&unit=&type=&target=:
-// what would happen if unit's order against target were carried out this
-// turn, assuming target doesn't move first. It runs the real engine
-// resolution (game.ExecuteOrder) against the saved state but never
-// writes it back, so trying a prediction has no effect on the game.
+// handlePredict serves GET /api/predict?path=&side=&unit=&type=&target=
+// (a unit target, for an attack/Fire order) or
+// GET /api/predict?path=&side=&unit=&type=Move&col=&row= (a hex target,
+// for a Move order): what would happen if unit's order were carried out
+// this turn, assuming other units don't move first. It runs the real
+// engine resolution (game.ExecuteOrder) against the saved state but
+// never writes it back, so trying a prediction has no effect on the
+// game.
 func handlePredict(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Query().Get("path")
 	side := r.URL.Query().Get("side")
 	unitID := r.URL.Query().Get("unit")
 	orderType := r.URL.Query().Get("type")
-	targetID := r.URL.Query().Get("target")
-	if path == "" || side == "" || unitID == "" || orderType == "" || targetID == "" {
-		writeError(w, http.StatusBadRequest, fmt.Errorf("missing path, side, unit, type or target"))
+	if path == "" || side == "" || unitID == "" || orderType == "" {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("missing path, side, unit or type"))
 		return
 	}
 	ot, ok := predictableOrderTypes[orderType]
 	if !ok {
 		writeError(w, http.StatusBadRequest, fmt.Errorf("unsupported predict type %q", orderType))
 		return
+	}
+
+	o := orders.Order{Unit: unitID, Type: ot}
+	if ot == orders.Move {
+		col, colErr := strconv.Atoi(r.URL.Query().Get("col"))
+		row, rowErr := strconv.Atoi(r.URL.Query().Get("row"))
+		if colErr != nil || rowErr != nil {
+			writeError(w, http.StatusBadRequest, fmt.Errorf("missing or invalid col/row for a Move prediction"))
+			return
+		}
+		o.HasTargetHex = true
+		o.TargetHex = hex.Offset{Col: col, Row: row}
+	} else {
+		targetID := r.URL.Query().Get("target")
+		if targetID == "" {
+			writeError(w, http.StatusBadRequest, fmt.Errorf("missing target"))
+			return
+		}
+		o.TargetUnit = targetID
 	}
 
 	f, err := save.Load(path)
@@ -162,7 +192,6 @@ func handlePredict(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	o := orders.Order{Unit: unitID, Type: ot, TargetUnit: targetID}
 	_, events := game.ExecuteOrder(f.State, core, scenario, side, o)
 
 	var pred PredictionView
@@ -172,6 +201,12 @@ func handlePredict(w http.ResponseWriter, r *http.Request) {
 		}
 		if e.Ranged != nil {
 			pred.Ranged = newRangedView(e.Ranged)
+		}
+		if e.Kind == "moved" && pred.Path == nil {
+			pred.Path = make([]HexView, len(e.Path))
+			for i, h := range e.Path {
+				pred.Path[i] = HexView{Col: h.Col, Row: h.Row}
+			}
 		}
 	}
 	writeJSON(w, pred)

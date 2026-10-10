@@ -48,11 +48,14 @@ func TestExecuteMoveFacingOverride(t *testing.T) {
 // order that contacts an enemy stops there and is ambushed.
 func TestExecuteMoveAmbush(t *testing.T) {
 	templates, core := loadTestRules(t)
-	mover := newUnit(t, templates, "Rider", "north", "cavalry", "F8", hex.N)
+	// Ordered directly into contact (the destination itself is exempt
+	// from the safe-route check, docs/core-rules.md section 7.2), so
+	// there's no detour to find: this tests the ambush, not routing.
+	mover := newUnit(t, templates, "Rider", "north", "cavalry", "F7", hex.N)
 	enemy := newUnit(t, templates, "Watcher", "south", "infantry", "G6", hex.SW)
 	state := GameState{Board: starterBoard(mover, enemy)}
 
-	o := orders.Order{Unit: "Rider", Type: orders.Move, HasTargetHex: true, TargetHex: mustParse(t, "F2")}
+	o := orders.Order{Unit: "Rider", Type: orders.Move, HasTargetHex: true, TargetHex: mustParse(t, "F6")}
 	state, events := executeMove(state, core, mover, o)
 
 	// Watcher attacks across Rider's flank (NE of F6, Rider facing N) and
@@ -93,11 +96,11 @@ func TestExecuteMoveAmbush(t *testing.T) {
 // step-by-step map replay).
 func TestExecuteMoveAmbushEventBoardsAreIncremental(t *testing.T) {
 	templates, core := loadTestRules(t)
-	mover := newUnit(t, templates, "Rider", "north", "cavalry", "F8", hex.N)
+	mover := newUnit(t, templates, "Rider", "north", "cavalry", "F7", hex.N)
 	enemy := newUnit(t, templates, "Watcher", "south", "infantry", "G6", hex.SW)
 	state := GameState{Board: starterBoard(mover, enemy)}
 
-	o := orders.Order{Unit: "Rider", Type: orders.Move, HasTargetHex: true, TargetHex: mustParse(t, "F2")}
+	o := orders.Order{Unit: "Rider", Type: orders.Move, HasTargetHex: true, TargetHex: mustParse(t, "F6")}
 	_, events := executeMove(state, core, mover, o)
 
 	if len(events) != 2 {

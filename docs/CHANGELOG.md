@@ -11,6 +11,83 @@ section 11 (EX-3, EX-4) and the direction table in section 2.1.
 
 `go vet ./...` and `go test ./...` pass.
 
+## Playtest round 4 changes (dev-plan.md section 7.7)
+
+From Mykal's full game (`playtests/Testaftermovementplanningupdate.json`).
+
+**Bug fix.** `resolveAmbush` let any adjacent enemy attack in an ambush,
+including artillery, which can't make melee attacks at all — this
+destroyed an infantry unit in the playtest that should have survived.
+Only units with `melee: true` take part now.
+
+**Rules changes.**
+
+- **Dug-in artillery** (core-rules.md 3.4, 8.3): Ready artillery can't
+  be knocked back; any melee loss, at any margin, destroys it outright
+  (`UnitInstance.DugIn`). Mobilised artillery still knocks back
+  normally. Ranged hits work the same as ever either way.
+- **Overrun** (7.4): once a moving unit survives any ambush, if it's
+  still next to enemies that can't make melee attacks, it attacks each
+  in turn as the attacker, no ambush penalty, stopping if repelled
+  (`resolveOverrun` in `internal/game/ambush.go`). Not limited to
+  melee-capable movers — the rule text only excludes artillery from
+  Close and Attack orders and from attacking *in* an ambush, so a
+  mobilised gun that contacts another gun overruns it too (this
+  actually happened regenerating the `annihilation` golden game).
+- **Safe route** (7.2): a moving unit now prefers the shortest path
+  whose hexes (other than the destination, and other than any hex next
+  to a Close order's own target) are never adjacent to an enemy,
+  falling back to the plain shortest path only if no safe route reaches
+  the destination (`safeShortestPath`/`safePassable` in
+  `internal/game/state.go`). Judged over the whole route to the
+  destination, even if the unit can't get there this turn.
+- **No man's land invariant**: `checkNoMansLand` runs after every order
+  and after the barrage, emitting a `[warning]` event naming any two
+  enemy units still left adjacent (should never happen — every contact
+  should end in a fight). The golden replay tests now also fail
+  outright if one ever appears in a replayed game's output.
+- Added `TestSafeRouteEX8`, `TestOverrunEX9Destroyed`/
+  `TestOverrunEX9Repelled`, `TestAmbushSkipsNonMeleeEnemies`,
+  `TestCheckNoMansLandDetectsViolation` and friends. Updated
+  `TestAppendixACombatTables` for the changed Ready-artillery rows.
+  Regenerated both golden replays: `annihilation`'s order files grew
+  two more turns (the ambush fix means North's units survive longer,
+  so the original 9 didn't reach annihilation any more); `turnlimit`
+  only shifted one stop-hex (a safe-route detour) with the same 35-35
+  outcome.
+
+**Interface.**
+
+- Pending-order lines are now coloured by the ordering side and styled
+  by order type (Move solid, Close and Attack dashed, Fire dotted,
+  Close and Fire dash-dot; Ready/Mobilise get a small marker on the
+  unit instead, having no target), with a legend under the map.
+- The pending-Move "≈ here" estimate (section 7.6) now follows the real
+  safe route once `GET /api/predict` (extended to accept Move orders,
+  returning the route it would actually take) responds, instead of
+  staying a straight-line guess; falls back to the straight-line guess
+  while waiting or if the request fails.
+
+**Saves.**
+
+- `save.File` gained `History []save.TurnRecord`: every played turn's
+  submitted order sheets, the board before it ran, and its event log.
+  `save.File.RecordTurn` is the single shared way both `cmd/wartable`'s
+  `runTurn` and `cmd/wartable-web`'s `handleTurn` append to it. `GET
+  /api/game` now returns it, so the web viewer hydrates turn history
+  straight from the save on load — browsing to a past turn, including
+  the order sheets that produced it, works right after opening a saved
+  game, not only for turns played in that browser session.
+- Playtest saves now live in `playtests/`; moved
+  `Testaftermovementplanningupdate.json` there.
+
+`go vet ./...` and `go test ./...` pass. Verified end-to-end in a real
+browser: confirmed the order-line legend and per-type styling, watched
+a pending Move's ghost estimate update from a straight-line guess to
+the real safe-route stop point once the prediction arrived, then
+played a turn, reloaded the page from scratch, and confirmed the
+turn's order sheets and events were still there to browse.
+
 ## Playtest round 3 fix: planning shows reach, not paths (dev-plan.md section 7.6)
 
 The planner was working out movement against the board as it is *now*,

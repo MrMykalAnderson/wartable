@@ -18,6 +18,35 @@ type File struct {
 	Turn       int
 	TieBreak   game.TieBreak
 	State      game.GameState
+	// History is every turn played so far, oldest first (docs/dev-
+	// plan.md section 7.7): kept so the web viewer can step through any
+	// past turn, not just the final position (and so a later online-
+	// play milestone has a full record to work from).
+	History []TurnRecord
+}
+
+// TurnRecord is one played turn's full record: the order sheets
+// submitted (as written, not just parsed) and the resulting event log,
+// plus the board exactly as it stood before the turn ran.
+type TurnRecord struct {
+	Turn        int
+	NorthOrders string
+	SouthOrders string
+	BoardBefore game.Board
+	Events      []game.Event
+}
+
+// RecordTurn appends a TurnRecord for the turn about to be completed
+// (f.Turn, before it's incremented), for both cmd/wartable's runTurn
+// and cmd/wartable-web's handleTurn to call identically.
+func (f *File) RecordTurn(boardBefore game.Board, northOrders, southOrders string, events []game.Event) {
+	f.History = append(f.History, TurnRecord{
+		Turn:        f.Turn,
+		NorthOrders: northOrders,
+		SouthOrders: southOrders,
+		BoardBefore: boardBefore,
+		Events:      events,
+	})
 }
 
 // Load reads a save file.

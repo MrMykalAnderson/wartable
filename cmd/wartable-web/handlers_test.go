@@ -131,6 +131,36 @@ func TestHandleTurnDeploy(t *testing.T) {
 	if reloaded.Turn != 2 || len(reloaded.State.Board.Units) != 2 {
 		t.Errorf("reloaded save = %+v, want turn 2 with 2 units", reloaded)
 	}
+
+	// docs/dev-plan.md section 7.7: the turn's order sheets and event
+	// log are persisted, and GET /api/game returns them, so the viewer
+	// can step through this turn after a fresh page load, not just in
+	// the browser session that played it.
+	if len(reloaded.History) != 1 {
+		t.Fatalf("reloaded.History = %+v, want 1 record", reloaded.History)
+	}
+	if reloaded.History[0].NorthOrders != "North 1st Infantry | Deploy | B2" {
+		t.Errorf("reloaded.History[0].NorthOrders = %q", reloaded.History[0].NorthOrders)
+	}
+	if len(reloaded.History[0].Events) != 2 {
+		t.Errorf("reloaded.History[0].Events = %+v, want 2", reloaded.History[0].Events)
+	}
+	if len(reloaded.History[0].BoardBefore.Units) != 0 {
+		t.Errorf("reloaded.History[0].BoardBefore = %+v, want no units (both were still in reserve)", reloaded.History[0].BoardBefore)
+	}
+
+	rec = httptest.NewRecorder()
+	handleGame(rec, httptest.NewRequest(http.MethodGet, "/api/game?path="+path, nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /api/game: status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	var gameView GameView
+	if err := json.Unmarshal(rec.Body.Bytes(), &gameView); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if len(gameView.History) != 1 || len(gameView.History[0].Events) != 2 {
+		t.Errorf("GameView.History = %+v, want 1 record with 2 events", gameView.History)
+	}
 }
 
 func TestHandleTurnBadOrders(t *testing.T) {

@@ -120,3 +120,39 @@ func TestLoadRulesData(t *testing.T) {
 		t.Errorf("LoadRulesData: scenario.ID = %q, want starter-battle", scenario.ID)
 	}
 }
+
+// TestRecordTurnRoundTrip checks docs/dev-plan.md section 7.7: a save
+// keeps every turn's order sheets and event log, and it survives a
+// write/load round trip.
+func TestRecordTurnRoundTrip(t *testing.T) {
+	f := File{ScenarioID: "starter-battle", Turn: 1}
+	boardBefore := game.Board{Columns: 12, Rows: 10}
+	events := []game.Event{{Kind: "deployed", Unit: "A", Detail: "deployed to B2", Board: game.Board{Columns: 12, Rows: 10, Units: []game.UnitInstance{{ID: "A"}}}}}
+	f.RecordTurn(boardBefore, "A | Deploy | B2", "", events)
+	f.Turn++
+
+	if len(f.History) != 1 {
+		t.Fatalf("History = %+v, want 1 record", f.History)
+	}
+	if f.History[0].Turn != 1 || f.History[0].NorthOrders != "A | Deploy | B2" || f.History[0].SouthOrders != "" {
+		t.Errorf("History[0] = %+v", f.History[0])
+	}
+	if len(f.History[0].Events) != 1 || f.History[0].Events[0].Unit != "A" {
+		t.Errorf("History[0].Events = %+v", f.History[0].Events)
+	}
+
+	path := filepath.Join(t.TempDir(), "state.json")
+	if err := Write(path, f); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	got, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(got.History) != 1 || got.History[0].NorthOrders != "A | Deploy | B2" {
+		t.Errorf("reloaded History = %+v", got.History)
+	}
+	if len(got.History[0].Events) != 1 || got.History[0].Events[0].Board.Units[0].ID != "A" {
+		t.Errorf("reloaded History[0].Events[0].Board = %+v", got.History[0].Events[0].Board)
+	}
+}
