@@ -81,6 +81,32 @@ func TestNewGame(t *testing.T) {
 	}
 }
 
+// TestNewGameTwoTowns checks docs/two-towns.md "Armies": both sides
+// seeded with 4 Infantry, 2 Cavalry, 2 Artillery (Cost 110).
+func TestNewGameTwoTowns(t *testing.T) {
+	units := map[string]rules.Unit{
+		"infantry":  {ID: "infantry", Name: "Infantry"},
+		"cavalry":   {ID: "cavalry", Name: "Cavalry"},
+		"artillery": {ID: "artillery", Name: "Artillery"},
+	}
+	scenario := rules.Scenario{
+		ID: "two-towns", TieBreakHolder: "north",
+		Map: rules.MapSize{Columns: 26, Rows: 18},
+	}
+
+	f := NewGame(units, scenario)
+	for _, side := range []string{"north", "south"} {
+		army := f.State.Reserves[side]
+		counts := map[string]int{}
+		for _, u := range army {
+			counts[u.Template.ID]++
+		}
+		if counts["infantry"] != 4 || counts["cavalry"] != 2 || counts["artillery"] != 2 {
+			t.Errorf("%s reserves = %+v, want 4 infantry, 2 cavalry, 2 artillery", side, counts)
+		}
+	}
+}
+
 func TestOrdinalAndCapitalize(t *testing.T) {
 	cases := map[int]string{1: "1st", 2: "2nd", 3: "3rd", 4: "4th"}
 	for n, want := range cases {
@@ -106,7 +132,7 @@ func TestLoadRulesData(t *testing.T) {
 	}
 	defer os.Chdir(wd)
 
-	units, core, scenario, err := LoadRulesData()
+	units, core, scenario, err := LoadRulesData("starter-battle")
 	if err != nil {
 		t.Fatalf("LoadRulesData: %v", err)
 	}
@@ -116,8 +142,19 @@ func TestLoadRulesData(t *testing.T) {
 	if core.SupportPerAlly == 0 {
 		t.Errorf("LoadRulesData: core rules look empty: %+v", core)
 	}
+	if core.Terrain.RoadMarchMoveBonus == 0 {
+		t.Errorf("LoadRulesData: terrain effects look empty: %+v", core.Terrain)
+	}
 	if scenario.ID != "starter-battle" {
 		t.Errorf("LoadRulesData: scenario.ID = %q, want starter-battle", scenario.ID)
+	}
+
+	_, _, twoTowns, err := LoadRulesData("two-towns")
+	if err != nil {
+		t.Fatalf("LoadRulesData(two-towns): %v", err)
+	}
+	if twoTowns.Terrain == nil {
+		t.Errorf("LoadRulesData(two-towns): scenario.Terrain is nil, want it loaded from map_file")
 	}
 }
 

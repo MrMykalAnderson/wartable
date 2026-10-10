@@ -35,7 +35,7 @@ func main() {
 
 func usage() {
 	fmt.Fprintln(os.Stderr, "usage:")
-	fmt.Fprintln(os.Stderr, "  wartable new <state.json>")
+	fmt.Fprintln(os.Stderr, "  wartable new <state.json> [scenario-id]")
 	fmt.Fprintln(os.Stderr, "  wartable turn <state.json> <north-orders.txt> <south-orders.txt>")
 	fmt.Fprintln(os.Stderr, "  wartable show <state.json>")
 }

@@ -16,12 +16,17 @@ type PositionBonus struct {
 }
 
 // CoreRules holds the tunable numbers behind the core rules (data/rules/core.yaml).
+// Terrain is loaded separately from data/rules/terrain.yaml (docs/dev-
+// plan.md section 7.8) and attached by the caller (see
+// internal/save.LoadRulesData): CoreRules.validate doesn't check it, and
+// LoadCoreRules leaves it zero.
 type CoreRules struct {
-	PositionBonus       PositionBonus `yaml:"position_bonus"`
-	AmbushDefPenalty    int           `yaml:"ambush_def_penalty"`
-	HalfStrengthPenalty int           `yaml:"half_strength_penalty"`
-	SupportPerAlly      int           `yaml:"support_per_ally"`
-	DirectionOrder      []string      `yaml:"direction_order"`
+	PositionBonus       PositionBonus  `yaml:"position_bonus"`
+	AmbushDefPenalty    int            `yaml:"ambush_def_penalty"`
+	HalfStrengthPenalty int            `yaml:"half_strength_penalty"`
+	SupportPerAlly      int            `yaml:"support_per_ally"`
+	DirectionOrder      []string       `yaml:"direction_order"`
+	Terrain             TerrainEffects `yaml:"-"`
 }
 
 func (r CoreRules) validate() error {

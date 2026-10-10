@@ -50,13 +50,14 @@ func TestCheckAnnihilation(t *testing.T) {
 }
 
 func TestScoreAtTurnLimit(t *testing.T) {
-	templates, _ := loadTestRules(t)
+	templates, core := loadTestRules(t)
+	scenario := loadTestScenario(t, templates)
 	full := newUnit(t, templates, "A", "north", "infantry", "A1", hex.N) // Cost 10.
 	half := newUnit(t, templates, "B", "south", "infantry", "L10", hex.N)
 	half.Strength = Half // Cost 10 / 2 = 5.
 	state := GameState{Board: starterBoard(full, half)}
 
-	north, south, outcome := ScoreAtTurnLimit(state)
+	north, south, outcome := ScoreAtTurnLimit(state, core, scenario)
 	if north != 10 {
 		t.Errorf("northScore = %d, want 10", north)
 	}
@@ -69,13 +70,63 @@ func TestScoreAtTurnLimit(t *testing.T) {
 }
 
 func TestScoreAtTurnLimitDraw(t *testing.T) {
-	templates, _ := loadTestRules(t)
+	templates, core := loadTestRules(t)
+	scenario := loadTestScenario(t, templates)
 	a := newUnit(t, templates, "A", "north", "infantry", "A1", hex.N)
 	b := newUnit(t, templates, "B", "south", "infantry", "L10", hex.N)
 	state := GameState{Board: starterBoard(a, b)}
 
-	_, _, outcome := ScoreAtTurnLimit(state)
+	_, _, outcome := ScoreAtTurnLimit(state, core, scenario)
 	if !outcome.Over || outcome.Winner != "" {
 		t.Errorf("outcome = %+v, want a draw", outcome)
+	}
+}
+
+// TestCheckCapture checks docs/two-towns.md "Winning" rule 1: a unit in
+// the enemy's own town, with none of theirs there, wins by capture. The
+// Starter Battle (no terrain) never triggers it.
+func TestCheckCapture(t *testing.T) {
+	templates, _ := loadTestRules(t)
+	twoTowns := loadTestTwoTowns(t, templates)
+	starter := loadTestScenario(t, templates)
+
+	raider := newUnit(t, templates, "Raider", "south", "cavalry", "B15", hex.N) // inside North town.
+	notCapture := GameState{Board: boardFor(twoTowns, raider,
+		newUnit(t, templates, "Defender", "north", "infantry", "C15", hex.N), // also in North town.
+	)}
+	if got := CheckCapture(notCapture, twoTowns); got.Over {
+		t.Errorf("CheckCapture (defender still present) = %+v, want not over", got)
+	}
+
+	captured := GameState{Board: boardFor(twoTowns, raider)}
+	got := CheckCapture(captured, twoTowns)
+	if !got.Over || got.Winner != "south" {
+		t.Errorf("CheckCapture (North town undefended, South inside) = %+v, want South wins", got)
+	}
+
+	noTerrain := GameState{Board: starterBoard(newUnit(t, templates, "A", "north", "infantry", "A1", hex.N))}
+	if got := CheckCapture(noTerrain, starter); got.Over {
+		t.Errorf("CheckCapture on the Starter Battle (no terrain) = %+v, want never over", got)
+	}
+}
+
+// TestScoreAtTurnLimitObjectivePoints checks docs/two-towns.md
+// "Winning" rule 3: Cost plus 20 per owned town and 10 per owned
+// hamlet.
+func TestScoreAtTurnLimitObjectivePoints(t *testing.T) {
+	templates, core := loadTestRules(t)
+	scenario := loadTestTwoTowns(t, templates)
+	a := newUnit(t, templates, "A", "north", "infantry", "A1", hex.N) // Cost 10.
+	state := GameState{Board: boardFor(scenario, a), Objectives: map[string]string{}}
+	for name := range scenario.Terrain.AllObjectives() {
+		state.Objectives[name] = "north" // north owns every objective on the map.
+	}
+
+	north, _, _ := ScoreAtTurnLimit(state, core, scenario)
+	wantTownPoints := len(scenario.Terrain.Towns) * core.Terrain.TownPoints
+	wantHamletPoints := len(scenario.Terrain.Hamlets) * core.Terrain.HamletPoints
+	want := 10 + wantTownPoints + wantHamletPoints
+	if north != want {
+		t.Errorf("northScore = %d, want %d (Cost 10 + %d town points + %d hamlet points)", north, want, wantTownPoints, wantHamletPoints)
 	}
 }

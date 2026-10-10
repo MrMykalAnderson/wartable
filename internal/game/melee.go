@@ -26,6 +26,15 @@ type MeleeResult struct {
 	Ambushed               bool
 	AmbushPenalty          int // the penalty actually applied (0 unless Ambushed).
 
+	// Terrain modifiers (docs/core-rules.md section 2.3), 0 unless they
+	// apply: DefenderTerrainBonus (+1 for a defender in forest, a town
+	// or a hamlet), CavalryForestPenalty (-1 if the attacker is cavalry
+	// and it or the defender is in forest), BridgeAttackPenalty (-1 if
+	// the attack crosses a bridge edge).
+	DefenderTerrainBonus int
+	CavalryForestPenalty int
+	BridgeAttackPenalty  int
+
 	AttackerBase, DefenderBase   int // raw Attack/Def, before support/bonus/penalty.
 	AttackerTotal, DefenderTotal int
 	Margin                       int
@@ -58,6 +67,23 @@ func positionBonusFor(core rules.CoreRules, edge hex.Position) int {
 	}
 }
 
+// terrainDefBonus is the defender's Def bonus for standing in forest, a
+// town or a hamlet (docs/core-rules.md section 2.3): the three don't
+// stack (a hex is at most one of them), so this is the one that applies,
+// or 0 on open ground.
+func terrainDefBonus(effects rules.TerrainEffects, terrain *rules.TerrainMap, pos hex.Offset) int {
+	switch {
+	case terrain.IsForest(pos):
+		return effects.ForestDefBonus
+	case terrain.IsTown(pos):
+		return effects.TownDefBonus
+	case terrain.IsHamlet(pos):
+		return effects.HamletDefBonus
+	default:
+		return 0
+	}
+}
+
 // ResolveMelee resolves one melee combat between attackerID and defenderID
 // (docs/core-rules.md section 8.3). ambushed marks the defender as
 // ambushed (section 7.4): the ambushed unit always takes the defender's
@@ -86,24 +112,38 @@ func ResolveMelee(board Board, core rules.CoreRules, attackerID, defenderID stri
 		ambushPenalty = core.AmbushDefPenalty
 	}
 
-	attackerTotal := attackerStats.Attack + attackerSupport + positionBonus
-	defenderTotal := defenderStats.Def + defenderSupport - ambushPenalty
+	terrain := board.Terrain
+	defenderTerrainBonus := terrainDefBonus(core.Terrain, terrain, defender.Pos)
+	cavalryForestPenalty := 0
+	if attacker.Template.ID == "cavalry" && (terrain.IsForest(attacker.Pos) || terrain.IsForest(defender.Pos)) {
+		cavalryForestPenalty = core.Terrain.CavalryForestPenalty
+	}
+	bridgeAttackPenalty := 0
+	if terrain.IsBridge(attacker.Pos, defender.Pos) {
+		bridgeAttackPenalty = core.Terrain.BridgeAttackPenalty
+	}
+
+	attackerTotal := attackerStats.Attack + attackerSupport + positionBonus - cavalryForestPenalty - bridgeAttackPenalty
+	defenderTotal := defenderStats.Def + defenderSupport + defenderTerrainBonus - ambushPenalty
 	margin := attackerTotal - defenderTotal
 
 	result := MeleeResult{
-		AttackerID:      attackerID,
-		DefenderID:      defenderID,
-		Edge:            edge,
-		PositionBonus:   positionBonus,
-		AttackerSupport: attackerSupport,
-		DefenderSupport: defenderSupport,
-		Ambushed:        ambushed,
-		AmbushPenalty:   ambushPenalty,
-		AttackerBase:    attackerStats.Attack,
-		DefenderBase:    defenderStats.Def,
-		AttackerTotal:   attackerTotal,
-		DefenderTotal:   defenderTotal,
-		Margin:          margin,
+		AttackerID:           attackerID,
+		DefenderID:           defenderID,
+		Edge:                 edge,
+		PositionBonus:        positionBonus,
+		AttackerSupport:      attackerSupport,
+		DefenderSupport:      defenderSupport,
+		Ambushed:             ambushed,
+		AmbushPenalty:        ambushPenalty,
+		DefenderTerrainBonus: defenderTerrainBonus,
+		CavalryForestPenalty: cavalryForestPenalty,
+		BridgeAttackPenalty:  bridgeAttackPenalty,
+		AttackerBase:         attackerStats.Attack,
+		DefenderBase:         defenderStats.Def,
+		AttackerTotal:        attackerTotal,
+		DefenderTotal:        defenderTotal,
+		Margin:               margin,
 	}
 
 	if margin <= 0 {
@@ -129,7 +169,7 @@ func ResolveMelee(board Board, core rules.CoreRules, attackerID, defenderID stri
 
 func resolveKnockback(board Board, winner, loser UnitInstance) *Knockback {
 	to := hex.Knockback(winner.Pos, loser.Pos)
-	if board.CanRetreatTo(loser.Side, to) {
+	if board.CanRetreatTo(loser.Side, loser.Pos, to) {
 		return &Knockback{To: to}
 	}
 	return &Knockback{To: to, Destroyed: true}

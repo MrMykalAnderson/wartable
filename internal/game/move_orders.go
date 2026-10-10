@@ -41,7 +41,7 @@ func executeMove(state GameState, core rules.CoreRules, mover UnitInstance, o or
 	}
 
 	startPos, startFacing := mover.Pos, mover.Facing
-	outcome := moveTowards(state.Board, mover, dest, mover.Stats(core).Move, "")
+	outcome := moveTowards(core, state.Board, mover, dest, mover.Stats(core).Move, "")
 
 	mover.Pos = currentPos(startPos, outcome.Path)
 	mover.Facing = startFacing
@@ -92,7 +92,7 @@ func executeCloseAndAttack(state GameState, core rules.CoreRules, mover UnitInst
 
 	startPos := mover.Pos
 	half := mover.Stats(core).Move / 2
-	outcome := moveTowards(state.Board, mover, target.Pos, half, target.ID)
+	outcome := moveTowards(core, state.Board, mover, target.Pos, half, target.ID)
 
 	mover.Pos = currentPos(startPos, outcome.Path)
 	if d, ok := directionOfLastStep(startPos, outcome.Path); ok {
@@ -316,5 +316,6 @@ func ExecuteTurn(state GameState, core rules.CoreRules, scenario rules.Scenario,
 		events = append(events, stepEvents...)
 		events = append(events, checkNoMansLand(state.Board)...)
 	}
+	state = UpdateObjectives(state, scenario)
 	return state, events, nil
 }

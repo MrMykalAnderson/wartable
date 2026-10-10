@@ -25,12 +25,13 @@ func handleGame(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, err)
 		return
 	}
-	_, core, _, err := save.LoadRulesData()
+	_, core, scenario, err := save.LoadRulesData(f.ScenarioID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, newGameView(f, core))
+	f.AttachTerrain(scenario)
+	writeJSON(w, newGameView(f, core, scenario))
 }
 
 type turnRequest struct {
@@ -69,11 +70,12 @@ func handleTurn(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, err)
 		return
 	}
-	_, core, scenario, err := save.LoadRulesData()
+	_, core, scenario, err := save.LoadRulesData(f.ScenarioID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
+	f.AttachTerrain(scenario)
 	northOrders, err := orders.Parse(req.North)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, fmt.Errorf("north orders: %w", err))
@@ -94,9 +96,12 @@ func handleTurn(w http.ResponseWriter, r *http.Request) {
 	f.State = newState
 	f.RecordTurn(boardBefore, req.North, req.South, events)
 
-	outcome := game.CheckAnnihilation(f.State)
+	outcome := game.CheckCapture(f.State, scenario)
+	if !outcome.Over {
+		outcome = game.CheckAnnihilation(f.State)
+	}
 	if !outcome.Over && f.Turn >= scenario.TurnLimit {
-		_, _, limitOutcome := game.ScoreAtTurnLimit(f.State)
+		_, _, limitOutcome := game.ScoreAtTurnLimit(f.State, core, scenario)
 		outcome = limitOutcome
 	}
 	f.Turn++
@@ -111,7 +116,7 @@ func handleTurn(w http.ResponseWriter, r *http.Request) {
 		eventViews[i] = newEventView(e, core)
 	}
 	writeJSON(w, turnResponse{
-		Game:    newGameView(f, core),
+		Game:    newGameView(f, core, scenario),
 		Events:  eventViews,
 		Outcome: newOutcomeView(outcome),
 	})
@@ -186,11 +191,12 @@ func handlePredict(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, err)
 		return
 	}
-	_, core, scenario, err := save.LoadRulesData()
+	_, core, scenario, err := save.LoadRulesData(f.ScenarioID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
+	f.AttachTerrain(scenario)
 
 	_, events := game.ExecuteOrder(f.State, core, scenario, side, o)
 

@@ -1,0 +1,12 @@
+# Two Towns (docs/two-towns.md "At a glance" table).
+id: two-towns
+name: "Two Towns (draft)"
+map_file: data/maps/two-towns.yaml
+deployment_zones:
+  north: { near_town: "North town", radius: 3 }
+  south: { near_town: "South town", radius: 3 }
+default_facing: { north: NE, south: SW }
+capacity: 120
+units_allowed: [infantry, cavalry, artillery]
+turn_limit: 16
+tie_break_holder: north

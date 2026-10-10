@@ -21,10 +21,11 @@ func runTurn(args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	_, core, scenario, err := save.LoadRulesData()
+	_, core, scenario, err := save.LoadRulesData(f.ScenarioID)
 	if err != nil {
 		return err
 	}
+	f.AttachTerrain(scenario)
 
 	northRaw, northOrders, err := parseOrderFile(northPath)
 	if err != nil {
@@ -50,7 +51,7 @@ func runTurn(args []string, out io.Writer) error {
 	fmt.Fprintln(out)
 	fmt.Fprint(out, renderMap(f.State.Board))
 
-	reportOutcome(out, f.State, scenario, f.Turn)
+	reportOutcome(out, f.State, core, scenario, f.Turn)
 
 	f.Turn++
 	return save.Write(statePath, f)
@@ -68,12 +69,16 @@ func parseOrderFile(path string) (raw string, ords []orders.Order, err error) {
 	return string(rawBytes), ords, nil
 }
 
-// reportOutcome checks the Starter Battle's win conditions
-// (docs/starter-battle.md "Winning") and prints the result, if any.
-func reportOutcome(out io.Writer, state game.GameState, scenario rules.Scenario, turn int) {
-	outcome := game.CheckAnnihilation(state)
+// reportOutcome checks the scenario's win conditions (docs/starter-
+// battle.md and docs/two-towns.md "Winning") and prints the result, if
+// any.
+func reportOutcome(out io.Writer, state game.GameState, core rules.CoreRules, scenario rules.Scenario, turn int) {
+	outcome := game.CheckCapture(state, scenario)
+	if !outcome.Over {
+		outcome = game.CheckAnnihilation(state)
+	}
 	if !outcome.Over && turn >= scenario.TurnLimit {
-		north, south, limitOutcome := game.ScoreAtTurnLimit(state)
+		north, south, limitOutcome := game.ScoreAtTurnLimit(state, core, scenario)
 		fmt.Fprintf(out, "\nTurn limit reached. North %d, South %d.\n", north, south)
 		outcome = limitOutcome
 	}

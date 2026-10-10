@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"sort"
 
 	"github.com/MrMykalAnderson/wartable/internal/game"
 	"github.com/MrMykalAnderson/wartable/internal/hex"
@@ -38,8 +39,17 @@ type OptionsView struct {
 	// section 6.3/6.5), shown distinctly from MoveHexes' full reach
 	// (docs/dev-plan.md section 7.5, interface item 1). Empty if the
 	// unit can't make either order (e.g. artillery, which can't Close).
-	CloseMoveHexes   []HexView `json:"closeMoveHexes"`
-	CloseMove        int       `json:"closeMove"` // the half-move distance itself, for the "Close: N hexes" label.
+	CloseMoveHexes []HexView `json:"closeMoveHexes"`
+	CloseMove      int       `json:"closeMove"` // the half-move distance itself, for the "Close: N hexes" label.
+	// RoadMarchHexes is the extra reach a road march gets (docs/core-
+	// rules.md section 2.3: +2 Move, road hexes only), for a unit
+	// currently standing on a road; empty otherwise (docs/dev-plan.md
+	// section 7.8, interface item 3).
+	RoadMarchHexes []HexView `json:"roadMarchHexes"`
+	// FordHexes are the hexes directly across an unbridged river edge
+	// from the unit's position: each one needs a ford, not a plain
+	// Move, to enter (docs/dev-plan.md section 7.8, interface item 3).
+	FordHexes        []HexView `json:"fordHexes"`
 	MeleeTargets     []string  `json:"meleeTargets"`
 	FireTargets      []string  `json:"fireTargets"`
 	CloseFireTargets []string  `json:"closeFireTargets"`
@@ -68,11 +78,12 @@ func handleOptions(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, err)
 		return
 	}
-	_, core, scenario, err := save.LoadRulesData()
+	_, core, scenario, err := save.LoadRulesData(f.ScenarioID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
+	f.AttachTerrain(scenario)
 
 	if unit, ok := f.State.Board.Unit(unitID); ok {
 		writeJSON(w, deployedUnitOptions(f.State.Board, core, unit, scenario))
@@ -96,11 +107,21 @@ func deployedUnitOptions(board game.Board, core rules.CoreRules, unit game.UnitI
 
 	stats := unit.Stats(core)
 	if unit.CanMove() {
-		view.MoveHexes = hexesWithin(unit.Pos, stats.Move, scenario)
+		// Forest halves the whole order's Move from the very first step
+		// if the unit starts there (docs/core-rules.md section 2.3) —
+		// unlike occupancy or enemy contact, that's certain regardless
+		// of what else happens this turn, so the guide reflects it.
+		move := stats.Move
+		if scenario.Terrain.IsForest(unit.Pos) {
+			move /= 2
+		}
+		view.MoveHexes = hexesWithin(unit.Pos, move, scenario)
 		if unit.Template.Melee || len(unit.Template.States) == 0 {
-			view.CloseMove = stats.Move / 2
+			view.CloseMove = move / 2
 			view.CloseMoveHexes = hexesWithin(unit.Pos, view.CloseMove, scenario)
 		}
+		view.RoadMarchHexes = roadMarchHexesWithin(unit.Pos, stats.Move+core.Terrain.RoadMarchMoveBonus, scenario.Terrain)
+		view.FordHexes = fordHexes(unit.Pos, scenario.Terrain)
 	}
 
 	if unit.CanFire() && stats.MaxRange > 0 {
@@ -161,6 +182,45 @@ func hexesWithin(pos hex.Offset, dist int, scenario rules.Scenario) []HexView {
 	return hexes
 }
 
+// roadMarchHexesWithin returns the road hexes within dist of pos,
+// following the road network only (docs/core-rules.md section 2.3),
+// ignoring unit occupancy (a reach guide, like hexesWithin). Empty if
+// pos isn't itself a road hex, since a road march's reach only applies
+// to a unit that starts on the road.
+func roadMarchHexesWithin(pos hex.Offset, dist int, terrain *rules.TerrainMap) []HexView {
+	if dist <= 0 || !terrain.IsRoad(pos) {
+		return nil
+	}
+	passable := func(o hex.Offset) bool { return terrain.IsRoad(o) }
+	dists := hex.FloodFill(pos, passable, terrain.RiverBlocks)
+	var hexes []HexView
+	for h, d := range dists {
+		if d > 0 && d <= dist {
+			hexes = append(hexes, HexView{Col: h.Col, Row: h.Row})
+		}
+	}
+	sort.Slice(hexes, func(i, j int) bool {
+		if hexes[i].Col != hexes[j].Col {
+			return hexes[i].Col < hexes[j].Col
+		}
+		return hexes[i].Row < hexes[j].Row
+	})
+	return hexes
+}
+
+// fordHexes returns the hexes directly across an unbridged river edge
+// from pos (docs/core-rules.md section 2.3): each needs a ford, as a
+// Move order's whole target, to enter.
+func fordHexes(pos hex.Offset, terrain *rules.TerrainMap) []HexView {
+	var hexes []HexView
+	for _, nb := range pos.Neighbors() {
+		if terrain.RiverBlocks(pos, nb) {
+			hexes = append(hexes, HexView{Col: nb.Col, Row: nb.Row})
+		}
+	}
+	return hexes
+}
+
 func canEnterState(unit game.UnitInstance, state string) bool {
 	_, ok := unit.Template.States[state]
 	return ok
@@ -172,17 +232,14 @@ func reserveUnitOptions(board game.Board, scenario rules.Scenario, side string) 
 	if !ok {
 		return view
 	}
-	for row := dz.Rows.From - 1; row <= dz.Rows.To-1; row++ {
-		for col := 0; col < scenario.Map.Columns; col++ {
-			h := hex.Offset{Col: col, Row: row}
-			if _, occupied := board.UnitAt(h); occupied {
-				continue
-			}
-			if board.AdjacentEnemy(side, h) {
-				continue
-			}
-			view.DeployHexes = append(view.DeployHexes, HexView{Col: h.Col, Row: h.Row})
+	for _, h := range dz.Hexes(scenario.Map, scenario.Terrain) {
+		if _, occupied := board.UnitAt(h); occupied {
+			continue
 		}
+		if board.AdjacentEnemy(side, h) {
+			continue
+		}
+		view.DeployHexes = append(view.DeployHexes, HexView{Col: h.Col, Row: h.Row})
 	}
 	return view
 }

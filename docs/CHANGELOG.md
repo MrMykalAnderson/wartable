@@ -11,6 +11,91 @@ section 11 (EX-3, EX-4) and the direction table in section 2.1.
 
 `go vet ./...` and `go test ./...` pass.
 
+## Terrain and the Two Towns scenario (dev-plan.md section 7.8)
+
+**Engine.**
+
+- **Terrain data.** `internal/rules/map.go` loads and validates
+  `data/maps/*.yaml` (`LoadTerrainMap`): forest, roads, towns/hamlets,
+  river and bridge edges — river and bridge edges must join adjacent
+  hexes, every bridge must be a river edge with road on both sides, road
+  chains must be contiguous, and a road hex is never forest. Every
+  method on `*TerrainMap` is nil-safe, so a scenario with no terrain
+  (the Starter Battle) behaves exactly as before. Terrain's tunable
+  numbers live in `data/rules/terrain.yaml` (`TerrainEffects`), loaded
+  separately and attached to `CoreRules.Terrain` by `save.LoadRulesData`.
+- **`hex.EdgeBlockedFunc`** is a new, separate parameter on
+  `FloodFill`/`NextStep`/`ShortestPath` (nil means nothing is ever
+  blocked) for river-aware pathfinding, without changing the existing
+  `PassableFunc` or any caller that doesn't care about edges.
+- **Movement** (2.3): a river edge with no bridge blocks movement except
+  fording — a plain Move to the hex directly across, as the unit's whole
+  order, never found by the pathfinder on its own (`fordPath`). A
+  **road march** (start and destination both road hexes) follows road
+  hexes only, +2 Move, ignores the safe route, and can't pass through a
+  unit — the route is found ignoring occupancy (`roadMarchPath`,
+  `roadPassable`), since routing a sparse road network *around* a
+  blocker the way the safe route does could send it miles out of its
+  way by some unrelated road; `moveTowards`'s own stepping loop is what
+  actually stops it one hex short (EX-10's note). **Forest** halves the
+  whole order's Move, from the start if the unit begins there or from
+  the first forest hex entered otherwise, stacking with Close's own
+  halving (`moveTowards` in `internal/game/state.go`).
+- **Adjacency** for contact, support, ambush, overrun and the no man's
+  land check ignores pairs separated by a river edge (`Board.adjacentHexes`);
+  bridges count as adjacent. Knockback across a river edge is blocked
+  (`Board.CanRetreatTo`, now also taking the knocked-back unit's own
+  hex to check the edge).
+- **Combat** (`internal/game/melee.go`): +1 Def for a defender in
+  forest, a town or a hamlet (the three don't stack); cavalry −1 Attack
+  if it or the defender is in forest; −1 for an attack across a bridge
+  edge; artillery can't go Ready in forest (`executeReadyMobilise`).
+- **Scenario and objectives.** `DeploymentZone` now also supports a
+  radius-from-town zone (`NearTown`/`Radius`, alongside the Starter
+  Battle's row range) via `Contains`/`Hexes`. Towns and hamlets are
+  objectives, owned by whichever side alone currently has a unit in
+  them (`GameState.Objectives`, `InitialObjectives`/`UpdateObjectives`
+  in `internal/game/objectives.go`, updated once per turn). `CheckCapture`
+  adds the capture win condition, and `ScoreAtTurnLimit` now also adds
+  Terrain's town/hamlet points for owned objectives — both no-ops for a
+  scenario with no terrain.
+- `save.LoadRulesData` now takes a scenario ID (resolving
+  `data/scenarios/<id>.yaml`) instead of being hard-coded to the Starter
+  Battle; every caller passes the save's own `ScenarioID`, or (for
+  `wartable new`/the web "New game" form) an explicit choice. Each
+  scenario has its own suggested army (`suggestedArmies`); Two Towns'
+  is 4 Infantry, 2 Cavalry, 2 Artillery (Cost 110, per two-towns.md).
+- Tests: EX-10 (road march, including the blocked-unit note) and EX-11
+  (fording, including the never-automatic and blocked-far-bank notes)
+  against the real Two Towns map and scenario data, plus unit tests for
+  every individual terrain combat/movement effect. The Starter Battle's
+  golden replay tests are unchanged.
+
+**Interface.**
+
+- A scenario picker (Starter Battle/Two Towns) on the "New game" form,
+  both CLI (`wartable new <state.json> [scenario-id]`) and web.
+- The server sends its own terrain data (`GameView.Terrain`, nil for a
+  scenario with none) and objective ownership (`GameView.Objectives`)
+  for the frontend to draw directly — forest/town/hamlet hex fills
+  (tinted by owning side), roads as lines through hex centres, river
+  and bridge edges along hex boundaries — never recomputed from rules.
+- `GET /api/options` adds `roadMarchHexes` (a road unit's Move+2 reach
+  along the road network) and `fordHexes` (hexes directly across an
+  unbridged river edge), drawn as outlines over whatever fill already
+  applies; `moveHexes`/`closeMoveHexes` account for a unit starting in
+  forest, since that's certain regardless of what else happens this
+  turn (unlike occupancy, which the reach guide still ignores).
+- Zoom (wheel, or +/−/Reset view buttons, anchored under the cursor) and
+  click-drag pan on the map, via the SVG's `viewBox` rather than its
+  own coordinate system, so none of the existing hex-click handling
+  changed. Needed now the map can be as large as Two Towns' 26×18.
+  Verified in a real browser: terrain rendering, a full deploy-order
+  click flow (including the facing picker), zoom in/out/reset and
+  click-drag pan, with no console errors.
+
+`go vet ./...` and `go test ./...` pass.
+
 ## Playtest round 4 changes (dev-plan.md section 7.7)
 
 From Mykal's full game (`playtests/Testaftermovementplanningupdate.json`).

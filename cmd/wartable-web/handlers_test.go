@@ -79,7 +79,7 @@ func TestHandleGameSuccess(t *testing.T) {
 func TestHandleTurnDeploy(t *testing.T) {
 	chdirToRepoRoot(t)
 
-	units, _, scenario, err := save.LoadRulesData()
+	units, _, scenario, err := save.LoadRulesData(save.DefaultScenarioID)
 	if err != nil {
 		t.Fatalf("LoadRulesData: %v", err)
 	}

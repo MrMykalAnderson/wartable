@@ -55,7 +55,7 @@ func TestNewGameView(t *testing.T) {
 			},
 		},
 	}
-	got := newGameView(f, rules.CoreRules{HalfStrengthPenalty: 1})
+	got := newGameView(f, rules.CoreRules{HalfStrengthPenalty: 1}, rules.Scenario{ID: "starter-battle"})
 	if got.ScenarioID != "starter-battle" || got.Turn != 4 || got.TieBreakHolder != "south" {
 		t.Errorf("newGameView header fields = %+v", got)
 	}
@@ -70,6 +70,43 @@ func TestNewGameView(t *testing.T) {
 	}
 	if got.Reserves["north"] != nil {
 		t.Errorf("newGameView.Reserves[north] = %v, want nil (no reserves given)", got.Reserves["north"])
+	}
+}
+
+// TestNewTerrainView checks docs/dev-plan.md section 7.8's interface
+// item 2 against the real Two Towns map: terrain is nil for a scenario
+// with none (the Starter Battle), and populated, with the real bridge
+// edges, for one that has it.
+func TestNewTerrainView(t *testing.T) {
+	chdirToRepoRoot(t)
+	units, err := rules.LoadUnits("data/units/standard.yaml")
+	if err != nil {
+		t.Fatalf("LoadUnits: %v", err)
+	}
+	starter, err := rules.LoadScenario("data/scenarios/starter-battle.yaml", units)
+	if err != nil {
+		t.Fatalf("LoadScenario(starter-battle): %v", err)
+	}
+	if got := newTerrainView(starter.Terrain); got != nil {
+		t.Errorf("newTerrainView(starter-battle) = %+v, want nil (no terrain)", got)
+	}
+
+	twoTowns, err := rules.LoadScenario("data/scenarios/two-towns.yaml", units)
+	if err != nil {
+		t.Fatalf("LoadScenario(two-towns): %v", err)
+	}
+	got := newTerrainView(twoTowns.Terrain)
+	if got == nil {
+		t.Fatalf("newTerrainView(two-towns) = nil, want populated")
+	}
+	if len(got.Bridges) != 2 {
+		t.Errorf("Bridges = %+v, want 2 (M7|N6 and O12|P11)", got.Bridges)
+	}
+	if len(got.Towns["North town"]) == 0 || len(got.Towns["South town"]) == 0 {
+		t.Errorf("Towns = %+v, want both North town and South town", got.Towns)
+	}
+	if len(got.Forest) == 0 {
+		t.Errorf("Forest is empty, want the forest straddling the river")
 	}
 }
 

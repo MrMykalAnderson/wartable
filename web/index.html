@@ -18,6 +18,10 @@
     <div class="new-game-row">
       <label for="new-game-name">New game</label>
       <input id="new-game-name" type="text" placeholder="e.g. game2.json" spellcheck="false">
+      <select id="new-game-scenario">
+        <option value="starter-battle">Starter Battle</option>
+        <option value="two-towns">Two Towns</option>
+      </select>
       <button id="new-game">Create</button>
     </div>
     <span id="load-status"></span>
@@ -27,8 +31,20 @@
 <main>
   <section class="map-panel">
     <svg id="map" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div id="map-zoom-controls">
+      <button id="zoom-in" title="Zoom in">+</button>
+      <button id="zoom-out" title="Zoom out">−</button>
+      <button id="zoom-reset" title="Reset view">Reset view</button>
+    </div>
     <div id="unit-card" class="unit-card" hidden></div>
     <div id="game-info"></div>
+    <div class="terrain-legend">
+      <span class="legend-item"><svg width="16" height="16"><rect width="16" height="16" class="terrain-forest" /></svg> Forest</span>
+      <span class="legend-item"><svg width="16" height="16"><rect width="16" height="16" class="terrain-town" /></svg> Town/hamlet</span>
+      <span class="legend-item"><svg width="26" height="12"><line x1="2" y1="6" x2="24" y2="6" class="terrain-road" /></svg> Road</span>
+      <span class="legend-item"><svg width="26" height="12"><line x1="2" y1="6" x2="24" y2="6" class="terrain-river" /></svg> River</span>
+      <span class="legend-item"><svg width="26" height="12"><line x1="2" y1="6" x2="24" y2="6" class="terrain-bridge" /></svg> Bridge</span>
+    </div>
     <div class="order-legend">
       <strong>Order lines:</strong>
       <span class="legend-item"><svg width="26" height="12"><line x1="2" y1="6" x2="24" y2="6" class="order-line-move order-line-north" /></svg> Move</span>
@@ -37,6 +53,10 @@
       <span class="legend-item"><svg width="26" height="12"><line x1="2" y1="6" x2="24" y2="6" class="order-line-close-fire order-line-north" /></svg> Close and Fire</span>
       <span class="legend-item"><svg width="14" height="14"><circle cx="7" cy="7" r="5" class="order-state-marker ghost-north" /></svg> Ready/Mobilise</span>
       <span class="legend-item">(colour is the ordering side)</span>
+    </div>
+    <div class="terrain-legend">
+      <span class="legend-item"><svg width="30" height="20"><polygon points="2,10 9,2 21,2 28,10 21,18 9,18" class="highlight-road-march-demo" fill="none" stroke="#8a6d3c" stroke-width="2" stroke-dasharray="3 2" /></svg> Road march reach</span>
+      <span class="legend-item"><svg width="30" height="20"><polygon points="2,10 9,2 21,2 28,10 21,18 9,18" fill="none" stroke="#4a7fb5" stroke-width="2" /></svg> Ford here</span>
     </div>
   </section>
 

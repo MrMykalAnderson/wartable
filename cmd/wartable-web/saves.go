@@ -78,7 +78,8 @@ func listSaves(w http.ResponseWriter, r *http.Request) {
 }
 
 type newGameRequest struct {
-	Path string `json:"path"`
+	Path       string `json:"path"`
+	ScenarioID string `json:"scenarioId"`
 }
 
 // handleNewGame creates a fresh save (save.NewGame: both sides seeded
@@ -99,8 +100,12 @@ func handleNewGame(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, fmt.Errorf("%s already exists", req.Path))
 		return
 	}
+	scenarioID := req.ScenarioID
+	if scenarioID == "" {
+		scenarioID = save.DefaultScenarioID
+	}
 
-	units, core, scenario, err := save.LoadRulesData()
+	units, core, scenario, err := save.LoadRulesData(scenarioID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -110,7 +115,7 @@ func handleNewGame(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, newGameView(f, core))
+	writeJSON(w, newGameView(f, core, scenario))
 }
 
 // handleDeleteSave removes a save file. path must be a plain filename
