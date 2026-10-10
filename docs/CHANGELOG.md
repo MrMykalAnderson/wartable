@@ -11,6 +11,56 @@ section 11 (EX-3, EX-4) and the direction table in section 2.1.
 
 `go vet ./...` and `go test ./...` pass.
 
+## Playtest round 5 fixes (dev-plan.md section 7.9)
+
+From Mykal's first Two Towns game. All interface; no rules change.
+
+- **Planning must ignore units (regression fix).** A Move prediction's
+  `/api/predict` path was running the real engine against the live
+  board (7.7's design), so a road march behind a friendly unit on the
+  road showed as blocked by it. `game.PreviewMovePath` (new,
+  `internal/game/preview.go`) computes a terrain-only estimate instead
+  — fording, road march and forest still apply, but no unit, friendly
+  or enemy, ever blocks or stops it, the same as the reach guide.
+  `handlePredict` now only calls the real engine (`game.ExecuteOrder`)
+  for an attack/Fire order's combat numbers, which do need the actual
+  board. A Close/Fire order's own predicted combat is unaffected — only
+  a Move's path preview changes.
+- **Any hex can be an order target, including occupied ones.** Clicking
+  a unit's hex while another unit is selected used to always reselect
+  it, so a friendly unit's hex could never be a Move objective. It now
+  offers choices — "Move here" (any unit's hex), "Select this unit"
+  (own side, if it doesn't already have an order), or the applicable
+  attack types (enemy) — running the one choice straight away if
+  there's only one (`handleTargetClick`/`offerChoices` in web/app.js).
+  With nothing selected, clicking your own unit still just selects it.
+- **Facing is optional.** Clicking a target now adds a Move/Deploy/
+  Ready/Mobilise order immediately, with automatic facing (no pick-a-
+  facing step); the predicted-result confirmation for attack/Fire
+  orders is unchanged. Facing can be adjusted afterward from a small
+  six-way control, shown both on the order's list entry and on its
+  ghost on the map (`effectiveFacing`/`setOrderFacing`/
+  `buildFacingControl`/`appendFacingWheel`) — the control always shows
+  the facing the order will actually end with, worked out the same way
+  the engine would (a Move's own fetched preview path's last step, a
+  Deploy's scenario default, or an unchanged Ready/Mobilise's current
+  facing), not just what the player explicitly set. `GameView` gained
+  `DefaultFacing` so the frontend can show this for Deploy without
+  asking the server.
+- **Display.** Deployment-zone and reach overlays are translucent
+  (`fill-opacity`) so terrain stays visible underneath. Every view of
+  the map — including mid-replay, stepping through a past turn's
+  events — now always draws the terrain layer: `renderMap` draws
+  terrain/objective ownership from the live game state, never from
+  whatever historical board snapshot it's otherwise drawing (a
+  `BoardView` carries no terrain of its own). Roads are drawn through
+  the midpoints of the hex edges they cross, then smoothed with Chaikin
+  corner-cutting (`roadCurve`, porting `docs/maps/twotowns.py`'s
+  `road_curve` exactly), so an alternating two-direction run reads as a
+  straight line instead of zig-zagging through hex centres.
+
+`go vet ./...` and `go test ./...` pass.
+
 ## Terrain and the Two Towns scenario (dev-plan.md section 7.8)
 
 **Engine.**

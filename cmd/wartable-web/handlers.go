@@ -147,11 +147,20 @@ var predictableOrderTypes = map[string]orders.Type{
 // handlePredict serves GET /api/predict?path=&side=&unit=&type=&target=
 // (a unit target, for an attack/Fire order) or
 // GET /api/predict?path=&side=&unit=&type=Move&col=&row= (a hex target,
-// for a Move order): what would happen if unit's order were carried out
-// this turn, assuming other units don't move first. It runs the real
-// engine resolution (game.ExecuteOrder) against the saved state but
-// never writes it back, so trying a prediction has no effect on the
-// game.
+// for a Move order).
+//
+// A Move prediction's Path is a terrain-only planning estimate
+// (game.PreviewMovePath, docs/dev-plan.md section 7.9): it ignores every
+// unit, friendly or enemy, exactly like the reach guide, since other
+// units may themselves move before this order runs — it is NOT "what
+// would happen if the order ran against the board right now" (that was
+// section 7.7's design, which turned out to show a road march as
+// blocked by a friendly unit standing on the road, a planning
+// regression this corrects). An attack/Fire prediction's Melee/Ranged
+// numbers are different: they run the real engine resolution
+// (game.ExecuteOrder) against the saved board, since a meaningful
+// combat prediction has to be against actual units. Neither ever
+// writes the game back.
 func handlePredict(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Query().Get("path")
 	side := r.URL.Query().Get("side")
@@ -198,21 +207,29 @@ func handlePredict(w http.ResponseWriter, r *http.Request) {
 	}
 	f.AttachTerrain(scenario)
 
-	_, events := game.ExecuteOrder(f.State, core, scenario, side, o)
-
 	var pred PredictionView
+	if ot == orders.Move {
+		mover, ok := f.State.Board.Unit(unitID)
+		if !ok {
+			writeError(w, http.StatusNotFound, fmt.Errorf("unit %q not found on the board", unitID))
+			return
+		}
+		path := game.PreviewMovePath(core, f.State.Board, mover, o.TargetHex)
+		pred.Path = make([]HexView, len(path))
+		for i, h := range path {
+			pred.Path[i] = HexView{Col: h.Col, Row: h.Row}
+		}
+		writeJSON(w, pred)
+		return
+	}
+
+	_, events := game.ExecuteOrder(f.State, core, scenario, side, o)
 	for _, e := range events {
 		if e.Melee != nil {
 			pred.Melee = newMeleeView(e.Melee)
 		}
 		if e.Ranged != nil {
 			pred.Ranged = newRangedView(e.Ranged)
-		}
-		if e.Kind == "moved" && pred.Path == nil {
-			pred.Path = make([]HexView, len(e.Path))
-			for i, h := range e.Path {
-				pred.Path[i] = HexView{Col: h.Col, Row: h.Row}
-			}
 		}
 	}
 	writeJSON(w, pred)
