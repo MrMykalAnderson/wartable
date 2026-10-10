@@ -264,6 +264,27 @@ From Mykal's full game (`Testaftermovementplanningupdate.json`). Rules already u
 - Save files must keep the **full history**: every turn's two order sheets and the resulting event log, not just the final position. The web viewer should be able to step through any past turn. (M8 needs this anyway.)
 - Keep playtest saves in a `playtests/` folder; move `Testaftermovementplanningupdate.json` there.
 
+### 7.8 Terrain and the Two Towns scenario (do after 7.7)
+
+New rules: core-rules.md 2.3 (terrain, road march, forest, fording, river adjacency), 7.1, 8.3 (knockback across a river), EX-10 and EX-11. New scenario: `docs/two-towns.md`. Map data: `data/maps/two-towns.yaml` (you may change its format to suit the engine, but keep every hex, edge and road the same; `docs/maps/twotowns.py` generated it).
+
+**Engine.**
+
+- Load maps from `data/maps/`. Validate: river and bridge edges join adjacent hexes, every bridge is a river edge with road on both sides, road chains are contiguous.
+- Terrain effect numbers go in data (e.g. `data/rules/terrain.yaml`), not code.
+- Movement: river edges block movement except at bridges; **fording** is only a Move from a hex with a river edge to the hex directly across it, as the unit's whole order; the pathfinder never fords. **Road march** (start and destination both road hexes): follow road hexes only, +2 Move, no safe route, can't pass units. **Forest**: half Move once the unit starts in or enters forest; stop in the first forest hex if already over that allowance; stacks with Close halving.
+- Adjacency for contact, support, ambush, overrun and the no man's land check ignores pairs separated by a river edge (bridges count as adjacent). Knockback across a river edge is blocked.
+- Combat: +1 Def for defenders in forest, towns and hamlets (melee and ranged); cavalry −1 Attack if it or its target is in forest; −1 for an attacker attacking across a bridge edge; artillery can't go Ready in forest.
+- Scenario: deployment zones (hexes within 3 of own town), objectives with ownership, capture win, turn-16 scoring (core Cost + 20 per town + 10 per hamlet), default facings NE/SW.
+- Tests: EX-10, EX-11, plus unit tests for each terrain effect. The Starter Battle has no terrain, so its golden replays should not change.
+
+**Interface.**
+
+- Choose the scenario when starting a new game (Starter Battle or Two Towns).
+- Draw terrain: forest, towns and hamlets as hex fills, roads as lines through hex centres, the river along hex edges, bridges marked. Show objective ownership.
+- Reach preview: road march reach along the road (+2), forest-limited reach, and a clear ford option when a unit stands on a river bank.
+- The map is 26 × 18: add **zoom and pan**. The map-first layout (7.4) will matter more now; ask Mykal before starting it.
+
 ### 7.4 Parked (don't start without being asked)
 
 - **Map-first layout.** The map should be the main focus and fill the screen. All panels (orders, unit details, event playback, sandbox) become either docked strips around the map edges or floating, movable windows. A large layout change; do it as one piece of work when asked, not piecemeal.

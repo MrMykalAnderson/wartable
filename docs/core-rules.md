@@ -65,9 +65,36 @@ Example: the hex SE of A1 is B1, and the hex NW of B1 is A1.
 
 The **distance** between two hexes is the number of steps from one to the other, counting the destination but not the starting hex. Adjacent hexes are distance 1.
 
-### 2.3 Terrain and barriers
+### 2.3 Terrain
 
-Terrain (hex contents) and barriers (between hexes) are defined by each scenario, along with their effects. The core rules apply as written to open ground.
+Each scenario's map sets the terrain. Hex terrain fills a hex; **edge** terrain (rivers, bridges) runs along the edge between two hexes. Anything not marked is **open ground**, where the core rules apply exactly as written.
+
+| Terrain | Kind | Movement | Combat |
+| --- | --- | --- | --- |
+| **Open** | Hex | Normal | Normal |
+| **Road** | Hex (a line of hexes) | Road march (see below). A road hex is never forest: roads are cleared through it. | Normal |
+| **Forest** | Hex | Slow going: half Move (see below) | Defender in forest +1 Def (melee and ranged). Cavalry −1 Attack if it or its target is in forest. Artillery can't go Ready in forest. |
+| **Town / hamlet** | Hex | Normal | Defender in a town or hamlet +1 Def (melee and ranged) |
+| **River** | Edge | Can't be crossed, except by fording (see below) | No contact or support across it. Ranged fire is unaffected. |
+| **Bridge** | Edge (on a river) | Crossed normally | Attacker attacking across a bridge −1 |
+
+**Road march.** A Move order that **starts on a road hex** and names a **road hex** as its destination is a road march:
+
+- The unit moves only along the road, from each road hex to the next, and may switch to another road where roads meet.
+- It gets **+2 Move**.
+- It ignores the safe route rule (7.2): road marching is fast but predictable, and a column marched into the enemy is ambushed as usual.
+- Units can't pass through each other on the road. A blocked unit stops behind the unit in its way, so write the leading unit's order first.
+
+**Forest.** A unit that starts its move in forest, or enters forest during it, may move only **half its Move** (rounded down) that order. If it has already used that much when it first enters forest, it stops in that first forest hex. Halving stacks with Close orders (infantry closing through forest moves 1).
+
+**Fording a river.** A unit can cross a river away from a bridge only as its whole order:
+
+- It must **start the turn next to the river** (on a hex with a river edge).
+- Its order is a **Move to the hex directly across** that river edge. It moves that one hex and stops.
+- Fording is always a deliberate order. The pathfinder never fords on its own; any other route across a river goes by bridge.
+- Fording into a hex next to an enemy is contact as usual (7.4).
+
+**Across a river.** Two hexes separated by a river edge (not a bridge) don't count as adjacent for **contact, support, ambush, overrun or no man's land**. Units can face each other across a river without fighting. A knockback across a river edge is blocked, so that unit is destroyed (8.3).
 
 ### 2.4 Stacking
 
@@ -295,7 +322,7 @@ Orders are carried out as fully as possible:
 
 ### 7.1 What blocks movement
 
-A unit can't enter a hex that is off the map or contains any other unit, friend or enemy.
+A unit can't enter a hex that is off the map or contains any other unit, friend or enemy, and can't cross a river edge except at a bridge or by fording (2.3).
 
 ### 7.2 Choosing the path
 
@@ -368,7 +395,7 @@ The **margin** is the attacker's total minus the defender's total.
 
 A half-strength unit that takes any hit is destroyed (see [3.2](#32-strength)).
 
-**Knockback.** The loser (the repelled attacker, or a defender that survives a hit) is knocked back one hex **directly away from the winner** (continuing the line from the winner through the loser). It keeps its facing. If that hex is off the map, occupied, or adjacent to any enemy, or the loser is Ready (dug-in) artillery, the loser can't retreat and is **destroyed**.
+**Knockback.** The loser (the repelled attacker, or a defender that survives a hit) is knocked back one hex **directly away from the winner** (continuing the line from the winner through the loser). It keeps its facing. If that hex is off the map, occupied, adjacent to any enemy, or across a river edge, or the loser is Ready (dug-in) artillery, the loser can't retreat and is **destroyed**.
 
 [Appendix A](#appendix-a-combat-tables) has every matchup worked out.
 
@@ -473,6 +500,23 @@ North's **1st Guns** (artillery, Ready, Def 4) is at **F3 facing S**, with no fr
 - If 3rd Foot arrives at **F2**, it attacks across the gun's N edge, its rear: 2 + 3 = **5** vs **4**. Margin 1. The gun is dug in, so it is **destroyed**.
 - If 3rd Foot arrives at **F4**, it attacks the gun's front: **2** vs **4**. Margin −2: 3rd Foot is **repelled** and knocked back to F5.
 
+### EX-10: Road march (Two Towns map)
+
+North's **2nd Foot** (infantry, Move 4) is at **K7**, on the road, with a Move order to **S5**, further along the same road. Both hexes are road, so this is a road march with Move 4 + 2 = **6**.
+
+- It follows the road: L6, M7, across the bridge to N6, then O6, P5, Q5. Six steps, ending at **Q5**.
+- Cross-country, it would have taken the safe route with Move 4 and could not have crossed the river except by the bridge anyway.
+- Had a friendly unit been standing on N6 when this order ran, 2nd Foot would have stopped at M7.
+
+### EX-11: Fording (Two Towns map)
+
+North's **3rd Foot** (infantry) starts the turn at **K6**, on the river bank: the edge between K6 and L5 is river. Its order is Move to **L5**.
+
+- It fords: it moves the one hex across the river into L5 and stops.
+- An order from K6 to **M4** instead would not ford: the pathfinder never fords on its own, so 3rd Foot would head for the bridge.
+- An enemy standing at **L5** would not be in contact with 3rd Foot at K6: they are across a river edge. (3rd Foot couldn't ford into L5 while it is occupied.)
+- An enemy at **L4** is next to L5, so if 3rd Foot fords into L5, that is contact as usual.
+
 ## 12. Provisional rules and open questions
 
 These rules were filled in to make the game playable and need confirming in playtesting:
@@ -485,6 +529,8 @@ These rules were filled in to make the game playable and need confirming in play
 6. **Ambush by several enemies:** each attacks in turn, clockwise from N.
 7. **Half strength and range:** only the maximum range drops (artillery becomes 3–4).
 8. **Barrage strength:** firing at every target plus a normal order is deliberately strong. If it dominates, the first levers to try are artillery Cost, or a limit on barrage targets.
+9. **Terrain numbers:** road march +2 Move, forest half Move and +1 Def, cavalry −1 in forest, towns +1 Def (not dug in), bridge attacker −1.
+10. **Fording** takes a whole turn and can't be done by the pathfinder on its own.
 
 Open design questions:
 
@@ -509,12 +555,15 @@ New units use the standard stat block. A unit entry has:
 | Adjacent | Sharing an edge. Distance 1. |
 | Ambushed | A unit that blundered into contact. It defends with −1 Def. |
 | Barrage | Artillery's passive order: Ready guns fire at every enemy in their range band and arc at the start of the Execution Phase. |
+| Bridge | A crossing over a river edge. Crossed normally; an attacker attacking across it has −1. |
 | Capacity | The total Cost an army may field. |
 | Contact | A moving unit entering a hex adjacent to an enemy. |
 | Dug in | Ready artillery: never knocked back, destroyed if it loses a melee. |
 | DZ | Deployment zone. |
 | Firing arc | The 120° wedge in front of a unit, bounded by lines through its flank edges. |
 | Flank | The two edges either side of a unit's front. |
+| Ford | Crossing a river away from a bridge: a whole turn's one-hex Move from the bank, ending on the far side. |
+| Forest | Slow terrain: half Move. Defender +1 Def; cavalry −1 Attack; artillery can't go Ready. |
 | Front | The edge a unit faces. |
 | Half strength | A unit that has taken one hit. −1 to all stats. |
 | Hit | One step of damage: full to half strength, or half strength to destroyed. |
@@ -526,9 +575,12 @@ New units use the standard stat block. A unit entry has:
 | Passive order | A rule that triggers automatically, without being written on the orders sheet. Resolved at the start of the Execution Phase. |
 | Range band | The distances between a unit's minimum and maximum range. |
 | Rear | The three edges behind a unit. |
+| River | Edge terrain. Can't be crossed except at a bridge or by fording. No contact or support across it. |
+| Road march | A Move from a road hex to a road hex. Follows the road with +2 Move and ignores the safe route rule. |
 | Safe route | The shortest path that never passes next to an enemy. Units take it whenever one exists. |
 | Support | +1 to a unit's combat total for each adjacent friendly unit. |
 | Tie-break | The token deciding tied initiative. Passes to the other player each time it is used. |
+| Town / hamlet | Settlement hexes. Defender +1 Def. Often scenario objectives. |
 
 ## 15. Licence
 

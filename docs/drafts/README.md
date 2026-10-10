@@ -7,4 +7,4 @@ Developers (including Claude Code): do not implement, test or change data from t
 | Draft | Topic |
 | --- | --- |
 | [scale.md](scale.md) | Scale ladder, eras, scale indicator, formations, order delay |
-| [maps/two-towns.yaml](maps/two-towns.yaml) | Two Towns map: hex conversion of Mykal's paper map ([preview](maps/two-towns.png), [paper original](maps/two-towns-paper.jpg)) |
+

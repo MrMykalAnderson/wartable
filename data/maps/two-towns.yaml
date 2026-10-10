@@ -1,8 +1,8 @@
-# Two Towns map (DRAFT - not a rules source; Claude Code ignores docs/drafts/).
+# Two Towns map. Rules: docs/core-rules.md 2.3; scenario: docs/two-towns.md.
 # Flat-top hexes, A1 top-left, columns A-Z, rows 1-18; B, D, F ... sit half a hex lower.
 # terrain: one string per row, one character per column (see terrain_key).
 # roads: hex chains through hex centres. river/bridges: hex edges, written HEX|HEX.
-# Converted from Mykal's paper map (two-towns-paper.jpg) by twotowns.py.
+# Converted from the paper map (docs/maps/two-towns-paper.jpg) by docs/maps/twotowns.py.
 id: two-towns
 name: Two Towns (draft)
 columns: 26
@@ -19,11 +19,11 @@ terrain:
 - '......................TT..'
 - '..........................'
 - '...............FF.........'
-- '............FFFFFF........'
+- '.............FFFFF........'
 - '...........FFFFFFFF.......'
 - '..........FFFFFFFF........'
 - '.........FFFFFFFF.......HH'
-- '.H.......FFFFFFF..........'
+- '.H.......FFFFFF...........'
 - '.H........................'
 - '..........................'
 - '..........................'

@@ -110,7 +110,10 @@ for k, ch in roads.items():
 FOREST_COLS = {"J": (10, 11), "K": (9, 11), "L": (8, 11), "M": (7, 11), "N": (7, 11), "O": (7, 11),
                "P": (6, 11), "Q": (6, 10), "R": (7, 9), "S": (8, 8)}
 settled = {h for v in list(TOWNS.values()) + list(HAMLETS.values()) for h in v}
-forest = {(L.index(c), n - 1) for c, (a, b) in FOREST_COLS.items() for n in range(a, b + 1)} - settled
+forest_raw = {(L.index(c), n - 1) for c, (a, b) in FOREST_COLS.items() for n in range(a, b + 1)} - settled
+road_hexes = {h for ch in roads.values() for h in ch}
+print("forest cleared from road hexes:", sorted(name(h) for h in forest_raw & road_hexes))
+forest = forest_raw - road_hexes   # roads are cleared through the forest
 
 # which side of the river is each hex on (flood fill without crossing river edges)
 def side_fill(start):
@@ -193,10 +196,10 @@ if len(sys.argv) > 1:
     class Q(str): pass
     yaml.SafeDumper.add_representer(Q, lambda d, v: d.represent_scalar("tag:yaml.org,2002:str", v, style="'"))
     data["terrain"] = [Q(r) for r in data["terrain"]]
-    header = ("# Two Towns map (DRAFT - not a rules source; Claude Code ignores docs/drafts/).\n"
+    header = ("# Two Towns map. Rules: docs/core-rules.md 2.3; scenario: docs/two-towns.md.\n"
               "# Flat-top hexes, A1 top-left, columns A-Z, rows 1-18; B, D, F ... sit half a hex lower.\n"
               "# terrain: one string per row, one character per column (see terrain_key).\n"
               "# roads: hex chains through hex centres. river/bridges: hex edges, written HEX|HEX.\n"
-              "# Converted from Mykal's paper map (two-towns-paper.jpg) by twotowns.py.\n")
+              "# Converted from the paper map (docs/maps/two-towns-paper.jpg) by docs/maps/twotowns.py.\n")
     open(out + ".yaml", "w").write(header + yaml.safe_dump(data, sort_keys=False, width=200))
     render(out + ".png")
