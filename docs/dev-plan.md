@@ -190,6 +190,8 @@ Secret orders are the heart of the game, so hot-seat is for testing only. M8 mak
 - Simple polling (every few seconds) is enough to notice the other player submitting; no websockets needed yet.
 - Include a short `docs/deploy.md` on running it on a small hosted server, but don't pick a host without asking.
 
+- A **Concede** button: ends the game and records the other player as the winner.
+
 Accounts, lobbies and matchmaking come later, if ever.
 
 ### 7.3 Playtest round 1 changes (do before finishing M7)
@@ -237,6 +239,30 @@ The planner currently works out movement against the board as it is now, so a un
 - **Pending-order display:** draw a line from the unit toward its objective, and mark where it would stop at full Move on an empty map (straight-line estimate, e.g. a ghost token labelled "about here"). Label it as an estimate.
 - Never reject or warn on an order just because of distance or units in the way. Only reject orders that break the order-sheet rules (unknown unit, two orders for one unit, wrong order type for the unit).
 - Add a test: two friendly units in a column, the rear one ordered to a hex beyond the front one; both orders accepted, and execution moves the front unit first so the rear one passes through the vacated hex (when the front unit's order runs first).
+
+### 7.7 Playtest round 4 changes (do next)
+
+From Mykal's full game (`Testaftermovementplanningupdate.json`). Rules already updated in core-rules.md.
+
+**Bug.** `resolveAmbush` lets any adjacent enemy attack, including artillery, which can't make melee attacks (core-rules.md 3.4). This destroyed an infantry unit in the playtest. Only units with `melee: true` take part in an ambush.
+
+**Rules changes.**
+
+- **Dug-in artillery** (3.4, 8.3): Ready artillery can't be knocked back; if it loses a melee by any margin it is destroyed. Ranged hits on it are normal. Mobilised artillery is knocked back as usual.
+- **Overrun** (7.4): after any ambush, if the moving unit is still on the map and still next to enemies that can't make melee attacks, it attacks each in turn (clockwise from N, normal melee, no ambush penalty), stopping if repelled.
+- **Safe route** (7.2): pathfinding prefers the shortest path whose hexes (excluding the destination) are never adjacent to an enemy; adjacency to a Close order's named target doesn't count. Fall back to the plain shortest path only if no safe route exists. Judge the route over the whole way to the destination. Keep the clockwise tie-break and the unreachable-destination fallback.
+- Add **EX-8** (safe route) and **EX-9** (overrun) as tests. Appendix A has changed (Ready artillery rows); update `TestAppendixACombatTables`. Regenerate the golden replays.
+- **No man's land check.** Add an engine invariant: after every order (and after the barrage), no two enemy units are adjacent. In tests, fail if it's ever broken; in normal play, emit a warning event naming the units, so a broken rule is spotted immediately. Run it over the golden replays.
+
+**Interface.**
+
+- **Order lines in the side's colour**, with the line style showing the order type: Move solid, Close and Attack dashed, Fire dotted, Close and Fire dash-dot (or similar), Ready/Mobilise a small marker on the unit. Add a small legend.
+- The pending-move estimate ("about here") should follow the **safe route** on the current board as a hint, still labelled as an estimate.
+
+**Saves.**
+
+- Save files must keep the **full history**: every turn's two order sheets and the resulting event log, not just the final position. The web viewer should be able to step through any past turn. (M8 needs this anyway.)
+- Keep playtest saves in a `playtests/` folder; move `Testaftermovementplanningupdate.json` there.
 
 ### 7.4 Parked (don't start without being asked)
 

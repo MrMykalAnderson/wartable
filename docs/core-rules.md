@@ -158,7 +158,9 @@ Long-ranged guns that must be set up before they can fire, and are vulnerable wh
 - Artillery is **Mobilised** when deployed.
 - A **Ready** order switches a Mobilised unit to Ready. A **Mobilise** order switches a Ready unit to Mobilised. Either order uses the unit's order for the turn.
 - **(Provisional)** A Ready or Mobilise order may also set the unit's facing. Without this, Ready artillery could never turn.
-- Artillery cannot make melee attacks (it cannot be given a Close and Attack order). It can still defend in melee.
+- Artillery cannot make melee attacks (it cannot be given a Close and Attack order), and never attacks in an ambush. It can still defend in melee.
+- **Dug in.** Ready artillery can't be knocked back. If it loses a melee by any margin, from any side, it is **destroyed**. Ranged attacks against it work normally (a margin of 1–2 is one hit).
+- Mobilised artillery is knocked back like any other unit.
 
 **Artillery passive order: Barrage.** At the start of every Execution Phase, before any written orders, each **Ready** artillery unit makes a ranged attack against **every** enemy unit inside its range band (3–5 hexes) and firing arc. See [5.3](#53-execution-phase).
 
@@ -228,6 +230,8 @@ Each order is carried out **completely**, including any combat it causes, before
 
 If a unit is destroyed before its order comes up, that order is skipped (it still uses its place in the sequence).
 
+> **Table tip: check no man's land.** Every contact leads to a fight, and every fight ends with one side knocked back or destroyed. So after every order, no two enemy units should ever be adjacent. If they are, a rule has been missed: wind back to the last order and check it.
+
 ## 6. Orders
 
 | Order | Detail | Counts for initiative? |
@@ -295,7 +299,12 @@ A unit can't enter a hex that is off the map or contains any other unit, friend 
 
 ### 7.2 Choosing the path
 
-A unit always takes a **shortest path** to its destination around blocking hexes. When more than one shortest path exists, at each step the unit takes the first available direction in clockwise order from north: **N, NE, SE, S, SW, NW**.
+A unit takes the **safe route** if there is one: the shortest path to its destination that doesn't pass through any hex adjacent to an enemy (the destination itself may be next to an enemy). Only if there is no safe route does it take the plain **shortest path** around blocking hexes, and risk contact on the way (see 7.3).
+
+- The route is judged over the whole way to the destination, even if the unit can't get there this turn.
+- For Close orders, hexes next to the **named target** don't count as unsafe: the unit is trying to get there.
+- The route is worked out when the order is carried out, using the positions at that moment.
+- When more than one route of the same length exists, at each step the unit takes the first available direction in clockwise order from north: **N, NE, SE, S, SW, NW**.
 
 **(Provisional)** If the destination can't be reached at all (for example, it is occupied, or the moving unit's target is surrounded), the unit heads instead for the reachable hex closest to the destination. Ties go to the hex that is the fewest steps away for the moving unit, then to the first in reading order (lowest column, then lowest row).
 
@@ -315,10 +324,12 @@ On a **Close and Attack** order, contact with the named target means the moving 
 
 In every other case (any contact on a Move order, contact with an enemy other than the target on a Close order), the moving unit is **ambushed**:
 
-- Each enemy now adjacent to it attacks it in melee, one at a time, checking in clockwise order around the ambushed unit starting from its N edge.
+- Each adjacent enemy **that can make melee attacks** attacks it in melee, one at a time, checking in clockwise order around the ambushed unit starting from its N edge. (Artillery never attacks.)
 - The ambushed unit is the **defender** and has **−1 Def** in these combats.
 - After each combat, check again: an enemy that is no longer adjacent (because of knockback) doesn't attack. Stop if the ambushed unit is destroyed.
 - If the ambushed unit loses a combat and survives, its knockback can never put it next to another enemy (it would be destroyed instead, see [8.3](#83-resolving-melee)). So losing always ends the ambush, and an ambush never draws in enemies that weren't adjacent at the start.
+
+**Overrun.** If a moving unit is still on the map and still next to enemies that can't make melee attacks (such as artillery), it **overruns** them: it attacks each of them in melee, one at a time, clockwise from its N edge. These are normal attacks, with the moving unit as attacker and no ambush penalty. Stop if the moving unit is repelled.
 
 ## 8. Melee combat
 
@@ -357,7 +368,7 @@ The **margin** is the attacker's total minus the defender's total.
 
 A half-strength unit that takes any hit is destroyed (see [3.2](#32-strength)).
 
-**Knockback.** The loser (the repelled attacker, or a defender that survives a hit) is knocked back one hex **directly away from the winner** (continuing the line from the winner through the loser). It keeps its facing. If that hex is off the map, occupied, or adjacent to any enemy, the loser can't retreat and is **destroyed**.
+**Knockback.** The loser (the repelled attacker, or a defender that survives a hit) is knocked back one hex **directly away from the winner** (continuing the line from the winner through the loser). It keeps its facing. If that hex is off the map, occupied, or adjacent to any enemy, or the loser is Ready (dug-in) artillery, the loser can't retreat and is **destroyed**.
 
 [Appendix A](#appendix-a-combat-tables) has every matchup worked out.
 
@@ -447,6 +458,21 @@ North's **1st Guns** (artillery, Ready) is at **F2 facing S**. At the start of t
 
 If 4th Horse had not been there, it would be 3 vs 2, margin 1: a hit, putting 3rd Foot at half strength. Either way, 1st Guns can still carry out its own written order later in the turn.
 
+### EX-8: Safe route
+
+South's **2nd Foot** (infantry, Move 4) is at **F9** with a Move order to **F4**. North's **1st Foot** is at **G6**.
+
+- The plain shortest route, F8, F7, F6, F5, F4, passes F6 and F5, which are next to 1st Foot. It would stop at F6 and be ambushed.
+- The safe route is F8, F7, E7, E6, E5, F4: one hex longer, but never next to an enemy. 2nd Foot takes it.
+- With Move 4, it ends this turn at **E6**, safe, and carries on next turn if ordered.
+
+### EX-9: Overrun
+
+North's **1st Guns** (artillery, Ready, Def 4) is at **F3 facing S**, with no friendly units next to it. South's **3rd Foot** (infantry) moves and makes contact with it. Artillery can't ambush, so 3rd Foot overruns the gun.
+
+- If 3rd Foot arrives at **F2**, it attacks across the gun's N edge, its rear: 2 + 3 = **5** vs **4**. Margin 1. The gun is dug in, so it is **destroyed**.
+- If 3rd Foot arrives at **F4**, it attacks the gun's front: **2** vs **4**. Margin −2: 3rd Foot is **repelled** and knocked back to F5.
+
 ## 12. Provisional rules and open questions
 
 These rules were filled in to make the game playable and need confirming in playtesting:
@@ -485,18 +511,22 @@ New units use the standard stat block. A unit entry has:
 | Barrage | Artillery's passive order: Ready guns fire at every enemy in their range band and arc at the start of the Execution Phase. |
 | Capacity | The total Cost an army may field. |
 | Contact | A moving unit entering a hex adjacent to an enemy. |
+| Dug in | Ready artillery: never knocked back, destroyed if it loses a melee. |
 | DZ | Deployment zone. |
 | Firing arc | The 120° wedge in front of a unit, bounded by lines through its flank edges. |
 | Flank | The two edges either side of a unit's front. |
 | Front | The edge a unit faces. |
 | Half strength | A unit that has taken one hit. −1 to all stats. |
 | Hit | One step of damage: full to half strength, or half strength to destroyed. |
-| Margin | Attacker's total minus defender's total. 0 or less: repelled or miss. 1–2: one hit. 3+: destroyed. |
 | Initiative | Whose first order is carried out first. |
+| Knockback | The loser of a melee retreating one hex directly away from the winner. |
+| Margin | Attacker's total minus defender's total. 0 or less: repelled or miss. 1–2: one hit. 3+: destroyed. |
+| No man's land | The gap that always remains between enemy units after every order. Two enemy units adjacent means a rule was missed. |
+| Overrun | A moving unit attacking adjacent enemies that can't make melee attacks. |
 | Passive order | A rule that triggers automatically, without being written on the orders sheet. Resolved at the start of the Execution Phase. |
 | Range band | The distances between a unit's minimum and maximum range. |
-| Knockback | The loser of a melee retreating one hex directly away from the winner. |
 | Rear | The three edges behind a unit. |
+| Safe route | The shortest path that never passes next to an enemy. Units take it whenever one exists. |
 | Support | +1 to a unit's combat total for each adjacent friendly unit. |
 | Tie-break | The token deciding tied initiative. Passes to the other player each time it is used. |
 
@@ -518,7 +548,7 @@ Every standard matchup, worked out. Find the row for the attacker, the defender 
 - −1 if the attacker is at half strength
 - \+1 if the defender is ambushed
 
-Melee results: **Repelled** = attacker knocked back, no damage. **Hit** = defender takes one hit and is knocked back. **Destroyed** = defender removed. A half-strength defender that is hit is destroyed.
+Melee results: **Repelled** = attacker knocked back, no damage. **Hit** = defender takes one hit and is knocked back. **Destroyed** = defender removed. A half-strength defender that is hit is destroyed. Ready artillery is dug in, so any melee win against it destroys it.
 
 **Infantry attacking** (Attack 2)
 
@@ -530,9 +560,9 @@ Melee results: **Repelled** = attacker knocked back, no damage. **Hit** = defend
 | Cavalry, front | Repelled | Repelled | Repelled | Repelled | Hit | Hit |
 | Cavalry, flank | Repelled | Repelled | Repelled | Hit | Hit | **Destroyed** |
 | Cavalry, rear | Repelled | Hit | Hit | **Destroyed** | **Destroyed** | **Destroyed** |
-| Artillery (Ready), front | Repelled | Repelled | Repelled | Repelled | Repelled | Hit |
-| Artillery (Ready), flank | Repelled | Repelled | Repelled | Repelled | Hit | Hit |
-| Artillery (Ready), rear | Repelled | Repelled | Hit | Hit | **Destroyed** | **Destroyed** |
+| Artillery (Ready), front | Repelled | Repelled | Repelled | Repelled | Repelled | **Destroyed** |
+| Artillery (Ready), flank | Repelled | Repelled | Repelled | Repelled | **Destroyed** | **Destroyed** |
+| Artillery (Ready), rear | Repelled | Repelled | **Destroyed** | **Destroyed** | **Destroyed** | **Destroyed** |
 | Artillery (Mobilised), front | Repelled | Repelled | Repelled | Hit | Hit | **Destroyed** |
 | Artillery (Mobilised), flank | Repelled | Repelled | Hit | Hit | **Destroyed** | **Destroyed** |
 | Artillery (Mobilised), rear | Hit | Hit | **Destroyed** | **Destroyed** | **Destroyed** | **Destroyed** |
@@ -547,9 +577,9 @@ Melee results: **Repelled** = attacker knocked back, no damage. **Hit** = defend
 | Cavalry, front | Repelled | Repelled | Repelled | Hit | Hit | **Destroyed** |
 | Cavalry, flank | Repelled | Repelled | Hit | Hit | **Destroyed** | **Destroyed** |
 | Cavalry, rear | Hit | Hit | **Destroyed** | **Destroyed** | **Destroyed** | **Destroyed** |
-| Artillery (Ready), front | Repelled | Repelled | Repelled | Repelled | Hit | Hit |
-| Artillery (Ready), flank | Repelled | Repelled | Repelled | Hit | Hit | **Destroyed** |
-| Artillery (Ready), rear | Repelled | Hit | Hit | **Destroyed** | **Destroyed** | **Destroyed** |
+| Artillery (Ready), front | Repelled | Repelled | Repelled | Repelled | **Destroyed** | **Destroyed** |
+| Artillery (Ready), flank | Repelled | Repelled | Repelled | **Destroyed** | **Destroyed** | **Destroyed** |
+| Artillery (Ready), rear | Repelled | **Destroyed** | **Destroyed** | **Destroyed** | **Destroyed** | **Destroyed** |
 | Artillery (Mobilised), front | Repelled | Repelled | Hit | Hit | **Destroyed** | **Destroyed** |
 | Artillery (Mobilised), flank | Repelled | Hit | Hit | **Destroyed** | **Destroyed** | **Destroyed** |
 | Artillery (Mobilised), rear | Hit | **Destroyed** | **Destroyed** | **Destroyed** | **Destroyed** | **Destroyed** |
