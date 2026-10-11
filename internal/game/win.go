@@ -15,13 +15,16 @@ type Outcome struct {
 	Reason string
 }
 
-// CheckAnnihilation reports whether either side has no units on the map
-// and none left to deploy, in which case the other side wins immediately
-// (docs/starter-battle.md "Winning", rule 1; docs/two-towns.md "Winning",
-// rule 2).
-func CheckAnnihilation(state GameState) Outcome {
-	northAlive := sideAlive(state, "north")
-	southAlive := sideAlive(state, "south")
+// CheckAnnihilation reports whether either side has no units on the
+// map, no reserves, and less in the bank than its cheapest allowed unit
+// (so it could never field another one), in which case the other side
+// wins immediately (docs/starter-battle.md "Winning", rule 1; docs/two-
+// towns.md "Winning", rule 2; dev-plan.md section 7.10 added the bank
+// check — a scenario with no bank concept always has Bank 0, which is
+// less than any unit's Cost, so nothing changes for it).
+func CheckAnnihilation(state GameState, units map[string]rules.Unit, scenario rules.Scenario) Outcome {
+	northAlive := sideAlive(state, units, scenario, "north")
+	southAlive := sideAlive(state, units, scenario, "south")
 	switch {
 	case !northAlive && !southAlive:
 		return Outcome{Over: true, Reason: "both sides annihilated"}
@@ -34,13 +37,37 @@ func CheckAnnihilation(state GameState) Outcome {
 	}
 }
 
-func sideAlive(state GameState, side string) bool {
+func sideAlive(state GameState, units map[string]rules.Unit, scenario rules.Scenario, side string) bool {
 	for _, u := range state.Board.Units {
 		if u.Side == side {
 			return true
 		}
 	}
-	return len(state.Reserves[side]) > 0
+	if len(state.Reserves[side]) > 0 {
+		return true
+	}
+	return state.Bank[side] >= cheapestUnitCost(units, scenario)
+}
+
+// cheapestUnitCost is the lowest Cost among the scenario's allowed unit
+// types, for the annihilation check: 0 if units_allowed is somehow
+// empty or names nothing in units (shouldn't happen — rules.LoadScenario
+// already validates units_allowed against the unit roster).
+func cheapestUnitCost(units map[string]rules.Unit, scenario rules.Scenario) int {
+	cheapest := -1
+	for _, id := range scenario.UnitsAllowed {
+		u, ok := units[id]
+		if !ok {
+			continue
+		}
+		if cheapest == -1 || u.Cost < cheapest {
+			cheapest = u.Cost
+		}
+	}
+	if cheapest == -1 {
+		return 0
+	}
+	return cheapest
 }
 
 // otherSide returns the opponent of side ("north"/"south").
@@ -51,15 +78,24 @@ func otherSide(side string) string {
 	return "north"
 }
 
-// CheckCapture reports whether either side has a unit in the other
-// side's own town while the other side has none there (docs/two-
-// towns.md "Winning", rule 1). It's a no-op (never over) for a
+// CheckCapture reports whether a side has just won by capture
+// (docs/two-towns.md "Winning", rule 1): a town is captured at the end
+// of a turn if one side has a unit in the other's own town and the
+// other has none there; capturing it again in the same way at the end
+// of the following turn wins. state.PendingCapture (as it stood before
+// this call) is what was captured, by whom, at the end of the previous
+// turn; the returned map is this turn's capture state, which the
+// caller must store back as the new PendingCapture for the check to
+// mean anything next time (see cmd/wartable/turn.go, cmd/wartable-
+// web/handlers.go). Both are a no-op (never over, an empty map) for a
 // scenario with no terrain, or whose deployment zones don't name an
 // own town (e.g. the Starter Battle).
-func CheckCapture(state GameState, scenario rules.Scenario) Outcome {
+func CheckCapture(state GameState, scenario rules.Scenario) (Outcome, map[string]string) {
+	pending := map[string]string{}
 	if scenario.Terrain == nil {
-		return Outcome{}
+		return Outcome{}, pending
 	}
+	var outcome Outcome
 	for _, side := range []string{"north", "south"} {
 		enemy := otherSide(side)
 		enemyTown := scenario.DeploymentZones[enemy].NearTown
@@ -67,11 +103,15 @@ func CheckCapture(state GameState, scenario rules.Scenario) Outcome {
 			continue
 		}
 		townHexes := scenario.Terrain.Towns[enemyTown]
-		if anyUnitIn(state.Board, side, townHexes) && !anyUnitIn(state.Board, enemy, townHexes) {
-			return Outcome{Over: true, Winner: side, Reason: fmt.Sprintf("captured %s", enemyTown)}
+		if !anyUnitIn(state.Board, side, townHexes) || anyUnitIn(state.Board, enemy, townHexes) {
+			continue
+		}
+		pending[enemyTown] = side
+		if !outcome.Over && state.PendingCapture[enemyTown] == side {
+			outcome = Outcome{Over: true, Winner: side, Reason: fmt.Sprintf("captured %s and held it", enemyTown)}
 		}
 	}
-	return Outcome{}
+	return outcome, pending
 }
 
 func anyUnitIn(board Board, side string, hexes []hex.Offset) bool {

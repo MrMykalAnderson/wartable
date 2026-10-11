@@ -81,17 +81,9 @@ func (r RangedResult) Summary() string {
 		return fmt.Sprintf("[ranged] %s fires at %s: out of range or arc (in range=%v, in arc=%v)", r.ShooterID, r.TargetID, r.InRange, r.InArc)
 	}
 	return fmt.Sprintf(
-		"[ranged] %s (%s) vs %s (%s): margin %d, %s",
-		r.ShooterID, r.shooterBreakdown(), r.TargetID, r.targetBreakdown(), r.Margin, r.outcome(),
+		"[ranged] %s (%d) vs %s (%s): margin %d, %s",
+		r.ShooterID, r.ShooterBase, r.TargetID, r.targetBreakdown(), r.Margin, r.outcome(),
 	)
-}
-
-func (r RangedResult) shooterBreakdown() string {
-	s := fmt.Sprintf("%d", r.ShooterBase)
-	if r.ShooterSupport > 0 {
-		s += fmt.Sprintf(" +%d support", r.ShooterSupport)
-	}
-	return s
 }
 
 func (r RangedResult) targetBreakdown() string {

@@ -189,14 +189,33 @@ type GameView struct {
 	History        []TurnRecordView    `json:"history"`
 	Terrain        *TerrainView        `json:"terrain,omitempty"`
 	Objectives     map[string]string   `json:"objectives,omitempty"`
+	// PendingCapture names, for each enemy town currently captured
+	// (docs/two-towns.md "Winning" rule 1), the side that must still
+	// hold it at the end of this turn to win (dev-plan.md section
+	// 7.10); omitted/empty for a scenario with no capture objectives.
+	PendingCapture map[string]string `json:"pendingCapture,omitempty"`
 	// DefaultFacing is each side's facing on Deploy if an order doesn't
 	// set one explicitly (docs/dev-plan.md section 7.9: facing is
 	// optional), for the frontend to show what a pending Deploy order
 	// will end up facing without having to ask the server.
 	DefaultFacing map[string]string `json:"defaultFacing"`
+	// Bank is each side's unspent Capacity, and UnitTypes each unit
+	// type a Deploy order may buy from it, from turn 2 (docs/core-
+	// rules.md section 10, dev-plan.md section 7.10). Bank is omitted
+	// for a scenario with no bank concept, which always has it at 0.
+	Bank      map[string]int `json:"bank,omitempty"`
+	UnitTypes []UnitTypeView `json:"unitTypes"`
 }
 
-func newGameView(f save.File, core rules.CoreRules, scenario rules.Scenario) GameView {
+// UnitTypeView is one unit type a Deploy order may buy (docs/core-
+// rules.md section 10), in the scenario's units_allowed order.
+type UnitTypeView struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Cost int    `json:"cost"`
+}
+
+func newGameView(f save.File, units map[string]rules.Unit, core rules.CoreRules, scenario rules.Scenario) GameView {
 	board := newBoardView(f.State.Board, core)
 	reserves := make(map[string][]string, len(f.State.Reserves))
 	for side, us := range f.State.Reserves {
@@ -210,6 +229,12 @@ func newGameView(f save.File, core rules.CoreRules, scenario rules.Scenario) Gam
 	for i, t := range f.History {
 		history[i] = newTurnRecordView(t, core)
 	}
+	unitTypes := make([]UnitTypeView, 0, len(scenario.UnitsAllowed))
+	for _, id := range scenario.UnitsAllowed {
+		if u, ok := units[id]; ok {
+			unitTypes = append(unitTypes, UnitTypeView{ID: u.ID, Name: u.Name, Cost: u.Cost})
+		}
+	}
 	return GameView{
 		ScenarioID:     f.ScenarioID,
 		Turn:           f.Turn,
@@ -222,7 +247,10 @@ func newGameView(f save.File, core rules.CoreRules, scenario rules.Scenario) Gam
 		History:        history,
 		Terrain:        newTerrainView(scenario.Terrain),
 		Objectives:     f.State.Objectives,
+		PendingCapture: f.State.PendingCapture,
 		DefaultFacing:  scenario.DefaultFacing,
+		Bank:           f.State.Bank,
+		UnitTypes:      unitTypes,
 	}
 }
 
@@ -312,20 +340,21 @@ func newMeleeView(m *game.MeleeResult) *MeleeView {
 }
 
 // RangedView is a ranged attack's full, auditable record (docs/core-
-// rules.md section 9), broken into every number used.
+// rules.md section 9), broken into every number used. Unlike melee,
+// only the target gets support — the shooter never does (dev-plan.md
+// section 7.10), so there's no ShooterSupport field.
 type RangedView struct {
 	ShooterID string `json:"shooterId"`
 	TargetID  string `json:"targetId"`
 	InRange   bool   `json:"inRange"`
 	InArc     bool   `json:"inArc"`
 
-	ShooterSupport int `json:"shooterSupport"`
-	TargetSupport  int `json:"targetSupport"`
-	ShooterBase    int `json:"shooterBase"`
-	TargetBase     int `json:"targetBase"`
-	ShooterTotal   int `json:"shooterTotal"`
-	TargetTotal    int `json:"targetTotal"`
-	Margin         int `json:"margin"`
+	TargetSupport int `json:"targetSupport"`
+	ShooterBase   int `json:"shooterBase"`
+	TargetBase    int `json:"targetBase"`
+	ShooterTotal  int `json:"shooterTotal"`
+	TargetTotal   int `json:"targetTotal"`
+	Margin        int `json:"margin"`
 
 	Hits      int  `json:"hits"`
 	Destroyed bool `json:"destroyed"`
@@ -336,19 +365,18 @@ func newRangedView(r *game.RangedResult) *RangedView {
 		return nil
 	}
 	return &RangedView{
-		ShooterID:      r.ShooterID,
-		TargetID:       r.TargetID,
-		InRange:        r.InRange,
-		InArc:          r.InArc,
-		ShooterSupport: r.ShooterSupport,
-		TargetSupport:  r.TargetSupport,
-		ShooterBase:    r.ShooterBase,
-		TargetBase:     r.TargetBase,
-		ShooterTotal:   r.ShooterTotal,
-		TargetTotal:    r.TargetTotal,
-		Margin:         r.Margin,
-		Hits:           r.Hits,
-		Destroyed:      r.Destroyed,
+		ShooterID:     r.ShooterID,
+		TargetID:      r.TargetID,
+		InRange:       r.InRange,
+		InArc:         r.InArc,
+		TargetSupport: r.TargetSupport,
+		ShooterBase:   r.ShooterBase,
+		TargetBase:    r.TargetBase,
+		ShooterTotal:  r.ShooterTotal,
+		TargetTotal:   r.TargetTotal,
+		Margin:        r.Margin,
+		Hits:          r.Hits,
+		Destroyed:     r.Destroyed,
 	}
 }
 

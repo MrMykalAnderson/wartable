@@ -14,7 +14,7 @@ func TestLoadTerrainEffectsMatchesDocs(t *testing.T) {
 	want := TerrainEffects{
 		ForestDefBonus: 1, TownDefBonus: 1, HamletDefBonus: 1,
 		CavalryForestPenalty: 1, BridgeAttackPenalty: 1, RoadMarchMoveBonus: 2,
-		TownPoints: 20, HamletPoints: 10,
+		TownPoints: 20, HamletPoints: 10, ForestMoveCost: 2,
 	}
 	if e != want {
 		t.Errorf("LoadTerrainEffects = %+v, want %+v", e, want)

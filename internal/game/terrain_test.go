@@ -64,6 +64,43 @@ func TestPreviewMovePathIgnoresBlockingUnit(t *testing.T) {
 	}
 }
 
+// TestGoingRoundTheForestEX12 checks EX-12 from docs/core-rules.md
+// section 11: South's 1st Guns (artillery, Mobilised, Move 4) at Q11
+// with a Move order to S9. The direct route through the forest
+// (Q10, R9, S9, cost 2+2+1=5) costs more than Move 4, so the cheapest
+// route goes round the edge instead (R10, S10, S9, cost 1+1+1=3),
+// reaching S9 this turn.
+func TestGoingRoundTheForestEX12(t *testing.T) {
+	templates, core := loadTestRules(t)
+	scenario := loadTestTwoTowns(t, templates)
+	guns := newUnit(t, templates, "1st Guns", "south", "artillery", "Q11", hex.S)
+	state := GameState{Board: boardFor(scenario, guns)}
+
+	o := orders.Order{Unit: "1st Guns", Type: orders.Move, HasTargetHex: true, TargetHex: mustParse(t, "S9")}
+	state, events := executeMove(state, core, guns, o)
+
+	moved, ok := state.Board.Unit("1st Guns")
+	if !ok {
+		t.Fatalf("1st Guns missing after move")
+	}
+	if moved.Pos != mustParse(t, "S9") {
+		t.Errorf("1st Guns.Pos = %s, want S9 (the cheaper route round the forest)", moved.Pos)
+	}
+	for _, e := range events {
+		if e.Kind == "moved" {
+			want := []hex.Offset{mustParse(t, "R10"), mustParse(t, "S10"), mustParse(t, "S9")}
+			if len(e.Path) != len(want) {
+				t.Fatalf("path = %v, want %v (round the edge, not through the forest)", e.Path, want)
+			}
+			for i, h := range want {
+				if e.Path[i] != h {
+					t.Errorf("path[%d] = %s, want %s (full path %v)", i, e.Path[i], h, e.Path)
+				}
+			}
+		}
+	}
+}
+
 // TestFordingEX11 checks EX-11 from docs/core-rules.md section 11:
 // North's 3rd Foot (infantry) at K6, on the river bank, ordered to L5
 // directly across the (unbridged) river edge: it fords, moving that
@@ -93,7 +130,7 @@ func TestFordingEX11(t *testing.T) {
 // never fords on its own — it must go by the bridge instead, so it
 // never takes the direct K6->L5 hop.
 func TestFordingNeverAutomatic(t *testing.T) {
-	templates, _ := loadTestRules(t)
+	templates, core := loadTestRules(t)
 	scenario := loadTestTwoTowns(t, templates)
 	mover := newUnit(t, templates, "3rd Foot", "north", "infantry", "K6", hex.N)
 	board := boardFor(scenario, mover)
@@ -101,7 +138,7 @@ func TestFordingNeverAutomatic(t *testing.T) {
 	if _, ok := fordPath(board, mover, mustParse(t, "M4")); ok {
 		t.Errorf("fordPath(K6, M4) = ok, want false (M4 is not directly across a river edge from K6)")
 	}
-	path := safeShortestPath(board, mover, mustParse(t, "M4"), "")
+	path := safeShortestPath(core, board, mover, mustParse(t, "M4"), "")
 	if len(path) > 0 && path[0] == mustParse(t, "L5") {
 		t.Errorf("safeShortestPath(K6, M4) = %v, want it not to cross the unbridged K6|L5 river edge", path)
 	}
@@ -222,37 +259,49 @@ func TestArtilleryCannotReadyInForest(t *testing.T) {
 	}
 }
 
-// TestForestHalvesMove checks docs/core-rules.md 2.3: a unit that
-// starts in forest, or enters it, may move only half its Move
-// (rounded down) that order.
-func TestForestHalvesMove(t *testing.T) {
+// TestForestMoveCost checks docs/core-rules.md 2.3 (dev-plan.md section
+// 7.10): entering a forest hex costs 2 Move, every other hex costs 1,
+// and a unit stops once it can't pay for its next step.
+func TestForestMoveCost(t *testing.T) {
 	templates, core := loadTestRules(t)
 	scenario := loadTestTwoTowns(t, templates)
 
-	// Infantry (Move 4) starting in forest (L8): capped at 2.
-	startsInForest := newUnit(t, templates, "A", "north", "infantry", "L8", hex.N)
-	state := GameState{Board: boardFor(scenario, startsInForest)}
-	o := orders.Order{Unit: "A", Type: orders.Move, HasTargetHex: true, TargetHex: mustParse(t, "L4")}
-	state, _ = executeMove(state, core, startsInForest, o)
-	moved, _ := state.Board.Unit("A")
-	if got := hex.Distance(mustParse(t, "L8"), moved.Pos); got != 2 {
-		t.Errorf("unit starting in forest moved %d hexes, want 2 (half of Move 4)", got)
-	}
-
-	// Infantry starting in open ground (K8) ordered toward N10, straight
-	// through forest the whole way (L8, M9, N9, N10 are all forest, with
-	// no river crossing to detour around): it enters forest on the very
-	// first step, capping the whole order at half Move (2), so it stops
-	// at M9, two steps in, well short of N10.
+	// Infantry (Move 4) starting in open ground (K8) ordered toward
+	// N10, straight through forest the whole way (L8, M9, N9, N10 are
+	// all forest, with no river crossing to detour around): each step
+	// costs 2, so with Move 4 it affords exactly two of them, stopping
+	// at M9.
 	entersForest := newUnit(t, templates, "B", "north", "infantry", "K8", hex.N)
 	if scenario.Terrain.IsForest(mustParse(t, "K8")) {
 		t.Fatalf("test setup: K8 should be open ground, not forest")
 	}
-	state2 := GameState{Board: boardFor(scenario, entersForest)}
-	o2 := orders.Order{Unit: "B", Type: orders.Move, HasTargetHex: true, TargetHex: mustParse(t, "N10")}
-	state2, _ = executeMove(state2, core, entersForest, o2)
-	moved2, _ := state2.Board.Unit("B")
-	if moved2.Pos != mustParse(t, "M9") {
-		t.Errorf("unit entering forest on its first step ended at %s, want M9 (half of Move 4, stopped two steps in)", moved2.Pos)
+	state := GameState{Board: boardFor(scenario, entersForest)}
+	o := orders.Order{Unit: "B", Type: orders.Move, HasTargetHex: true, TargetHex: mustParse(t, "N10")}
+	state, _ = executeMove(state, core, entersForest, o)
+	moved, _ := state.Board.Unit("B")
+	if moved.Pos != mustParse(t, "M9") {
+		t.Errorf("unit entering forest moved to %s, want M9 (Move 4, two forest hexes at cost 2 each)", moved.Pos)
+	}
+}
+
+// TestForestMoveCostAlwaysAtLeastOneHex checks docs/core-rules.md 2.3's
+// "every unit can always move at least one hex per order, whatever it
+// costs": with forest cost inflated past the unit's entire Move, the
+// unit still takes that first step.
+func TestForestMoveCostAlwaysAtLeastOneHex(t *testing.T) {
+	templates, core := loadTestRules(t)
+	scenario := loadTestTwoTowns(t, templates)
+	core.Terrain.ForestMoveCost = 10 // well past infantry's Move (4).
+
+	unit := newUnit(t, templates, "A", "north", "infantry", "K8", hex.N)
+	if scenario.Terrain.IsForest(mustParse(t, "K8")) {
+		t.Fatalf("test setup: K8 should be open ground, not forest")
+	}
+	state := GameState{Board: boardFor(scenario, unit)}
+	o := orders.Order{Unit: "A", Type: orders.Move, HasTargetHex: true, TargetHex: mustParse(t, "L8")}
+	state, _ = executeMove(state, core, unit, o)
+	moved, _ := state.Board.Unit("A")
+	if moved.Pos != mustParse(t, "L8") {
+		t.Errorf("unit moved to %s, want L8 (one hex, however much forest costs)", moved.Pos)
 	}
 }

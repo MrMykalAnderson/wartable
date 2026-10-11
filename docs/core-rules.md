@@ -551,6 +551,7 @@ Open design questions:
 - Retreat vs rout: should badly beaten units turn their back when knocked back?
 - Initiative bidding, morale, terrain and barriers.
 - A larger unit roster with rock-paper-scissors balance.
+- **RULES-QUESTION (dev-plan.md 7.10):** section 10's example of a buying Deploy order, "Deploy | Cavalry | X3", doesn't match the order sheet's own `unit | order | detail` field order used everywhere else (Deploy is always field 2, never field 1). The engine instead parses it as `<unit type> | Deploy | <hex>` (e.g. "Cavalry | Deploy | X3"), keeping the existing grammar unchanged: `internal/game/deploy.go`'s `executeDeploy` resolves the Unit field against reserves first, then against the scenario's allowed unit types, so no parser change was needed. Confirm this is the intended field order, or that the doc's own example should read "Cavalry | Deploy | X3" instead.
 
 ## 13. Creating units
 

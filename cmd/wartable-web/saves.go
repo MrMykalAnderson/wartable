@@ -115,7 +115,7 @@ func handleNewGame(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, newGameView(f, core, scenario))
+	writeJSON(w, newGameView(f, units, core, scenario))
 }
 
 // handleDeleteSave removes a save file. path must be a plain filename

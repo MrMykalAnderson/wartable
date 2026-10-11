@@ -25,13 +25,13 @@ func handleGame(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, err)
 		return
 	}
-	_, core, scenario, err := save.LoadRulesData(f.ScenarioID)
+	units, core, scenario, err := save.LoadRulesData(f.ScenarioID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 	f.AttachTerrain(scenario)
-	writeJSON(w, newGameView(f, core, scenario))
+	writeJSON(w, newGameView(f, units, core, scenario))
 }
 
 type turnRequest struct {
@@ -70,7 +70,7 @@ func handleTurn(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, err)
 		return
 	}
-	_, core, scenario, err := save.LoadRulesData(f.ScenarioID)
+	units, core, scenario, err := save.LoadRulesData(f.ScenarioID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -88,7 +88,7 @@ func handleTurn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	boardBefore := f.State.Board
-	newState, events, err := game.ExecuteTurn(f.State, core, scenario, &f.TieBreak, northOrders, southOrders)
+	newState, events, err := game.ExecuteTurn(f.State, units, core, scenario, f.Turn, &f.TieBreak, northOrders, southOrders)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -96,9 +96,10 @@ func handleTurn(w http.ResponseWriter, r *http.Request) {
 	f.State = newState
 	f.RecordTurn(boardBefore, req.North, req.South, events)
 
-	outcome := game.CheckCapture(f.State, scenario)
+	outcome, pendingCapture := game.CheckCapture(f.State, scenario)
+	f.State.PendingCapture = pendingCapture
 	if !outcome.Over {
-		outcome = game.CheckAnnihilation(f.State)
+		outcome = game.CheckAnnihilation(f.State, units, scenario)
 	}
 	if !outcome.Over && f.Turn >= scenario.TurnLimit {
 		_, _, limitOutcome := game.ScoreAtTurnLimit(f.State, core, scenario)
@@ -116,7 +117,7 @@ func handleTurn(w http.ResponseWriter, r *http.Request) {
 		eventViews[i] = newEventView(e, core)
 	}
 	writeJSON(w, turnResponse{
-		Game:    newGameView(f, core, scenario),
+		Game:    newGameView(f, units, core, scenario),
 		Events:  eventViews,
 		Outcome: newOutcomeView(outcome),
 	})
@@ -200,7 +201,7 @@ func handlePredict(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, err)
 		return
 	}
-	_, core, scenario, err := save.LoadRulesData(f.ScenarioID)
+	units, core, scenario, err := save.LoadRulesData(f.ScenarioID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -223,7 +224,7 @@ func handlePredict(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, events := game.ExecuteOrder(f.State, core, scenario, side, o)
+	_, events := game.ExecuteOrder(f.State, units, core, scenario, f.Turn, side, o)
 	for _, e := range events {
 		if e.Melee != nil {
 			pred.Melee = newMeleeView(e.Melee)

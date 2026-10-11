@@ -10,11 +10,18 @@ import (
 // not-yet-deployed units (docs/core-rules.md section 10), plus which
 // side owns each objective, if the scenario has any (docs/dev-plan.md
 // section 7.8: towns and hamlets, "owned by the last side to have had a
-// unit in it").
+// unit in it"); Bank is Capacity not spent on the starting army,
+// spendable from turn 2 via a buying Deploy order (section 10,
+// dev-plan.md section 7.10); PendingCapture records, for a scenario
+// with capture objectives, which side (if any) held exclusive capture
+// of each enemy town as of the end of the previous turn, since capture
+// must be held through the following turn to win (see CheckCapture).
 type GameState struct {
-	Board      Board
-	Reserves   map[string][]UnitInstance
-	Objectives map[string]string
+	Board          Board
+	Reserves       map[string][]UnitInstance
+	Objectives     map[string]string
+	Bank           map[string]int
+	PendingCapture map[string]string
 }
 
 // Event is one auditable step of turn execution (docs/dev-plan.md section
@@ -41,6 +48,16 @@ func (s GameState) withReserve(side string, units []UnitInstance) GameState {
 	}
 	next[side] = units
 	s.Reserves = next
+	return s
+}
+
+func (s GameState) withBank(side string, amount int) GameState {
+	next := make(map[string]int, len(s.Bank))
+	for k, v := range s.Bank {
+		next[k] = v
+	}
+	next[side] = amount
+	s.Bank = next
 	return s
 }
 
@@ -115,6 +132,21 @@ type MoveOutcome struct {
 	Contact bool         // stopped because it entered a hex adjacent to an enemy.
 }
 
+// StepCostFor is the hex.CostFunc for terrain movement cost (docs/core-
+// rules.md section 2.3): a forest hex costs core.Terrain.ForestMoveCost
+// to enter, everything else costs 1. Safe to use even when
+// board.Terrain is nil (open ground: nothing ever costs more than 1).
+// Exported for the web viewer's reach-guide API (dev-plan.md section
+// 7.10, interface item "Reach preview uses forest costs").
+func StepCostFor(core rules.CoreRules, board Board) hex.CostFunc {
+	return func(o hex.Offset) int {
+		if board.Terrain.IsForest(o) {
+			return core.Terrain.ForestMoveCost
+		}
+		return 1
+	}
+}
+
 // safePassable is the hex.PassableFunc for the safe route (docs/core-
 // rules.md section 7.2): passable, and never adjacent to an enemy
 // (ignoring any pair separated by a river edge, same as contact itself),
@@ -146,16 +178,19 @@ func safePassable(board Board, mover UnitInstance, dest hex.Offset, closeTarget 
 }
 
 // safeShortestPath finds the route mover actually takes to dest
-// (docs/core-rules.md section 7.2): the safe route if one reaches dest
-// (judged the whole way there, regardless of how much of it mover can
-// cover this turn), else the plain shortest path (with its own
-// unreachable-destination fallback). Both respect river edges.
-func safeShortestPath(board Board, mover UnitInstance, dest hex.Offset, closeTarget string) []hex.Offset {
+// (docs/core-rules.md section 7.2): the cheapest safe route if one
+// reaches dest (judged the whole way there, regardless of how much of
+// it mover can cover this turn), else the plain cheapest path (with its
+// own unreachable-destination fallback). Both respect river edges and
+// terrain movement cost (dev-plan.md section 7.10: Dijkstra, tied by
+// fewer hexes then clockwise order — see hex.CheapestPath).
+func safeShortestPath(core rules.CoreRules, board Board, mover UnitInstance, dest hex.Offset, closeTarget string) []hex.Offset {
 	edgeBlocked := edgeBlockedFor(board)
-	if path, reached := hex.ShortestPath(mover.Pos, dest, safePassable(board, mover, dest, closeTarget), edgeBlocked); reached {
+	cost := StepCostFor(core, board)
+	if path, reached := hex.CheapestPath(mover.Pos, dest, safePassable(board, mover, dest, closeTarget), cost, edgeBlocked); reached {
 		return path
 	}
-	path, _ := hex.ShortestPath(mover.Pos, dest, PassableFor(board, mover.ID), edgeBlocked)
+	path, _ := hex.CheapestPath(mover.Pos, dest, PassableFor(board, mover.ID), cost, edgeBlocked)
 	return path
 }
 
@@ -205,33 +240,27 @@ func moveTravelPath(core rules.CoreRules, board Board, mover UnitInstance, dest 
 			return p, core.Terrain.RoadMarchMoveBonus
 		}
 	}
-	return safeShortestPath(board, mover, dest, closeTarget), 0
+	return safeShortestPath(core, board, mover, dest, closeTarget), 0
 }
 
-// moveTowards advances mover toward dest, up to maxSteps (before any
-// road-march bonus), following fording, a road march or the safe route
-// as appropriate (falling back to the plain shortest path if no safe
-// route exists), and stopping on contact with any enemy (docs/core-
-// rules.md section 7.3). Forest halves the order's total step budget,
-// from the start if mover begins there, or from the first forest hex
-// entered otherwise — stopping immediately if that budget is already
-// used up (section 2.3). closeTarget is the named target of a Close
-// order (empty for a plain Move), which only ever takes the safe route.
+// moveTowards advances mover toward dest, up to maxSteps worth of
+// movement cost (before any road-march bonus), following fording, a
+// road march or the safe route as appropriate (falling back to the
+// plain cheapest path if no safe route exists), and stopping on contact
+// with any enemy (docs/core-rules.md section 7.3). Entering a forest
+// hex costs core.Terrain.ForestMoveCost, everything else costs 1; a
+// unit stops when it can't pay for its next step, but always gets at
+// least one hex regardless of cost (section 2.3). closeTarget is the
+// named target of a Close order (empty for a plain Move), which only
+// ever takes the safe route.
 func moveTowards(core rules.CoreRules, board Board, mover UnitInstance, dest hex.Offset, maxSteps int, closeTarget string) MoveOutcome {
 	full, extraMove := moveTravelPath(core, board, mover, dest, closeTarget)
 	maxSteps += extraMove
-
-	cap := maxSteps
-	forestTriggered := board.Terrain.IsForest(mover.Pos)
-	if forestTriggered {
-		cap = maxSteps / 2
-	}
+	cost := StepCostFor(core, board)
 
 	var out MoveOutcome
+	spent := 0
 	for i := 0; i < len(full); i++ {
-		if len(out.Path) >= cap {
-			break
-		}
 		if u, occupied := board.UnitAt(full[i]); occupied && u.ID != mover.ID {
 			// A road march's route ignores occupancy when found (see
 			// roadPassable), so this is where it actually stops behind
@@ -240,17 +269,15 @@ func moveTowards(core rules.CoreRules, board Board, mover UnitInstance, dest hex
 			// hexes.
 			break
 		}
+		stepCost := cost(full[i])
+		if spent > 0 && spent+stepCost > maxSteps {
+			break
+		}
 		out.Path = append(out.Path, full[i])
+		spent += stepCost
 		if board.AdjacentEnemy(mover.Side, full[i]) {
 			out.Contact = true
 			break
-		}
-		if !forestTriggered && board.Terrain.IsForest(full[i]) {
-			forestTriggered = true
-			cap = maxSteps / 2
-			if len(out.Path) >= cap {
-				break
-			}
 		}
 	}
 	return out

@@ -9,3 +9,4 @@ bridge_attack_penalty: 1 # attacker attacking across a bridge edge -1.
 road_march_move_bonus: 2 # a road march (start and destination both road hexes) gets +2 Move.
 town_points: 20 # turn-limit scoring: points for owning a town.
 hamlet_points: 10 # turn-limit scoring: points for owning a hamlet.
+forest_move_cost: 2 # Move cost to enter a forest hex; every other hex costs 1.

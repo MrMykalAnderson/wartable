@@ -21,7 +21,7 @@ func runTurn(args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	_, core, scenario, err := save.LoadRulesData(f.ScenarioID)
+	units, core, scenario, err := save.LoadRulesData(f.ScenarioID)
 	if err != nil {
 		return err
 	}
@@ -37,7 +37,7 @@ func runTurn(args []string, out io.Writer) error {
 	}
 
 	boardBefore := f.State.Board
-	newState, events, err := game.ExecuteTurn(f.State, core, scenario, &f.TieBreak, northOrders, southOrders)
+	newState, events, err := game.ExecuteTurn(f.State, units, core, scenario, f.Turn, &f.TieBreak, northOrders, southOrders)
 	if err != nil {
 		return fmt.Errorf("execute turn: %w", err)
 	}
@@ -51,7 +51,7 @@ func runTurn(args []string, out io.Writer) error {
 	fmt.Fprintln(out)
 	fmt.Fprint(out, renderMap(f.State.Board))
 
-	reportOutcome(out, f.State, core, scenario, f.Turn)
+	reportOutcome(out, &f.State, units, core, scenario, f.Turn)
 
 	f.Turn++
 	return save.Write(statePath, f)
@@ -71,14 +71,17 @@ func parseOrderFile(path string) (raw string, ords []orders.Order, err error) {
 
 // reportOutcome checks the scenario's win conditions (docs/starter-
 // battle.md and docs/two-towns.md "Winning") and prints the result, if
-// any.
-func reportOutcome(out io.Writer, state game.GameState, core rules.CoreRules, scenario rules.Scenario, turn int) {
-	outcome := game.CheckCapture(state, scenario)
+// any. It also updates state.PendingCapture (docs/dev-plan.md section
+// 7.10: a capture must be held through the next turn to win), which is
+// why it takes state by pointer.
+func reportOutcome(out io.Writer, state *game.GameState, units map[string]rules.Unit, core rules.CoreRules, scenario rules.Scenario, turn int) {
+	outcome, pendingCapture := game.CheckCapture(*state, scenario)
+	state.PendingCapture = pendingCapture
 	if !outcome.Over {
-		outcome = game.CheckAnnihilation(state)
+		outcome = game.CheckAnnihilation(*state, units, scenario)
 	}
 	if !outcome.Over && turn >= scenario.TurnLimit {
-		north, south, limitOutcome := game.ScoreAtTurnLimit(state, core, scenario)
+		north, south, limitOutcome := game.ScoreAtTurnLimit(*state, core, scenario)
 		fmt.Fprintf(out, "\nTurn limit reached. North %d, South %d.\n", north, south)
 		outcome = limitOutcome
 	}

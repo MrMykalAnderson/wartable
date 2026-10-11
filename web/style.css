@@ -167,6 +167,16 @@ button {
 .unit-rear { stroke: #555; }
 .unit-half { opacity: 0.55; }
 
+/* Unit labels (docs/dev-plan.md section 7.10): type letter + number
+   (e.g. "I1"), readable at normal zoom against the token's own fill. */
+.unit-label {
+  fill: #fff;
+  stroke: #222;
+  stroke-width: 0.4;
+  paint-order: stroke;
+  pointer-events: none;
+}
+
 .hint {
   font-size: 0.82rem;
   color: #665;
@@ -210,6 +220,11 @@ button {
 }
 
 .unit-list li button.selected {
+  background: #fff2cc;
+  border-color: var(--accent);
+}
+
+#buy-picker button.selected {
   background: #fff2cc;
   border-color: var(--accent);
 }
@@ -345,6 +360,10 @@ button {
   stroke: #a33;
   stroke-width: 2.5;
 }
+.terrain-captured {
+  stroke-dasharray: 4 2;
+  filter: drop-shadow(0 0 3px #d4a017);
+}
 .terrain-road {
   stroke: #8a6d3c;
   stroke-width: 3;
@@ -352,8 +371,14 @@ button {
   stroke-linejoin: round;
   opacity: 0.8;
 }
+.terrain-river-casing {
+  stroke: #eee6d4;
+  stroke-width: 7;
+  stroke-linecap: round;
+  opacity: 0.85;
+}
 .terrain-river {
-  stroke: #4a7fb5;
+  stroke: #2f6db5;
   stroke-width: 4;
   stroke-linecap: round;
 }
@@ -452,6 +477,23 @@ button {
   font-style: italic;
   fill: #333;
   opacity: 0.75;
+}
+/* A Move order that will ford, both on its line and its ghost (docs/
+   dev-plan.md section 7.10: "never a surprise"). */
+.order-line-ford {
+  stroke: #2f6db5;
+  stroke-width: 3;
+}
+.ghost-ford-label {
+  font-size: 10px;
+  font-weight: bold;
+  fill: #2f6db5;
+  text-anchor: middle;
+}
+.ford-label {
+  color: #2f6db5;
+  font-weight: bold;
+  font-size: 0.8rem;
 }
 .ghost-north {
   fill: #6f93c9;

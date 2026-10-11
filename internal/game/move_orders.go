@@ -161,7 +161,8 @@ func executeCloseAndFire(state GameState, core rules.CoreRules, mover UnitInstan
 
 	startPos, startFacing := mover.Pos, mover.Facing
 	half := mover.Stats(core).Move / 2
-	full := safeShortestPath(state.Board, mover, target.Pos, target.ID)
+	full := safeShortestPath(core, state.Board, mover, target.Pos, target.ID)
+	cost := StepCostFor(core, state.Board)
 
 	facingFor := func(path []hex.Offset) hex.Direction {
 		if d, ok := directionOfLastStep(startPos, path); ok {
@@ -181,9 +182,15 @@ func executeCloseAndFire(state GameState, core rules.CoreRules, mover UnitInstan
 	result, fired := tryFire(pos, path)
 	contact := false
 	if !fired {
-		for i := 0; i < half && i < len(full); i++ {
+		spent := 0
+		for i := 0; i < len(full); i++ {
+			stepCost := cost(full[i])
+			if spent > 0 && spent+stepCost > half {
+				break
+			}
 			pos = full[i]
 			path = append(path, pos)
+			spent += stepCost
 			if state.Board.AdjacentEnemy(mover.Side, pos) {
 				contact = true
 				break
@@ -252,10 +259,12 @@ func checkNoMansLand(board Board) []Event {
 }
 
 // ExecuteOrder executes a single order against state, returning the new
-// state and the events it produced.
-func ExecuteOrder(state GameState, core rules.CoreRules, scenario rules.Scenario, side string, o orders.Order) (GameState, []Event) {
+// state and the events it produced. units and turn are needed only for
+// a buying Deploy order (docs/dev-plan.md section 7.10): units to look
+// up a named type's stats and Cost, turn to check it's turn 2 or later.
+func ExecuteOrder(state GameState, units map[string]rules.Unit, core rules.CoreRules, scenario rules.Scenario, turn int, side string, o orders.Order) (GameState, []Event) {
 	if o.Type == orders.Deploy {
-		return executeDeploy(state, scenario, side, o)
+		return executeDeploy(state, units, scenario, turn, side, o)
 	}
 	mover, ok := state.Board.Unit(o.Unit)
 	if !ok {
@@ -284,7 +293,7 @@ func ExecuteOrder(state GameState, core rules.CoreRules, scenario rules.Scenario
 // earlier this turn) is skipped but still uses its place in the
 // sequence. Every returned event's Board is the board exactly as it
 // stood right after that event, for step-by-step replay.
-func ExecuteTurn(state GameState, core rules.CoreRules, scenario rules.Scenario, tieBreak *TieBreak, northOrders, southOrders []orders.Order) (GameState, []Event, error) {
+func ExecuteTurn(state GameState, units map[string]rules.Unit, core rules.CoreRules, scenario rules.Scenario, turn int, tieBreak *TieBreak, northOrders, southOrders []orders.Order) (GameState, []Event, error) {
 	northTotal, err := Initiative(state.Board, core, northOrders)
 	if err != nil {
 		return state, nil, err
@@ -312,7 +321,7 @@ func ExecuteTurn(state GameState, core rules.CoreRules, scenario rules.Scenario,
 
 	for _, step := range steps {
 		var stepEvents []Event
-		state, stepEvents = ExecuteOrder(state, core, scenario, step.Side, step.Order)
+		state, stepEvents = ExecuteOrder(state, units, core, scenario, turn, step.Side, step.Order)
 		events = append(events, stepEvents...)
 		events = append(events, checkNoMansLand(state.Board)...)
 	}

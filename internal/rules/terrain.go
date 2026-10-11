@@ -19,6 +19,10 @@ type TerrainEffects struct {
 	RoadMarchMoveBonus   int `yaml:"road_march_move_bonus"`
 	TownPoints           int `yaml:"town_points"`
 	HamletPoints         int `yaml:"hamlet_points"`
+	// ForestMoveCost is the Move cost to enter a forest hex
+	// (docs/core-rules.md section 2.3; dev-plan.md section 7.10,
+	// replacing the old "half Move" rule). Every other hex costs 1.
+	ForestMoveCost int `yaml:"forest_move_cost"`
 }
 
 func (e TerrainEffects) validate() error {
@@ -26,6 +30,9 @@ func (e TerrainEffects) validate() error {
 		e.CavalryForestPenalty < 0 || e.BridgeAttackPenalty < 0 || e.RoadMarchMoveBonus < 0 ||
 		e.TownPoints < 0 || e.HamletPoints < 0 {
 		return fmt.Errorf("terrain effects must not be negative")
+	}
+	if e.ForestMoveCost < 1 {
+		return fmt.Errorf("forest_move_cost must be at least 1")
 	}
 	return nil
 }

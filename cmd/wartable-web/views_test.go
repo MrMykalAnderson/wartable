@@ -55,7 +55,7 @@ func TestNewGameView(t *testing.T) {
 			},
 		},
 	}
-	got := newGameView(f, rules.CoreRules{HalfStrengthPenalty: 1}, rules.Scenario{ID: "starter-battle"})
+	got := newGameView(f, nil, rules.CoreRules{HalfStrengthPenalty: 1}, rules.Scenario{ID: "starter-battle"})
 	if got.ScenarioID != "starter-battle" || got.Turn != 4 || got.TieBreakHolder != "south" {
 		t.Errorf("newGameView header fields = %+v", got)
 	}
@@ -164,8 +164,8 @@ func TestNewMeleeViewNil(t *testing.T) {
 func TestNewRangedView(t *testing.T) {
 	r := &game.RangedResult{
 		ShooterID: "A", TargetID: "B", InRange: true, InArc: true,
-		ShooterSupport: 0, TargetSupport: 1,
-		ShooterBase: 3, TargetBase: 2,
+		TargetSupport: 1,
+		ShooterBase:   3, TargetBase: 2,
 		ShooterTotal: 3, TargetTotal: 3, Margin: 0,
 	}
 	got := newRangedView(r)

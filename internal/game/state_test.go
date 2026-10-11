@@ -23,7 +23,7 @@ func TestSafeRouteEX8(t *testing.T) {
 		mustParse(t, "F8"), mustParse(t, "F7"), mustParse(t, "E7"),
 		mustParse(t, "E6"), mustParse(t, "E5"), mustParse(t, "F4"),
 	}
-	gotPath := safeShortestPath(board, mover, mustParse(t, "F4"), "")
+	gotPath := safeShortestPath(core, board, mover, mustParse(t, "F4"), "")
 	if len(gotPath) != len(wantSafePath) {
 		t.Fatalf("safeShortestPath = %v, want %v", gotPath, wantSafePath)
 	}
@@ -56,7 +56,7 @@ func TestSafeRouteEX8(t *testing.T) {
 // to the plain shortest path and risks contact on the way, rather than
 // refusing to move.
 func TestSafeRouteFallsBackWhenNoneExists(t *testing.T) {
-	templates, _ := loadTestRules(t)
+	templates, core := loadTestRules(t)
 	// A corridor along column A: with the map edge on one side and a
 	// line of enemies down column B, every route up column A passes
 	// next to one of them. A1 is the only reachable hex far enough
@@ -72,7 +72,7 @@ func TestSafeRouteFallsBackWhenNoneExists(t *testing.T) {
 		newUnit(t, templates, "B3", "north", "infantry", "B3", hex.N),
 	)
 
-	path := safeShortestPath(board, mover, mustParse(t, "A2"), "")
+	path := safeShortestPath(core, board, mover, mustParse(t, "A2"), "")
 	if len(path) == 0 || path[len(path)-1] != mustParse(t, "A2") {
 		t.Errorf("safeShortestPath = %v, want it to still reach A2 (falling back to the plain shortest path)", path)
 	}
@@ -82,7 +82,7 @@ func TestSafeRouteFallsBackWhenNoneExists(t *testing.T) {
 // section 7.2: adjacency to a Close order's own named target doesn't
 // make a hex unsafe, since the unit is trying to get there.
 func TestSafeRouteExemptsCloseOrderTarget(t *testing.T) {
-	templates, _ := loadTestRules(t)
+	templates, core := loadTestRules(t)
 	mover := newUnit(t, templates, "Rider", "south", "cavalry", "F9", hex.N)
 	target := newUnit(t, templates, "Target", "north", "infantry", "G6", hex.S)
 	board := starterBoard(mover, target)
@@ -90,7 +90,7 @@ func TestSafeRouteExemptsCloseOrderTarget(t *testing.T) {
 	// Without the exemption, every hex adjacent to Target (including
 	// F6, F7) would be unsafe, forcing a detour even though Target is
 	// exactly what this unit is closing on.
-	withExemption := safeShortestPath(board, mover, mustParse(t, "F6"), "Target")
+	withExemption := safeShortestPath(core, board, mover, mustParse(t, "F6"), "Target")
 	plain, _ := hex.ShortestPath(mover.Pos, mustParse(t, "F6"), PassableFor(board, mover.ID), nil)
 	if len(withExemption) != len(plain) {
 		t.Errorf("safeShortestPath (with Target exempt) = %v, want the plain shortest path %v", withExemption, plain)

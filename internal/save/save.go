@@ -89,8 +89,15 @@ var suggestedArmies = map[string][]string{
 // it.
 func NewGame(units map[string]rules.Unit, scenario rules.Scenario) File {
 	reserves := map[string][]game.UnitInstance{}
+	bank := map[string]int{}
 	for _, side := range []string{"north", "south"} {
-		reserves[side] = buildArmy(units, suggestedArmies[scenario.ID], side)
+		army := buildArmy(units, suggestedArmies[scenario.ID], side)
+		reserves[side] = army
+		// Capacity not spent on the starting army goes in the bank
+		// (docs/core-rules.md section 10); the Starter Battle has no
+		// separate starting limit, so this is just its small unused
+		// margin below Capacity, too little to ever buy a unit with.
+		bank[side] = scenario.Capacity - armyCost(army)
 	}
 	return File{
 		ScenarioID: scenario.ID,
@@ -100,8 +107,17 @@ func NewGame(units map[string]rules.Unit, scenario rules.Scenario) File {
 			Board:      game.Board{Columns: scenario.Map.Columns, Rows: scenario.Map.Rows, Terrain: scenario.Terrain},
 			Reserves:   reserves,
 			Objectives: game.InitialObjectives(scenario),
+			Bank:       bank,
 		},
 	}
+}
+
+func armyCost(army []game.UnitInstance) int {
+	total := 0
+	for _, u := range army {
+		total += u.Template.Cost
+	}
+	return total
 }
 
 func buildArmy(units map[string]rules.Unit, suggestedArmy []string, side string) []game.UnitInstance {
