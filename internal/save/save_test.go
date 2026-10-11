@@ -85,13 +85,14 @@ func TestNewGame(t *testing.T) {
 // seeded with 4 Infantry, 2 Cavalry, 2 Artillery (Cost 110).
 func TestNewGameTwoTowns(t *testing.T) {
 	units := map[string]rules.Unit{
-		"infantry":  {ID: "infantry", Name: "Infantry"},
-		"cavalry":   {ID: "cavalry", Name: "Cavalry"},
-		"artillery": {ID: "artillery", Name: "Artillery"},
+		"infantry":  {ID: "infantry", Name: "Infantry", Cost: 10},
+		"cavalry":   {ID: "cavalry", Name: "Cavalry", Cost: 20},
+		"artillery": {ID: "artillery", Name: "Artillery", Cost: 15},
 	}
 	scenario := rules.Scenario{
 		ID: "two-towns", TieBreakHolder: "north",
-		Map: rules.MapSize{Columns: 26, Rows: 18},
+		Map:      rules.MapSize{Columns: 26, Rows: 18},
+		Capacity: 240, StartingLimit: 120,
 	}
 
 	f := NewGame(units, scenario)
@@ -103,6 +104,11 @@ func TestNewGameTwoTowns(t *testing.T) {
 		}
 		if counts["infantry"] != 4 || counts["cavalry"] != 2 || counts["artillery"] != 2 {
 			t.Errorf("%s reserves = %+v, want 4 infantry, 2 cavalry, 2 artillery", side, counts)
+		}
+		// docs/two-towns.md "Armies": the suggested starting army costs
+		// 110, leaving 130 of the 240 capacity in the bank.
+		if f.State.Bank[side] != 130 {
+			t.Errorf("%s Bank = %d, want 130 (240 capacity - 110 spent on the starting army)", side, f.State.Bank[side])
 		}
 	}
 }

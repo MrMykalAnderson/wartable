@@ -8,6 +8,7 @@ import (
 
 func TestCheckAnnihilation(t *testing.T) {
 	templates, _ := loadTestRules(t)
+	scenario := loadTestScenario(t, templates)
 
 	cases := []struct {
 		name       string
@@ -37,9 +38,30 @@ func TestCheckAnnihilation(t *testing.T) {
 			)},
 			wantOver: false,
 		},
+		{
+			// docs/dev-plan.md section 7.10: a side with bank funds at
+			// least equal to its cheapest allowed unit (infantry, Cost
+			// 10) isn't annihilated even with nothing on the map or in
+			// reserves.
+			name: "south has enough bank for another unit, not annihilated",
+			state: GameState{
+				Board: starterBoard(newUnit(t, templates, "A", "north", "infantry", "A1", hex.N)),
+				Bank:  map[string]int{"south": 10},
+			},
+			wantOver: false,
+		},
+		{
+			name: "south's bank is short of even the cheapest unit, annihilated",
+			state: GameState{
+				Board: starterBoard(newUnit(t, templates, "A", "north", "infantry", "A1", hex.N)),
+				Bank:  map[string]int{"south": 9},
+			},
+			wantOver:   true,
+			wantWinner: "north",
+		},
 	}
 	for _, c := range cases {
-		got := CheckAnnihilation(c.state)
+		got := CheckAnnihilation(c.state, templates, scenario)
 		if got.Over != c.wantOver {
 			t.Errorf("%s: Over = %v, want %v", c.name, got.Over, c.wantOver)
 		}
@@ -83,30 +105,56 @@ func TestScoreAtTurnLimitDraw(t *testing.T) {
 }
 
 // TestCheckCapture checks docs/two-towns.md "Winning" rule 1: a unit in
-// the enemy's own town, with none of theirs there, wins by capture. The
-// Starter Battle (no terrain) never triggers it.
+// the enemy's own town, with none of theirs there, captures it — but
+// only wins if the same side still holds it the same way at the end of
+// the following turn (dev-plan.md section 7.10). The Starter Battle (no
+// terrain) never triggers it.
 func TestCheckCapture(t *testing.T) {
 	templates, _ := loadTestRules(t)
 	twoTowns := loadTestTwoTowns(t, templates)
 	starter := loadTestScenario(t, templates)
 
 	raider := newUnit(t, templates, "Raider", "south", "cavalry", "B15", hex.N) // inside North town.
-	notCapture := GameState{Board: boardFor(twoTowns, raider,
+	defended := GameState{Board: boardFor(twoTowns, raider,
 		newUnit(t, templates, "Defender", "north", "infantry", "C15", hex.N), // also in North town.
 	)}
-	if got := CheckCapture(notCapture, twoTowns); got.Over {
-		t.Errorf("CheckCapture (defender still present) = %+v, want not over", got)
+	if got, pending := CheckCapture(defended, twoTowns); got.Over || len(pending) != 0 {
+		t.Errorf("CheckCapture (defender still present) = %+v, %v, want not over, nothing pending", got, pending)
 	}
 
 	captured := GameState{Board: boardFor(twoTowns, raider)}
-	got := CheckCapture(captured, twoTowns)
-	if !got.Over || got.Winner != "south" {
-		t.Errorf("CheckCapture (North town undefended, South inside) = %+v, want South wins", got)
+	firstTurn, pending := CheckCapture(captured, twoTowns)
+	if firstTurn.Over {
+		t.Errorf("CheckCapture (first turn captured) = %+v, want not over yet (must hold it one more turn)", firstTurn)
+	}
+	if pending["North town"] != "south" {
+		t.Errorf("pending = %v, want North town pending for south", pending)
+	}
+
+	// Held the same way at the end of the following turn: wins.
+	captured.PendingCapture = pending
+	secondTurn, _ := CheckCapture(captured, twoTowns)
+	if !secondTurn.Over || secondTurn.Winner != "south" {
+		t.Errorf("CheckCapture (held a second turn) = %+v, want south to win", secondTurn)
+	}
+
+	// The defender retakes it (south's raider is gone, north has a unit
+	// there again): pending resets, no win.
+	retaken := GameState{
+		Board:          boardFor(twoTowns, newUnit(t, templates, "Defender", "north", "infantry", "B15", hex.N)),
+		PendingCapture: pending,
+	}
+	resetOutcome, resetPending := CheckCapture(retaken, twoTowns)
+	if resetOutcome.Over {
+		t.Errorf("CheckCapture (retaken by the defender) = %+v, want not over", resetOutcome)
+	}
+	if len(resetPending) != 0 {
+		t.Errorf("pending after retaking = %v, want empty", resetPending)
 	}
 
 	noTerrain := GameState{Board: starterBoard(newUnit(t, templates, "A", "north", "infantry", "A1", hex.N))}
-	if got := CheckCapture(noTerrain, starter); got.Over {
-		t.Errorf("CheckCapture on the Starter Battle (no terrain) = %+v, want never over", got)
+	if got, pending := CheckCapture(noTerrain, starter); got.Over || len(pending) != 0 {
+		t.Errorf("CheckCapture on the Starter Battle (no terrain) = %+v, %v, want never over, nothing pending", got, pending)
 	}
 }
 

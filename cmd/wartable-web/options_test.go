@@ -186,6 +186,61 @@ func TestHandleOptionsReserveUnit(t *testing.T) {
 	}
 }
 
+// TestHandleOptionsBuyFromBank checks docs/core-rules.md section 10
+// (dev-plan.md section 7.10): requesting options for a unit type
+// (rather than an existing unit's ID) returns the same deploy options a
+// reserve unit would, once it's turn 2 or later and the bank can
+// afford it — and a 404 otherwise.
+func TestHandleOptionsBuyFromBank(t *testing.T) {
+	chdirToRepoRoot(t)
+	_, _, scenario, err := save.LoadRulesData(save.DefaultScenarioID)
+	if err != nil {
+		t.Fatalf("LoadRulesData: %v", err)
+	}
+
+	affordable := writeTestSave(t, save.File{
+		ScenarioID: scenario.ID,
+		Turn:       2,
+		State: game.GameState{
+			Board: game.Board{Columns: scenario.Map.Columns, Rows: scenario.Map.Rows},
+			Bank:  map[string]int{"north": 25},
+		},
+	})
+	var got OptionsView
+	getJSON(t, "/api/options?path="+affordable+"&side=north&unit=infantry", &got)
+	if !got.IsReserve || len(got.DeployHexes) == 0 {
+		t.Errorf("options for buyable infantry = %+v, want IsReserve with deploy hexes", got)
+	}
+
+	tooPoor := writeTestSave(t, save.File{
+		ScenarioID: scenario.ID,
+		Turn:       2,
+		State: game.GameState{
+			Board: game.Board{Columns: scenario.Map.Columns, Rows: scenario.Map.Rows},
+			Bank:  map[string]int{"north": 5}, // less than infantry's Cost 10.
+		},
+	})
+	rec := httptest.NewRecorder()
+	handleOptions(rec, httptest.NewRequest(http.MethodGet, "/api/options?path="+tooPoor+"&side=north&unit=infantry", nil))
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, body = %s, want %d (bank too low to buy)", rec.Code, rec.Body.String(), http.StatusNotFound)
+	}
+
+	beforeTurn2 := writeTestSave(t, save.File{
+		ScenarioID: scenario.ID,
+		Turn:       1,
+		State: game.GameState{
+			Board: game.Board{Columns: scenario.Map.Columns, Rows: scenario.Map.Rows},
+			Bank:  map[string]int{"north": 25},
+		},
+	})
+	rec = httptest.NewRecorder()
+	handleOptions(rec, httptest.NewRequest(http.MethodGet, "/api/options?path="+beforeTurn2+"&side=north&unit=infantry", nil))
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, body = %s, want %d (can't buy before turn 2)", rec.Code, rec.Body.String(), http.StatusNotFound)
+	}
+}
+
 // TestHandleOptionsTwoTownsRoadMarchAndFord checks docs/dev-plan.md
 // section 7.8, interface item 3, against the real Two Towns map: a
 // unit on the road gets a road-march reach guide (Move+2, road hexes
@@ -227,6 +282,47 @@ func TestHandleOptionsTwoTownsRoadMarchAndFord(t *testing.T) {
 	}
 	if !foundL5 {
 		t.Errorf("FordHexes = %+v, want L5 included (directly across the unbridged K6|L5 river edge)", bankOpts.FordHexes)
+	}
+}
+
+// TestHandleOptionsMoveHexesUsesForestCost checks docs/dev-plan.md
+// section 7.10's "reach preview uses forest costs" against the real
+// Two Towns map: a forest hex two steps in through forest (cost 2 each
+// = 4) is excluded from infantry's Move-4 guide, even though it's only
+// 2 hexes away, while an open-ground hex 4 steps away (cost 1 each) is
+// included.
+func TestHandleOptionsMoveHexesUsesForestCost(t *testing.T) {
+	chdirToRepoRoot(t)
+	units, _, scenario, err := save.LoadRulesData("two-towns")
+	if err != nil {
+		t.Fatalf("LoadRulesData(two-towns): %v", err)
+	}
+	mover := game.UnitInstance{ID: "A", Side: "north", Template: units["infantry"], Pos: mustParse(t, "K8"), Facing: hex.N, Strength: game.Full}
+	path := writeTestSave(t, save.File{
+		ScenarioID: scenario.ID,
+		State:      game.GameState{Board: game.Board{Columns: scenario.Map.Columns, Rows: scenario.Map.Rows, Units: []game.UnitInstance{mover}}},
+	})
+
+	var got OptionsView
+	getJSON(t, "/api/options?path="+path+"&side=north&unit=A", &got)
+
+	has := func(name string) bool {
+		want := mustParse(t, name)
+		for _, h := range got.MoveHexes {
+			if h.Col == want.Col && h.Row == want.Row {
+				return true
+			}
+		}
+		return false
+	}
+	// N9 is 3 forest hexes in (L8, M9, N9: cost 2+2+2=6 > Move 4):
+	// unreachable despite being only distance 3.
+	if has("N9") {
+		t.Errorf("MoveHexes includes N9, want it excluded (costs 6 through forest, more than Move 4)")
+	}
+	// H5 is 4 open-ground hexes away (cost 1 each = 4): reachable.
+	if !has("H5") {
+		t.Errorf("MoveHexes excludes H5, want it included (4 open-ground hexes, cost 4, within Move 4)")
 	}
 }
 

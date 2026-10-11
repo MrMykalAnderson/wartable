@@ -160,18 +160,28 @@ func meleeOutcomeAtModifier(t *testing.T, templates map[string]rules.Unit, core 
 	}
 }
 
+// rangedOutcomeAtModifier realizes modifier differently from melee's
+// equivalent: a ranged shooter never gets support (dev-plan.md section
+// 7.10), so a positive modifier can't come from support at all — it's
+// realized directly on the shooter's own Attack instead, matching
+// Appendix A's own note that "tables like these can be generated for
+// any custom unit from its stats." A negative modifier is still real
+// defender support, unaffected by 7.10 (see TestRangedIgnoresShooterSupport
+// for a dedicated check that shooter support itself is never added).
 func rangedOutcomeAtModifier(t *testing.T, templates map[string]rules.Unit, core rules.CoreRules, defenderTemplate, defenderState string, modifier int) string {
 	t.Helper()
 	center := hex.Offset{Col: 10, Row: 10}
 	shooterPos := center.Neighbor(hex.N)
 
 	defender := UnitInstance{ID: "Defender", Side: "north", Template: templates[defenderTemplate], Pos: center, Facing: hex.N, Strength: Full, State: defenderState}
-	shooter := UnitInstance{ID: "Shooter", Side: "south", Template: templates["cavalry"], Pos: shooterPos, Facing: hex.S, Strength: Full, State: templates["cavalry"].DeployState}
+	shooterTemplate := templates["cavalry"]
+	if modifier > 0 {
+		shooterTemplate.Attack += modifier
+	}
+	shooter := UnitInstance{ID: "Shooter", Side: "south", Template: shooterTemplate, Pos: shooterPos, Facing: hex.S, Strength: Full, State: shooterTemplate.DeployState}
 
 	units := []UnitInstance{defender, shooter}
-	if modifier > 0 {
-		units = append(units, supportUnits(templates, shooterPos, center, "south", modifier)...)
-	} else if modifier < 0 {
+	if modifier < 0 {
 		units = append(units, supportUnits(templates, center, shooterPos, "north", -modifier)...)
 	}
 	board := Board{Columns: 20, Rows: 20, Units: units}

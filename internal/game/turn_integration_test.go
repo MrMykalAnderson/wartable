@@ -69,7 +69,7 @@ Rear  | Move | F2
 	}
 
 	tieBreak := &TieBreak{Holder: "north"}
-	state, _, err = ExecuteTurn(state, core, scenario, tieBreak, northOrders, nil)
+	state, _, err = ExecuteTurn(state, templates, core, scenario, 1, tieBreak, northOrders, nil)
 	if err != nil {
 		t.Fatalf("ExecuteTurn: %v", err)
 	}
@@ -121,7 +121,7 @@ func TestExecuteTurnMultiOrderScenario(t *testing.T) {
 	}
 
 	tieBreak := &TieBreak{Holder: "north"}
-	state, events, err := ExecuteTurn(state, core, scenario, tieBreak, northOrders, southOrders)
+	state, events, err := ExecuteTurn(state, templates, core, scenario, 1, tieBreak, northOrders, southOrders)
 	if err != nil {
 		t.Fatalf("ExecuteTurn: %v", err)
 	}
@@ -206,7 +206,7 @@ A | Close and Attack | B
 	// South's total (Close and Attack doesn't count) is 0; north's is 8.
 	// South goes first, destroying B before B's own Move order comes up.
 	tieBreak := &TieBreak{Holder: "north"}
-	state, events, err := ExecuteTurn(state, core, scenario, tieBreak, northOrders, southOrders)
+	state, events, err := ExecuteTurn(state, templates, core, scenario, 1, tieBreak, northOrders, southOrders)
 	if err != nil {
 		t.Fatalf("ExecuteTurn: %v", err)
 	}

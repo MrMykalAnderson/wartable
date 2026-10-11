@@ -9,11 +9,12 @@ import (
 
 // RangedResult is the full, auditable record of one ranged attack
 // (docs/core-rules.md section 9): one comparison, whose margin decides
-// the result. There is no position bonus and no knockback.
+// the result. There is no position bonus and no knockback. Unlike
+// melee, only the target gets support — the shooter never does
+// (dev-plan.md section 7.10).
 type RangedResult struct {
 	ShooterID, TargetID string
 	InRange, InArc      bool
-	ShooterSupport      int
 	TargetSupport       int
 
 	// ShooterBase/TargetBase/ShooterTotal/TargetTotal/Margin/Hits/
@@ -58,12 +59,11 @@ func ResolveRanged(board Board, core rules.CoreRules, shooterID, targetID string
 	}
 
 	targetStats := target.Stats(core)
-	result.ShooterSupport = board.Support(shooter.Side, shooter.Pos)
 	result.TargetSupport = board.Support(target.Side, target.Pos)
 	result.ShooterBase = shooterStats.Attack
 	result.TargetBase = targetStats.Def
 
-	shooterTotal := shooterStats.Attack + result.ShooterSupport
+	shooterTotal := shooterStats.Attack
 	targetTotal := targetStats.Def + result.TargetSupport
 	result.ShooterTotal, result.TargetTotal = shooterTotal, targetTotal
 	result.Margin = shooterTotal - targetTotal

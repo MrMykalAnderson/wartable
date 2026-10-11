@@ -84,8 +84,11 @@ func TestLoadScenarioTwoTowns(t *testing.T) {
 	if s.Map != (MapSize{Columns: 26, Rows: 18}) {
 		t.Errorf("Map = %+v, want 26x18 (from the map file)", s.Map)
 	}
-	if s.Capacity != 120 || s.TurnLimit != 16 {
-		t.Errorf("Capacity/TurnLimit = %d/%d, want 120/16", s.Capacity, s.TurnLimit)
+	if s.Capacity != 240 || s.TurnLimit != 16 {
+		t.Errorf("Capacity/TurnLimit = %d/%d, want 240/16", s.Capacity, s.TurnLimit)
+	}
+	if s.StartingLimitOrCapacity() != 120 {
+		t.Errorf("StartingLimitOrCapacity() = %d, want 120", s.StartingLimitOrCapacity())
 	}
 
 	north := s.DeploymentZones["north"]

@@ -53,6 +53,30 @@ func TestRangedEX6WithAllySupportMisses(t *testing.T) {
 	}
 }
 
+// TestRangedIgnoresShooterSupport checks docs/core-rules.md section 8.1
+// (dev-plan.md section 7.10): a ranged attack only gives the target
+// support — an adjacent ally of the shooter doesn't raise its total at
+// all, unlike melee.
+func TestRangedIgnoresShooterSupport(t *testing.T) {
+	templates, core := loadTestRules(t)
+	a := newUnit(t, templates, "A", "north", "artillery", "F6", hex.N)
+	a.State = "ready"
+	ally := newUnit(t, templates, "Ally", "north", "infantry", "F5", hex.N)
+	b := newUnit(t, templates, "B", "south", "infantry", "F2", hex.S)
+	board := starterBoard(a, ally, b)
+
+	result, err := ResolveRanged(board, core, "A", "B")
+	if err != nil {
+		t.Fatalf("ResolveRanged: %v", err)
+	}
+	if result.ShooterTotal != 3 || result.ShooterBase != 3 {
+		t.Errorf("ShooterBase/ShooterTotal = %d/%d, want 3/3 (unchanged by the adjacent ally)", result.ShooterBase, result.ShooterTotal)
+	}
+	if result.Margin != 1 || result.Hits != 1 {
+		t.Errorf("Margin/Hits = %d/%d, want 1/1 (same result as EX-6, no shooter support)", result.Margin, result.Hits)
+	}
+}
+
 func TestRangedOutOfRange(t *testing.T) {
 	templates, core := loadTestRules(t)
 	a := newUnit(t, templates, "A", "north", "infantry", "A1", hex.S)

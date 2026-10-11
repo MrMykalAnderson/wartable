@@ -83,9 +83,25 @@ type Scenario struct {
 	DeploymentZones map[string]DeploymentZone `yaml:"deployment_zones"`
 	DefaultFacing   map[string]string         `yaml:"default_facing"`
 	Capacity        int                       `yaml:"capacity"`
-	UnitsAllowed    []string                  `yaml:"units_allowed"`
-	TurnLimit       int                       `yaml:"turn_limit"`
-	TieBreakHolder  string                    `yaml:"tie_break_holder"`
+	// StartingLimit is the most a player may spend on their starting
+	// army (docs/core-rules.md section 10); the rest of Capacity goes
+	// in the bank, spent during the game via a buying Deploy order.
+	// 0 means unset, which StartingLimitOrCapacity treats as no
+	// separate limit (the whole Capacity is the starting army, as for
+	// the Starter Battle).
+	StartingLimit  int      `yaml:"starting_limit,omitempty"`
+	UnitsAllowed   []string `yaml:"units_allowed"`
+	TurnLimit      int      `yaml:"turn_limit"`
+	TieBreakHolder string   `yaml:"tie_break_holder"`
+}
+
+// StartingLimitOrCapacity is the actual limit on a starting army's
+// Cost: StartingLimit if the scenario set one, else the whole Capacity.
+func (s Scenario) StartingLimitOrCapacity() int {
+	if s.StartingLimit > 0 {
+		return s.StartingLimit
+	}
+	return s.Capacity
 }
 
 func (s Scenario) validate() error {
@@ -97,6 +113,9 @@ func (s Scenario) validate() error {
 	}
 	if s.Capacity <= 0 {
 		return fmt.Errorf("scenario %q: capacity must be positive", s.ID)
+	}
+	if s.StartingLimit < 0 || s.StartingLimit > s.Capacity {
+		return fmt.Errorf("scenario %q: starting_limit must be between 0 and capacity", s.ID)
 	}
 	if s.TurnLimit <= 0 {
 		return fmt.Errorf("scenario %q: turn_limit must be positive", s.ID)

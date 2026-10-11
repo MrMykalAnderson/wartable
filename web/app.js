@@ -16,7 +16,7 @@
 // full calculation rather than just the final hit/miss — again, never
 // recomputed here, only formatted.
 
-const HEX_SIZE = 28;
+const HEX_SIZE = 34; // docs/dev-plan.md section 7.10: bigger, for the unit labels to stay readable.
 const MARGIN = HEX_SIZE * 2;
 
 // Direction order matches internal/hex.Directions: clockwise from N.
@@ -27,11 +27,21 @@ const SIDE_COLORS = {
   south: "#c97b6f",
 };
 
-const TYPE_SYMBOLS = {
-  infantry: "cross",
-  cavalry: "slash",
-  artillery: "dot",
+// TYPE_LETTERS label a token with its type + number (docs/dev-plan.md
+// section 7.10: "I1", "C2", "A1"), read off the unit's own ID (e.g.
+// "North 1st Infantry" -> "I1") rather than recomputed — the ID's own
+// ordinal is already the source of truth.
+const TYPE_LETTERS = {
+  infantry: "I",
+  cavalry: "C",
+  artillery: "A",
 };
+
+function shortLabel(unit) {
+  const letter = TYPE_LETTERS[unit.type] || unit.type.charAt(0).toUpperCase();
+  const m = unit.id.match(/(\d+)(?:st|nd|rd|th)/i);
+  return letter + (m ? m[1] : "?");
+}
 
 let state = {
   game: null, // always the live/current state, used for order-building.
@@ -192,7 +202,11 @@ function renderTerrain(svg, game) {
 
   const owner = (name) => (game.objectives || {})[name];
   const drawObjective = (kind) => (name, hexes) => {
-    const cls = owner(name) ? `terrain-${kind} owner-${owner(name)}` : `terrain-${kind}`;
+    let cls = owner(name) ? `terrain-${kind} owner-${owner(name)}` : `terrain-${kind}`;
+    // Captured, awaiting hold-through next turn (docs/two-towns.md
+    // "Winning" rule 1; dev-plan.md section 7.10 — "show when a town
+    // is captured and must be held for one more turn").
+    if ((game.pendingCapture || {})[name]) cls += " terrain-captured";
     for (const h of hexes) fillHex(h, cls);
   };
   Object.entries(terrain.towns || {}).forEach(([name, hexes]) => drawObjective("town")(name, hexes));
@@ -203,9 +217,13 @@ function renderTerrain(svg, game) {
     const points = roadCurve(chain).map((p) => `${p[0]},${p[1]}`).join(" ");
     layer.appendChild(svgEl("polyline", { points, fill: "none", class: "terrain-road" }));
   }
+  // River drawn last (docs/dev-plan.md section 7.10: above the forest
+  // fill, with enough contrast to still read inside it) — a pale casing
+  // under the blue line keeps it visible over any fill colour.
   for (const edge of terrain.river || []) {
     const seg = edgeSegment(edge.a, edge.b);
     if (!seg) continue;
+    layer.appendChild(svgEl("line", { x1: seg[0][0], y1: seg[0][1], x2: seg[1][0], y2: seg[1][1], class: "terrain-river-casing" }));
     layer.appendChild(svgEl("line", { x1: seg[0][0], y1: seg[0][1], x2: seg[1][0], y2: seg[1][1], class: "terrain-river" }));
   }
   for (const edge of terrain.bridges || []) {
@@ -370,17 +388,16 @@ function drawUnit(svg, unit) {
     );
   }
 
-  const symbol = TYPE_SYMBOLS[unit.type];
-  if (symbol === "cross") {
-    const r = radius * 0.4;
-    group.appendChild(svgEl("line", { x1: x - r, y1: y - r, x2: x + r, y2: y + r, stroke: "#fff", "stroke-width": "2.5" }));
-    group.appendChild(svgEl("line", { x1: x - r, y1: y + r, x2: x + r, y2: y - r, stroke: "#fff", "stroke-width": "2.5" }));
-  } else if (symbol === "slash") {
-    const r = radius * 0.4;
-    group.appendChild(svgEl("line", { x1: x - r, y1: y + r, x2: x + r, y2: y - r, stroke: "#fff", "stroke-width": "2.5" }));
-  } else if (symbol === "dot") {
-    group.appendChild(svgEl("circle", { cx: x, cy: y, r: radius * 0.3, fill: "#fff" }));
-  }
+  group.appendChild(
+    svgEl("text", {
+      x,
+      y: y + radius * 0.33,
+      "text-anchor": "middle",
+      "font-size": Math.round(radius * 0.62),
+      "font-weight": "bold",
+      class: "unit-label",
+    })
+  ).textContent = shortLabel(unit);
 
   if (unit.state) {
     group.appendChild(
@@ -394,9 +411,21 @@ function drawUnit(svg, unit) {
 function renderGameInfo(game) {
   const el = document.getElementById("game-info");
   const reserveLine = (side) => `${side}: ${(game.reserves[side] || []).join(", ") || "none"}`;
-  el.textContent =
+  let text =
     `${game.scenarioId} — turn ${game.turn} — tie-break: ${game.tieBreakHolder} — ` +
     `reserves — ${reserveLine("north")} / ${reserveLine("south")}`;
+  if (game.bank) {
+    // docs/core-rules.md section 10: both players' bank totals are
+    // public (what they'll buy with it is not).
+    text += ` — bank — north: ${game.bank.north || 0} / south: ${game.bank.south || 0}`;
+  }
+  const captures = Object.entries(game.pendingCapture || {});
+  if (captures.length > 0) {
+    // docs/two-towns.md "Winning" rule 1: captured, needs holding
+    // through this turn to actually win.
+    text += " — " + captures.map(([town, side]) => `${town} captured by ${side} (must hold it this turn)`).join(", ");
+  }
+  el.textContent = text;
 }
 
 // ---- order highlights ---------------------------------------------------
@@ -611,6 +640,38 @@ function renderAvailableUnits() {
   };
   onBoard.forEach((u) => addButton(u.id));
   reserves.forEach((id) => addButton(id));
+  renderBuyPicker();
+}
+
+// renderBuyPicker shows a "Buy" button for each unit type the active
+// side can currently afford from its bank (docs/core-rules.md section
+// 10, dev-plan.md section 7.10: from turn 2, naming a unit type instead
+// of a reserve unit buys and deploys it). Clicking one selects it
+// exactly like a reserve unit — /api/options treats the type name the
+// same way once it's actually affordable, so the rest of the deploy
+// click flow (highlighted hexes, facing, etc.) is unchanged.
+function renderBuyPicker() {
+  const picker = document.getElementById("buy-picker");
+  picker.innerHTML = "";
+  if (!state.game || state.game.turn < 2) {
+    picker.hidden = true;
+    return;
+  }
+  const side = state.activeSide;
+  const bank = (state.game.bank && state.game.bank[side]) || 0;
+  const affordable = (state.game.unitTypes || []).filter((t) => t.cost <= bank);
+  if (affordable.length === 0) {
+    picker.hidden = true;
+    return;
+  }
+  picker.hidden = false;
+  affordable.forEach((t) => {
+    const b = document.createElement("button");
+    b.textContent = `Buy ${t.name} (${t.cost})`;
+    if (state.selection === t.id) b.classList.add("selected");
+    b.addEventListener("click", () => selectUnit(t.id));
+    picker.appendChild(b);
+  });
 }
 
 async function selectUnit(unitId) {
@@ -686,9 +747,14 @@ function renderBuilder() {
   predictPanel.hidden = true;
 
   const opts = state.options;
+  // A bought unit isn't on the board or in reserves yet, so it has no
+  // display name of its own — show its type's name instead (docs/dev-
+  // plan.md section 7.10).
+  const boughtType = (state.game.unitTypes || []).find((t) => t.id === state.selection);
+  const selectionLabel = boughtType ? `Buy ${boughtType.name}` : state.selection;
   label.textContent = opts.isReserve
-    ? `${state.selection}: click a highlighted hex to Deploy`
-    : `${state.selection}: click any hex to Move, an occupied hex for more choices, an outlined enemy to attack, or a state button`;
+    ? `${selectionLabel}: click a highlighted hex to Deploy`
+    : `${selectionLabel}: click any hex to Move, an occupied hex for more choices, an outlined enemy to attack, or a state button`;
   if (opts.hasBarrage) {
     label.textContent += " (red hexes are also its passive Barrage zone: it auto-fires there every turn while Ready)";
   }
@@ -755,8 +821,13 @@ function handleTargetClick(col, row, occupantId) {
     return;
   }
 
+  // Flag a fording Move for display (docs/dev-plan.md section 7.10:
+  // "never a surprise") from opts.fordHexes, which the server already
+  // computed — this never decides whether it actually fords, only
+  // labels the order the way the order list and its ghost line do.
+  const fording = (opts.fordHexes || []).some((h) => h.col === col && h.row === row);
   const choices = [
-    { label: "Move here", action: () => commitOrder({ type: "Move", unit: state.selection, targetHex: { col, row } }) },
+    { label: "Move here", action: () => commitOrder({ type: "Move", unit: state.selection, targetHex: { col, row }, fording }) },
   ];
   if (occupantId) {
     const occupant = state.game.units.find((u) => u.id === occupantId);
@@ -934,6 +1005,15 @@ function renderOrderLists() {
       const text = document.createElement("span");
       text.textContent = orderLine(o);
       li.appendChild(text);
+      if (o.fording) {
+        // Display only — the order sheet text (orderLine) stays valid
+        // syntax; this is purely the "never a surprise" label (docs/
+        // dev-plan.md section 7.10).
+        const fordLabel = document.createElement("span");
+        fordLabel.className = "ford-label";
+        fordLabel.textContent = " Ford (whole turn)";
+        li.appendChild(fordLabel);
+      }
       if (FACING_ADJUSTABLE_TYPES.includes(o.type)) {
         li.appendChild(buildFacingControl(side, i, o));
       }
@@ -981,6 +1061,34 @@ function hexDistance(a, b) {
   const ca = toCube(a);
   const cb = toCube(b);
   return (Math.abs(ca.q - cb.q) + Math.abs(ca.r - cb.r) + Math.abs(ca.s - cb.s)) / 2;
+}
+
+function fromCube(c) {
+  const col = c.q;
+  const row = c.r + (c.q - (c.q & 1)) / 2;
+  return { col, row };
+}
+
+// hexAlong finds the hex a fraction t of the way from a to b along the
+// straight hex line between them (cube-coordinate lerp, then rounded to
+// the nearest hex) — used to snap an estimate ghost to an actual hex
+// centre (docs/dev-plan.md section 7.10), never partway between hexes.
+function hexAlong(a, b, t) {
+  const ca = toCube(a);
+  const cb = toCube(b);
+  const q = ca.q + (cb.q - ca.q) * t;
+  const r = ca.r + (cb.r - ca.r) * t;
+  const s = ca.s + (cb.s - ca.s) * t;
+  let rq = Math.round(q);
+  let rr = Math.round(r);
+  let rs = Math.round(s);
+  const dq = Math.abs(rq - q);
+  const dr = Math.abs(rr - r);
+  const ds = Math.abs(rs - s);
+  if (dq > dr && dq > ds) rq = -rr - rs;
+  else if (dr > ds) rr = -rq - rs;
+  else rs = -rq - rr;
+  return fromCube({ q: rq, r: rr, s: rs });
 }
 
 // ORDER_LINE_CLASS maps an order type to its line style (docs/dev-
@@ -1104,13 +1212,17 @@ function renderOrderGhosts() {
           gy = routePoints[routePoints.length - 1].y;
           isEstimate = stop.col !== o.targetHex.col || stop.row !== o.targetHex.row;
         } else if (o.type === "Move" && unit && startPos) {
-          // No server preview yet: a quick straight-line guess.
+          // No server preview yet: a quick straight-line guess, snapped
+          // to an actual hex centre (docs/dev-plan.md section 7.10 —
+          // never partway between hexes, which left its facing dots
+          // off-centre).
           const dist = hexDistance({ col: unit.col, row: unit.row }, o.targetHex);
           const moveStat = unit.stats.move;
           if (dist > moveStat && dist > 0) {
-            const ratio = moveStat / dist;
-            gx = startPos.x + (target.x - startPos.x) * ratio;
-            gy = startPos.y + (target.y - startPos.y) * ratio;
+            const snapped = hexAlong({ col: unit.col, row: unit.row }, o.targetHex, moveStat / dist);
+            const center = hexCenter(snapped.col, snapped.row);
+            gx = center.x;
+            gy = center.y;
             isEstimate = true;
           }
           routePoints = startPos ? [startPos, { x: gx, y: gy }] : [];
@@ -1125,7 +1237,7 @@ function renderOrderGhosts() {
               y1: routePoints[i].y,
               x2: routePoints[i + 1].x,
               y2: routePoints[i + 1].y,
-              class: `${lineClass} order-line-${side}`,
+              class: `${lineClass} order-line-${side}${o.fording ? " order-line-ford" : ""}`,
             })
           );
         }
@@ -1137,6 +1249,14 @@ function renderOrderGhosts() {
           const label = svgEl("text", { x: gx, y: gy - HEX_SIZE * 0.75, "text-anchor": "middle", class: "ghost-estimate-label" });
           label.textContent = "≈ here";
           layer.appendChild(label);
+        }
+        if (o.fording && routePoints.length > 0) {
+          // "Never a surprise" (docs/dev-plan.md section 7.10): label
+          // the line itself, not just the order list.
+          const last = routePoints[routePoints.length - 1];
+          const fordLineLabel = svgEl("text", { x: last.x, y: last.y + HEX_SIZE * 0.95, "text-anchor": "middle", class: "ghost-ford-label" });
+          fordLineLabel.textContent = "Ford";
+          layer.appendChild(fordLineLabel);
         }
         // Move/Deploy have an adjustable facing (docs/dev-plan.md
         // section 7.9); attack orders (targetUnit, below) don't — the
@@ -1260,8 +1380,9 @@ function describeRanged(r) {
     lines.push(`Out of range or arc (in range: ${r.inRange}, in arc: ${r.inArc}) → no effect.`);
     return lines;
   }
-  let shooter = `${r.shooterBase}`;
-  if (r.shooterSupport) shooter += ` +${r.shooterSupport} support`;
+  // Unlike melee, only the target gets support in a ranged attack — the
+  // shooter never does (dev-plan.md section 7.10).
+  const shooter = `${r.shooterBase}`;
   let target = `${r.targetBase}`;
   if (r.targetSupport) target += ` +${r.targetSupport} support`;
   lines.push(`${shooter} = ${r.shooterTotal}  vs  ${target} = ${r.targetTotal}  →  margin ${r.margin}`);
@@ -1622,7 +1743,25 @@ document.getElementById("load").addEventListener("click", () => {
   loadGame(currentPath());
 });
 
-document.getElementById("run-turn").addEventListener("click", () => {
+// Running a turn with no orders queued for either side needs a second
+// click to confirm (docs/dev-plan.md section 7.10: an accidental empty
+// turn, caught this way in a real playtest, left a confusing gap in
+// the turn history and numbering) — the same "click twice" pattern
+// delete-save uses, rather than a native confirm() dialog.
+let emptyTurnArmed = false;
+document.getElementById("run-turn").addEventListener("click", (e) => {
+  const empty = state.orders.north.length === 0 && state.orders.south.length === 0;
+  if (empty && !emptyTurnArmed) {
+    emptyTurnArmed = true;
+    e.target.textContent = "No orders — run anyway?";
+    setTimeout(() => {
+      emptyTurnArmed = false;
+      e.target.textContent = "Run turn";
+    }, 4000);
+    return;
+  }
+  emptyTurnArmed = false;
+  e.target.textContent = "Run turn";
   runTurn(currentPath());
 });
 

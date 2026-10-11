@@ -78,7 +78,7 @@ func handleOptions(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, err)
 		return
 	}
-	_, core, scenario, err := save.LoadRulesData(f.ScenarioID)
+	units, core, scenario, err := save.LoadRulesData(f.ScenarioID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -95,7 +95,33 @@ func handleOptions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// Not a reserve unit by exact ID: maybe a unit type to buy from the
+	// bank (docs/core-rules.md section 10, dev-plan.md section 7.10),
+	// same deployment-zone hexes as a reserve unit's Deploy.
+	if canBuy(units, scenario, f.Turn, f.State.Bank[side], unitID) {
+		writeJSON(w, reserveUnitOptions(f.State.Board, scenario, side))
+		return
+	}
 	writeError(w, http.StatusNotFound, fmt.Errorf("unit %q not found on the board or in %s's reserves", unitID, side))
+}
+
+// canBuy reports whether templateID is currently a legal thing for side
+// to buy with a Deploy order (docs/core-rules.md section 10): an
+// allowed unit type, from turn 2, with enough in the bank.
+func canBuy(units map[string]rules.Unit, scenario rules.Scenario, turn, bank int, templateID string) bool {
+	if turn < 2 {
+		return false
+	}
+	tmpl, ok := units[templateID]
+	if !ok || bank < tmpl.Cost {
+		return false
+	}
+	for _, id := range scenario.UnitsAllowed {
+		if id == templateID {
+			return true
+		}
+	}
+	return false
 }
 
 func deployedUnitOptions(board game.Board, core rules.CoreRules, unit game.UnitInstance, scenario rules.Scenario) OptionsView {
@@ -107,18 +133,10 @@ func deployedUnitOptions(board game.Board, core rules.CoreRules, unit game.UnitI
 
 	stats := unit.Stats(core)
 	if unit.CanMove() {
-		// Forest halves the whole order's Move from the very first step
-		// if the unit starts there (docs/core-rules.md section 2.3) —
-		// unlike occupancy or enemy contact, that's certain regardless
-		// of what else happens this turn, so the guide reflects it.
-		move := stats.Move
-		if scenario.Terrain.IsForest(unit.Pos) {
-			move /= 2
-		}
-		view.MoveHexes = hexesWithin(unit.Pos, move, scenario)
+		view.MoveHexes = hexesWithin(unit.Pos, stats.Move, core, scenario)
 		if unit.Template.Melee || len(unit.Template.States) == 0 {
-			view.CloseMove = move / 2
-			view.CloseMoveHexes = hexesWithin(unit.Pos, view.CloseMove, scenario)
+			view.CloseMove = stats.Move / 2
+			view.CloseMoveHexes = hexesWithin(unit.Pos, view.CloseMove, core, scenario)
 		}
 		view.RoadMarchHexes = roadMarchHexesWithin(unit.Pos, stats.Move+core.Terrain.RoadMarchMoveBonus, scenario.Terrain)
 		view.FordHexes = fordHexes(unit.Pos, scenario.Terrain)
@@ -161,22 +179,32 @@ func deployedUnitOptions(board game.Board, core rules.CoreRules, unit game.UnitI
 	return view
 }
 
-// hexesWithin returns every hex on scenario's map within dist of pos
-// (exclusive of pos itself), ignoring every unit on the board
-// (docs/dev-plan.md section 7.6: a reach guide, not a pathfinding
-// result — the map edge is the only limit).
-func hexesWithin(pos hex.Offset, dist int, scenario rules.Scenario) []HexView {
+// hexesWithin returns every hex on scenario's map reachable from pos
+// for movement cost up to budget (exclusive of pos itself), ignoring
+// every unit on the board (docs/dev-plan.md section 7.6: a reach guide,
+// not a pathfinding result) but counting terrain movement cost —
+// forest costs more to enter — and river edges, which block it
+// entirely except at a bridge (section 7.10's "reach preview uses
+// forest costs"; fording is a separate, explicitly marked exception —
+// see fordHexes — since it's a special one-hex whole order, not normal
+// movement).
+func hexesWithin(pos hex.Offset, budget int, core rules.CoreRules, scenario rules.Scenario) []HexView {
 	var hexes []HexView
-	if dist <= 0 {
+	if budget <= 0 {
 		return hexes
 	}
-	for col := 0; col < scenario.Map.Columns; col++ {
-		for row := 0; row < scenario.Map.Rows; row++ {
-			h := hex.Offset{Col: col, Row: row}
-			d := hex.Distance(pos, h)
-			if d > 0 && d <= dist {
-				hexes = append(hexes, HexView{Col: col, Row: row})
-			}
+	passable := func(o hex.Offset) bool {
+		return o.Col >= 0 && o.Col < scenario.Map.Columns && o.Row >= 0 && o.Row < scenario.Map.Rows
+	}
+	cost := func(o hex.Offset) int {
+		if scenario.Terrain.IsForest(o) {
+			return core.Terrain.ForestMoveCost
+		}
+		return 1
+	}
+	for h, d := range hex.ReachCost(pos, passable, cost, scenario.Terrain.RiverBlocks) {
+		if d.Cost > 0 && d.Cost <= budget {
+			hexes = append(hexes, HexView{Col: h.Col, Row: h.Row})
 		}
 	}
 	return hexes

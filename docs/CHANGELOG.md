@@ -11,6 +11,31 @@ section 11 (EX-3, EX-4) and the direction table in section 2.1.
 
 `go vet ./...` and `go test ./...` pass.
 
+## Playtest round 6: forest costs, cheapest routes, no shooter support, bank (dev-plan.md section 7.10)
+
+From `playtests/newMapTest.json`'s analysis: all 7 kills were ranged, and cavalry Close and Fire with shooter support killed full-strength units in one shot.
+
+**Rules.**
+
+- **Forest costs 2 Move to enter** (replaces "half Move"): every other hex costs 1, a unit stops once it can't pay for its next step, and every unit can always move at least one hex regardless of cost. `internal/game.StepCostFor` (exported, also used for the reach guide) is the cost function.
+- **Cheapest route** (7.2): the safe route (and its plain-shortest-path fallback, and planning previews) is now the cheapest path by movement cost, tied by fewer hexes then the clockwise rule — Dijkstra, not BFS. New `hex.CheapestPath`/`hex.ReachCost` (`internal/hex/cheapest_path.go`), built on a from-dest flood fill using the *reverse* relaxation `dist[n] = dist[cur] + cost(cur)` (not `cost(n)`) — cost is a property of the hex entered, so this is what correctly accumulates the true cost of the real, forward route; documented at length in the file, since it's easy to get backwards. Caught and fixed a real Dijkstra bug this way (an overzealous "already seen" check was skipping cheaper relaxations found after a node's first, worse discovery). EX-12 added as `TestGoingRoundTheForestEX12`.
+- **No shooter support** (8.1, 9): `ResolveRanged` now uses the shooter's Attack alone; the target still gets support. `TestAppendixACombatTables`'s ranged rows now realize a positive net modifier directly on the shooter's Attack stat (support can no longer produce one), not via support; a new `TestRangedIgnoresShooterSupport` locks in the behaviour directly. The Starter Battle's golden replays were unaffected (no historical shot happened to have shooter support).
+- **Starting army and bank** (section 10): `rules.Scenario.StartingLimit` (Two Towns: 120 of a 240 capacity); `GameState.Bank`, set by `save.NewGame` to Capacity minus the starting army's actual cost. From turn 2, a Deploy order may name a unit type instead of a reserve unit — `executeDeploy` resolves the Unit field against reserves first, then the scenario's allowed types, buying from the bank and naming the new unit with the next free ordinal (`nextUnitName`); a failed buy pays nothing. `ExecuteTurn`/`ExecuteOrder` gained `units`/`turn` parameters to support this. **RULES-QUESTION** raised in core-rules.md section 12: the doc's own buying-order example puts the fields in a different order than every other order; the engine keeps the established `unit | order | detail` order instead (`infantry | Deploy | X3`).
+- **Two Towns win conditions**: capture must now be held through the *following* turn — `GameState.PendingCapture` records who held what last turn; `CheckCapture` now returns `(Outcome, map[string]string)`, the second value being what the caller must persist as the next turn's PendingCapture. Annihilation now also checks the bank: a side with no units, no reserves, but enough bank left for its cheapest allowed unit isn't annihilated (`cheapestUnitCost`). Unspent bank still doesn't score (unchanged).
+
+**Interface.**
+
+- Unit tokens show a short code (type letter + number, e.g. "I1", "C2"), replacing the old cross/slash/dot symbols; `HEX_SIZE` increased (28 → 34) to keep them readable.
+- A pending-Move ghost beyond this turn's reach now snaps to an actual hex centre (`hexAlong`, cube-coordinate lerp + round) instead of sitting partway along the line, so its facing dots are never off-centre.
+- An empty turn (no orders for either side) now needs a second "Run turn" click to confirm — traced a real `playtests/newMapTest.json` artifact (history turn 1 empty, turn 2 holding the actual first orders) to an accidental empty-turn submission; this stops it recurring rather than renumbering history after the fact.
+- River edges get a pale casing under the blue line, for contrast against the forest fill.
+- A Move order that will ford is labelled "Ford (whole turn)" in the order list and on its ghost's line, computed from the server's own `fordHexes` (never redecided client-side).
+- The reach guide (`MoveHexes`/`CloseMoveHexes`) is now cost-aware (`hex.ReachCost`), replacing pure hex-distance — a forest hex two steps in that costs more than the unit's Move no longer shows as reachable.
+- Each side's bank is shown, with a "Buy {Type} (Cost)" button per affordable unit type from turn 2 (`GameView.Bank`/`UnitTypes`, `cmd/wartable-web/options.go`'s `canBuy`) — clicking one behaves exactly like selecting a reserve unit, since buying only changes what the Unit field in the resulting Deploy order resolves to.
+- A captured-but-not-yet-held objective gets a dashed, glowing outline and a line in the game-info text ("{town} captured by {side}, must hold it this turn").
+
+`go vet ./...` and `go test ./...` pass; the Starter Battle's golden replays are unchanged.
+
 ## Playtest round 5 fixes (dev-plan.md section 7.9)
 
 From Mykal's first Two Towns game. All interface; no rules change.
