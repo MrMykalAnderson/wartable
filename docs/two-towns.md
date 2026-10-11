@@ -13,7 +13,7 @@ Version 0.1 (draft for playtesting). A larger battle across a river, using the [
 | Terrain | River, two bridges, roads, forest, two towns, two hamlets |
 | Deployment zones | Every hex within 3 hexes of your own town (44 hexes each) |
 | Default facing on deploy | Toward the enemy town: North faces NE, South faces SW |
-| Capacity | 120 per side |
+| Capacity | 240 per side: up to **120** in the starting army, the rest in the bank |
 | Units allowed | Infantry (10), Cavalry (20), Artillery (15) |
 | Turn limit | 16 turns |
 | Tie-break | North holds it at the start of the game |
@@ -37,7 +37,7 @@ South reaches the upper bridge first; North's hamlet is closer to home. Watch th
 
 ## Armies
 
-Each player chooses units with a total Cost of **120 or less**. Suggested army (110):
+Each player chooses a starting army costing **120 or less**. Whatever isn't spent goes in the bank, so each side has **240** in all. From turn 2, Deploy orders can buy new units from the bank (core rules, section 10). Suggested starting army (110, leaving 130 in the bank):
 
 | Units | Cost |
 | --- | --- |
@@ -52,15 +52,15 @@ Towns and hamlets are **objectives**. Each belongs to the last side to have had 
 
 ## Winning
 
-1. **Capture.** At the end of any turn, if you have a unit in the enemy's town and they have no unit in it, you win.
-2. **Annihilation.** A player wins immediately when the opponent has no units on the map and none left to deploy.
+1. **Capture.** At the end of a turn, if you have a unit in the enemy's town and they have none in it, the town is **captured**. If you still hold it in the same way at the end of the **next** turn, you win. (The defender gets one turn to respond, for example by buying and deploying units next to their town.)
+2. **Annihilation.** A player wins immediately when the opponent has no units on the map, no reserves, and less in the bank than the cheapest unit.
 3. **Turn limit.** At the end of turn 16, each side scores:
     - the Cost of its surviving units (half-strength units count half, rounded down),
     - **20** for each town it owns,
     - **10** for each hamlet it owns.
 
-    The higher score wins. Equal scores are a draw.
+    Unspent bank doesn't score. The higher score wins. Equal scores are a draw.
 
 ## Provisional
 
-Capacity, turn limit, objective points and deployment zones are first estimates from the scenario-building method, to be adjusted after playtesting.
+Capacity, starting limit, turn limit, objective points and deployment zones are estimates, to be adjusted after playtesting. Playtest 1 (capacity 120, no bank) felt too thin to both hold and attack, and ended in a cavalry capture on turn 9.

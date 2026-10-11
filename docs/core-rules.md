@@ -73,7 +73,7 @@ Each scenario's map sets the terrain. Hex terrain fills a hex; **edge** terrain 
 | --- | --- | --- | --- |
 | **Open** | Hex | Normal | Normal |
 | **Road** | Hex (a line of hexes) | Road march (see below). A road hex is never forest: roads are cleared through it. | Normal |
-| **Forest** | Hex | Slow going: half Move (see below) | Defender in forest +1 Def (melee and ranged). Cavalry −1 Attack if it or its target is in forest. Artillery can't go Ready in forest. |
+| **Forest** | Hex | Costs 2 Move to enter (see below) | Defender in forest +1 Def (melee and ranged). Cavalry −1 Attack if it or its target is in forest. Artillery can't go Ready in forest. |
 | **Town / hamlet** | Hex | Normal | Defender in a town or hamlet +1 Def (melee and ranged) |
 | **River** | Edge | Can't be crossed, except by fording (see below) | No contact or support across it. Ranged fire is unaffected. |
 | **Bridge** | Edge (on a river) | Crossed normally | Attacker attacking across a bridge −1 |
@@ -85,7 +85,7 @@ Each scenario's map sets the terrain. Hex terrain fills a hex; **edge** terrain 
 - It ignores the safe route rule (7.2): road marching is fast but predictable, and a column marched into the enemy is ambushed as usual.
 - Units can't pass through each other on the road. A blocked unit stops behind the unit in its way, so write the leading unit's order first.
 
-**Forest.** A unit that starts its move in forest, or enters forest during it, may move only **half its Move** (rounded down) that order. If it has already used that much when it first enters forest, it stops in that first forest hex. Halving stacks with Close orders (infantry closing through forest moves 1).
+**Forest.** Entering a forest hex costs **2 Move**; every other hex costs 1. A unit stops when it can't pay for its next step. A Close order's half Move is its budget, so infantry closing (2) can enter one forest hex. Every unit can always move at least one hex per order, whatever it costs.
 
 **Fording a river.** A unit can cross a river away from a bridge only as its whole order:
 
@@ -263,7 +263,7 @@ If a unit is destroyed before its order comes up, that order is skipped (it stil
 
 | Order | Detail | Counts for initiative? |
 | --- | --- | --- |
-| **Deploy** | A hex in your deployment zone, optional facing | No |
+| **Deploy** | A reserve unit (or, from turn 2, a unit type to buy from the bank), a hex in your deployment zone, optional facing | No |
 | **Move** | A hex or a unit, optional facing | Yes |
 | **Close and Attack** | A named enemy unit | No |
 | **Fire** | A named enemy unit | No |
@@ -284,7 +284,7 @@ Examples as written on an orders sheet:
 
 ### 6.1 Deploy
 
-Places a unit from off the map onto an empty hex in its deployment zone. **(Provisional)** If the hex is occupied, or adjacent to an enemy, when the order is carried out, the Deploy fails and the unit stays off the map.
+Places a unit from off the map onto an empty hex in its deployment zone: either one of your reserves, or a new unit bought from the bank (section 10). **(Provisional)** If the hex is occupied, or adjacent to an enemy, when the order is carried out, the Deploy fails and the unit stays off the map.
 
 ### 6.2 Move
 
@@ -326,12 +326,12 @@ A unit can't enter a hex that is off the map or contains any other unit, friend 
 
 ### 7.2 Choosing the path
 
-A unit takes the **safe route** if there is one: the shortest path to its destination that doesn't pass through any hex adjacent to an enemy (the destination itself may be next to an enemy). Only if there is no safe route does it take the plain **shortest path** around blocking hexes, and risk contact on the way (see 7.3).
+A unit takes the **safe route** if there is one: the **cheapest** path to its destination (counting each hex's movement cost, see 2.3) that doesn't pass through any hex adjacent to an enemy (the destination itself may be next to an enemy). Only if there is no safe route does it take the plain **cheapest path** around blocking hexes, and risk contact on the way (see 7.3). On open ground, cheapest is simply shortest.
 
 - The route is judged over the whole way to the destination, even if the unit can't get there this turn.
 - For Close orders, hexes next to the **named target** don't count as unsafe: the unit is trying to get there.
 - The route is worked out when the order is carried out, using the positions at that moment.
-- When more than one route of the same length exists, at each step the unit takes the first available direction in clockwise order from north: **N, NE, SE, S, SW, NW**.
+- When more than one route has the same cost, the one with fewer hexes wins; if still tied, at each step the unit takes the first available direction in clockwise order from north: **N, NE, SE, S, SW, NW**.
 
 **(Provisional)** If the destination can't be reached at all (for example, it is occupied, or the moving unit's target is surrounded), the unit heads instead for the reachable hex closest to the destination. Ties go to the hex that is the fewest steps away for the moving unit, then to the first in reading order (lowest column, then lowest row).
 
@@ -339,7 +339,7 @@ When the destination is an enemy unit's hex, the unit moves toward a hex adjacen
 
 ### 7.3 Stopping
 
-A unit stops moving when it has used all its Move, reaches its destination, or **enters a hex adjacent to any enemy unit**.
+A unit stops moving when it can't pay for its next step (see 2.3), reaches its destination, or **enters a hex adjacent to any enemy unit**.
 
 Moving into a hex adjacent to an enemy always ends movement, so units can't slip past enemies. A unit that starts adjacent to an enemy can move away, but if its first step is into another hex adjacent to an enemy, it stops there.
 
@@ -364,7 +364,7 @@ Melee always has one **attacker** and one **defender**.
 
 ### 8.1 Support
 
-A unit gets **+1 support for each friendly unit adjacent to it**, from any side, including units that are themselves in contact with enemies. There is no limit. Support applies to both the attacker and the defender.
+A unit gets **+1 support for each friendly unit adjacent to it**, from any side, including units that are themselves in contact with enemies. There is no limit. Support applies to both the attacker and the defender in melee. In **ranged** attacks (Fire, Close and Fire, Barrage) only the **target** gets support: shooters never do (see 9).
 
 ### 8.2 Position bonus
 
@@ -403,7 +403,7 @@ A half-strength unit that takes any hit is destroyed (see [3.2](#32-strength)).
 
 A ranged attack needs the target to be within the shooter's **Range** (no closer than the minimum and no further than the maximum) and inside its **firing arc** (see [Section 4](#4-facing)). Nothing blocks line of sight on open ground.
 
-Ranged attacks use the same single comparison as melee: the shooter's **Attack + support** against the target's **Def + support**. The margin decides the result:
+Ranged attacks use the same single comparison as melee: the shooter's **Attack** (no support) against the target's **Def + support**. The margin decides the result:
 
 | Margin | Result |
 | --- | --- |
@@ -417,9 +417,15 @@ There is no position bonus (the target's facing doesn't matter) and no knockback
 
 Each scenario defines **deployment zones** (DZ) for each side and an army **capacity**.
 
-- Players choose units whose total Cost doesn't exceed the capacity.
 - Units start off the map and enter with **Deploy** orders.
-- Reinforcement rules, if any, are set by the scenario. (A suggested rule for later: when buying reinforcements, a half-strength unit on the map counts as half its Cost, rounded down.)
+- A scenario may also set a **starting limit**, lower than capacity. If it doesn't, the starting limit is the whole capacity.
+
+**Starting army.** Before the game, each player secretly chooses units whose total Cost is no more than the starting limit. These are their reserves, deployed with Deploy orders on any turn.
+
+**The bank.** Capacity not spent on the starting army goes in the **bank**. Both players' bank totals are public; what they will buy is not.
+
+- From turn 2, a Deploy order may name a **unit type** instead of a reserve unit, for example "Deploy | Cavalry | X3". It buys a unit of that type, pays its Cost from the bank, and deploys it in the usual way. The new unit takes the next free name (e.g. "3rd Cavalry").
+- A Deploy can't spend more than the bank holds. If a Deploy that buys a unit fails (6.1), nothing is bought and nothing is paid.
 
 ## 11. Worked examples
 
@@ -517,6 +523,14 @@ North's **3rd Foot** (infantry) starts the turn at **K6**, on the river bank: th
 - An enemy standing at **L5** would not be in contact with 3rd Foot at K6: they are across a river edge. (3rd Foot couldn't ford into L5 while it is occupied.)
 - An enemy at **L4** is next to L5, so if 3rd Foot fords into L5, that is contact as usual.
 
+### EX-12: Going round the forest (Two Towns map)
+
+South's **1st Guns** (artillery, Mobilised, Move 4) is at **Q11** with a Move order to **S9**. No enemies are near.
+
+- Two routes are three hexes long. Through the forest, **Q10, R9, S9** costs 2 + 2 + 1 = **5**: more than Move 4, so the guns would stop in the forest.
+- Round the edge, **R10, S10, S9** costs 1 + 1 + 1 = **3**.
+- The guns take the cheapest route and reach S9 this turn.
+
 ## 12. Provisional rules and open questions
 
 These rules were filled in to make the game playable and need confirming in playtesting:
@@ -529,7 +543,7 @@ These rules were filled in to make the game playable and need confirming in play
 6. **Ambush by several enemies:** each attacks in turn, clockwise from N.
 7. **Half strength and range:** only the maximum range drops (artillery becomes 3–4).
 8. **Barrage strength:** firing at every target plus a normal order is deliberately strong. If it dominates, the first levers to try are artillery Cost, or a limit on barrage targets.
-9. **Terrain numbers:** road march +2 Move, forest half Move and +1 Def, cavalry −1 in forest, towns +1 Def (not dug in), bridge attacker −1.
+9. **Terrain numbers:** road march +2 Move, forest costs 2 Move and gives +1 Def, cavalry −1 in forest, towns +1 Def (not dug in), bridge attacker −1.
 10. **Fording** takes a whole turn and can't be done by the pathfinder on its own.
 
 Open design questions:
@@ -554,6 +568,7 @@ New units use the standard stat block. A unit entry has:
 | --- | --- |
 | Adjacent | Sharing an edge. Distance 1. |
 | Ambushed | A unit that blundered into contact. It defends with −1 Def. |
+| Bank | Capacity not spent on the starting army. Spent during the game to buy units with Deploy orders. |
 | Barrage | Artillery's passive order: Ready guns fire at every enemy in their range band and arc at the start of the Execution Phase. |
 | Bridge | A crossing over a river edge. Crossed normally; an attacker attacking across it has −1. |
 | Capacity | The total Cost an army may field. |
@@ -563,7 +578,7 @@ New units use the standard stat block. A unit entry has:
 | Firing arc | The 120° wedge in front of a unit, bounded by lines through its flank edges. |
 | Flank | The two edges either side of a unit's front. |
 | Ford | Crossing a river away from a bridge: a whole turn's one-hex Move from the bank, ending on the far side. |
-| Forest | Slow terrain: half Move. Defender +1 Def; cavalry −1 Attack; artillery can't go Ready. |
+| Forest | Costs 2 Move to enter. Defender +1 Def; cavalry −1 Attack; artillery can't go Ready. |
 | Front | The edge a unit faces. |
 | Half strength | A unit that has taken one hit. −1 to all stats. |
 | Hit | One step of damage: full to half strength, or half strength to destroyed. |
@@ -578,7 +593,8 @@ New units use the standard stat block. A unit entry has:
 | River | Edge terrain. Can't be crossed except at a bridge or by fording. No contact or support across it. |
 | Road march | A Move from a road hex to a road hex. Follows the road with +2 Move and ignores the safe route rule. |
 | Safe route | The shortest path that never passes next to an enemy. Units take it whenever one exists. |
-| Support | +1 to a unit's combat total for each adjacent friendly unit. |
+| Starting limit | The most a player may spend on units before the game. The rest of the capacity goes in the bank. |
+| Support | +1 to a unit's combat total for each adjacent friendly unit. Melee: both sides. Ranged: target only. |
 | Tie-break | The token deciding tied initiative. Passes to the other player each time it is used. |
 | Town / hamlet | Settlement hexes. Defender +1 Def. Often scenario objectives. |
 
@@ -636,7 +652,7 @@ Melee results: **Repelled** = attacker knocked back, no damage. **Hit** = defend
 | Artillery (Mobilised), flank | Repelled | Hit | Hit | **Destroyed** | **Destroyed** | **Destroyed** |
 | Artillery (Mobilised), rear | Hit | **Destroyed** | **Destroyed** | **Destroyed** | **Destroyed** | **Destroyed** |
 
-**Ranged attacks** (Cavalry or Artillery, both Attack 3; the target's facing doesn't matter)
+**Ranged attacks** (Cavalry or Artillery, both Attack 3; the target's facing doesn't matter; for ranged, the net modifier never includes the shooter's support)
 
 | Target | −2 | −1 | 0 | +1 | +2 | +3 |
 | --- | --- | --- | --- | --- | --- | --- |

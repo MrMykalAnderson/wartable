@@ -305,6 +305,28 @@ From Mykal's first Two Towns game. All interface; no rules change.
 - **Turn replay loses the terrain:** stepping through events (e.g. deployment) draws an empty hex grid with only units. Every view of the map must always draw the terrain layer.
 - **Straight roads.** Draw roads through the **midpoints of the hex edges** they cross (starting and ending at the end hexes' centres), then smooth with 2–3 passes of Chaikin corner-cutting. Alternating two-direction runs then render perfectly straight. Reference implementation: `road_curve` in `docs/maps/twotowns.py`. The rules (which hexes are road) don't change.
 
+### 7.10 Playtest round 6 changes (do next)
+
+From `playtests/newMapTest.json` (analysis: all 7 kills were ranged; cavalry Close and Fire with shooter support killed full-strength units in one shot). Rules already updated in core-rules.md, two-towns.md and scenario-design.md.
+
+**Rules.**
+
+- **Forest costs 2 Move to enter** (replaces "half Move"). Units stop when they can't pay for the next step; every unit can always move at least one hex per order; a Close order's budget is half Move. Movement costs go in the terrain data.
+- **Cheapest route** (7.2): the safe route is now the cheapest path by movement cost (Dijkstra), tie-broken by fewer hexes, then the clockwise rule. Same for the plain fallback route and for planning previews. Add **EX-12** as a test.
+- **No shooter support** (8.1, 9): Fire, Close and Fire and Barrage use the shooter's Attack alone; the target still gets support. Update `TestAppendixACombatTables` for the ranged table, and regenerate the golden replays (results will change).
+- **Starting army and bank** (section 10): scenarios may set a `starting_limit` (Two Towns: 120 of 240). The starting army must fit the starting limit; the rest is the bank, shown to both players. From turn 2, a Deploy order may name a unit type (`Deploy | Cavalry | X3`) to buy and deploy a new unit, paid from the bank, named with the next free number. A failed Deploy buys nothing. Starter Battle has no starting limit, so nothing changes there.
+- **Two Towns win conditions**: capture must be held through the following turn; annihilation counts reserves and bank; unspent bank doesn't score.
+
+**Interface.**
+
+- **Unit labels**: each token shows a short code (type letter + number: I1, C2, A1), readable at normal zoom. Increase the default hex size.
+- **Facing markers off-centre**: the "≈ here" estimate ghost is placed partway along a straight line, between hexes, so its facing dots aren't centred. Always snap estimate ghosts to a hex centre.
+- **History turn numbers are one ahead** (the first played turn is saved as turn 2, with an empty turn 1). Fix the numbering so it matches the turn the players saw.
+- **River visibility**: draw river edges above forest fills, with enough contrast to see in forest. Label a Move order that will ford as "Ford (whole turn)" in the order list and on its line, so a ford is never a surprise.
+- **Bank**: show each side's bank; in the deploy picker, offer "Buy" with each affordable unit type.
+- **Capture status**: show when a town is captured and must be held for one more turn.
+- Reach preview uses forest costs.
+
 ### 7.4 Parked (don't start without being asked)
 
 - **Map-first layout.** The map should be the main focus and fill the screen. All panels (orders, unit details, event playback, sandbox) become either docked strips around the map edges or floating, movable windows. A large layout change; do it as one piece of work when asked, not piecemeal.
