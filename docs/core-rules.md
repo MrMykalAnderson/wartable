@@ -424,7 +424,7 @@ Each scenario defines **deployment zones** (DZ) for each side and an army **capa
 
 **The bank.** Capacity not spent on the starting army goes in the **bank**. Both players' bank totals are public; what they will buy is not.
 
-- From turn 2, a Deploy order may name a **unit type** instead of a reserve unit, for example "Deploy | Cavalry | X3". It buys a unit of that type, pays its Cost from the bank, and deploys it in the usual way. The new unit takes the next free name (e.g. "3rd Cavalry").
+- From turn 2, a Deploy order may name a **unit type** instead of a reserve unit, written in the usual unit | order | detail layout, for example "Cavalry | Deploy | X3". It buys a unit of that type, pays its Cost from the bank, and deploys it in the usual way. The new unit takes the next free name (e.g. "3rd Cavalry").
 - A Deploy can't spend more than the bank holds. If a Deploy that buys a unit fails (6.1), nothing is bought and nothing is paid.
 
 ## 11. Worked examples
@@ -551,7 +551,6 @@ Open design questions:
 - Retreat vs rout: should badly beaten units turn their back when knocked back?
 - Initiative bidding, morale, terrain and barriers.
 - A larger unit roster with rock-paper-scissors balance.
-- **RULES-QUESTION (dev-plan.md 7.10):** section 10's example of a buying Deploy order, "Deploy | Cavalry | X3", doesn't match the order sheet's own `unit | order | detail` field order used everywhere else (Deploy is always field 2, never field 1). The engine instead parses it as `<unit type> | Deploy | <hex>` (e.g. "Cavalry | Deploy | X3"), keeping the existing grammar unchanged: `internal/game/deploy.go`'s `executeDeploy` resolves the Unit field against reserves first, then against the scenario's allowed unit types, so no parser change was needed. Confirm this is the intended field order, or that the doc's own example should read "Cavalry | Deploy | X3" instead.
 
 ## 13. Creating units
 
