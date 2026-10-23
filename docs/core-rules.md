@@ -80,10 +80,10 @@ Each scenario's map sets the terrain. Hex terrain fills a hex; **edge** terrain 
 
 **Road march.** A Move order that **starts on a road hex** and names a **road hex** as its destination is a road march:
 
-- The unit moves only along the road, from each road hex to the next, and may switch to another road where roads meet.
+- The unit **follows the road**, from each road hex to the next, even where the road bends away from the destination.
+- It only makes a choice where there is one: on its first step, and where roads meet. There it takes the road hex that is closer to the destination, then uses the usual tie order (7.2).
 - It gets **+2 Move**.
-- It ignores the safe route rule (7.2): road marching is fast but predictable, and a column marched into the enemy is ambushed as usual.
-- Units can't pass through each other on the road. A blocked unit stops behind the unit in its way, so write the leading unit's order first.
+- It stops at the destination, on contact, when it runs out of Move, or when the road ahead is blocked. Units can't pass through each other on the road: a blocked unit stops behind the unit in its way, so write the leading unit's order first.
 
 **Forest.** Entering a forest hex costs **2 Move**; every other hex costs 1. A unit stops when it can't pay for its next step. A Close order's half Move is its budget, so infantry closing (2) can enter one forest hex. Every unit can always move at least one hex per order, whatever it costs.
 
@@ -91,7 +91,7 @@ Each scenario's map sets the terrain. Hex terrain fills a hex; **edge** terrain 
 
 - It must **start the turn next to the river** (on a hex with a river edge).
 - Its order is a **Move to the hex directly across** that river edge. It moves that one hex and stops.
-- Fording is always a deliberate order. The pathfinder never fords on its own; any other route across a river goes by bridge.
+- Fording is always a deliberate order. Units never ford on their own; any other move across a river goes by bridge.
 - Fording into a hex next to an enemy is contact as usual (7.4).
 
 **Across a river.** Two hexes separated by a river edge (not a bridge) don't count as adjacent for **contact, support, ambush, overrun or no man's land**. Units can face each other across a river without fighting. A knockback across a river edge is blocked, so that unit is destroyed (8.3).
@@ -290,11 +290,11 @@ Places a unit from off the map onto an empty hex in its deployment zone: either 
 
 The unit moves toward the named hex (or the named unit's hex), up to its Move, following the movement rules in [Section 7](#7-movement). If it comes into contact with any enemy, it is **ambushed** (see [7.4](#74-contact-and-ambush)).
 
-The named hex can be anywhere on the map, however far away. A unit ordered to a distant objective moves as far toward it as it can this turn (see [6.6](#66-when-an-order-cant-be-done-as-written)). The path is only worked out when the order is carried out, because other units will have moved by then.
+The named hex can be anywhere on the map, however far away. A unit ordered to a distant objective moves as far toward it as it can this turn (see [6.6](#66-when-an-order-cant-be-done-as-written)). It moves one step at a time by the step rule (7.2), using the positions at the moment the order is carried out, because other units will have moved by then. Give sensible destinations: a unit doesn't plan a route round obstacles, it just keeps stepping toward where it was sent.
 
 ### 6.3 Close and Attack
 
-The unit moves toward the named enemy, up to **half its Move** (rounded down).
+The unit moves toward the named enemy by the step rule (7.2), up to **half its Move** (rounded down).
 
 - As soon as it is adjacent to the named enemy, it stops and attacks it in melee ([Section 8](#8-melee-combat)). If it starts the order already adjacent, it attacks without moving.
 - If it comes into contact with a **different** enemy first, it stops and is ambushed by that enemy instead.
@@ -306,7 +306,7 @@ The unit makes a ranged attack ([Section 9](#9-ranged-combat)) against the named
 
 ### 6.5 Close and Fire
 
-The unit moves toward the named enemy, up to **half its Move** (rounded down). Before each step, and after its last step, check whether the target is within range **and** inside the firing arc (using the facing the unit has at that moment). As soon as it is, the unit stops and fires. If it comes into contact with an enemy first, it stops and is ambushed.
+The unit moves toward the named enemy by the step rule (7.2), up to **half its Move** (rounded down). Before each step, and after its last step, check whether the target is within range **and** inside the firing arc (using the facing the unit has at that moment). As soon as it is, the unit stops and fires. If it comes into contact with an enemy first, it stops and is ambushed.
 
 Artillery can never use Close and Fire (it can't fire while Mobilised or move while Ready).
 
@@ -322,24 +322,29 @@ Orders are carried out as fully as possible:
 
 ### 7.1 What blocks movement
 
-A unit can't enter a hex that is off the map or contains any other unit, friend or enemy, and can't cross a river edge except at a bridge or by fording (2.3).
+A unit can't enter a hex that is off the map, contains any other unit (friend or enemy), or that it has already entered during this order, and can't cross a river edge except at a bridge or by fording (2.3).
 
-### 7.2 Choosing the path
+### 7.2 The step rule
 
-A unit takes the **safe route** if there is one: the **cheapest** path to its destination (counting each hex's movement cost, see 2.3) that doesn't pass through any hex adjacent to an enemy (the destination itself may be next to an enemy). Only if there is no safe route does it take the plain **cheapest path** around blocking hexes, and risk contact on the way (see 7.3). On open ground, cheapest is simply shortest.
+Units don't plan routes. They move **one step at a time**, and each step is decided by looking only at the hexes next to the unit:
 
-- The route is judged over the whole way to the destination, even if the unit can't get there this turn.
-- For Close orders, hexes next to the **named target** don't count as unsafe: the unit is trying to get there.
-- The route is worked out when the order is carried out, using the positions at that moment.
-- When more than one route has the same cost, the one with fewer hexes wins; if still tied, at each step the unit takes the first available direction in clockwise order from north: **N, NE, SE, S, SW, NW**.
+1. **Options:** the open neighbouring hexes that are **closer** to the destination, counting hexes.
+2. **Slide:** if none of those is open, the options are the open neighbouring hexes the **same** number of hexes away that are **nearer as the crow flies**. A unit never moves away from its destination.
+3. **No options:** the unit stops where it is.
+4. **One option:** it takes it, even into forest or next to an enemy.
+5. **Two options (a tie):** it takes the one **not next to an enemy**; if still tied, the one **not forest**; if still tied, it **keeps left**: of the two, it takes the one on its left as it faces its destination.
 
-**(Provisional)** If the destination can't be reached at all (for example, it is occupied, or the moving unit's target is surrounded), the unit heads instead for the reachable hex closest to the destination. Ties go to the hex that is the fewest steps away for the moving unit, then to the first in reading order (lowest column, then lowest row).
+A road march (2.3) follows the road instead, and only uses this tie order where it has a choice of road hex.
 
-When the destination is an enemy unit's hex, the unit moves toward a hex adjacent to it.
+For Close orders, being next to the **named target** doesn't count against a hex in the tie order: the unit is trying to get there.
+
+![Movement examples](images/movement-examples.png)
+
+*Eight moves on the Two Towns map, each order repeated turn after turn. Solid arrows are closer steps, dashed arrows slides, and orange rings ties. T1, T2… mark where each turn ends. The step-by-step reasoning for each is in [docs/tools/movement_reference.py](tools/movement_reference.py).*
 
 ### 7.3 Stopping
 
-A unit stops moving when it can't pay for its next step (see 2.3), reaches its destination, or **enters a hex adjacent to any enemy unit**.
+A unit stops moving when it reaches its destination, has no option under the step rule, can't pay for its next step (see 2.3), or **enters a hex adjacent to any enemy unit**.
 
 Moving into a hex adjacent to an enemy always ends movement, so units can't slip past enemies. A unit that starts adjacent to an enemy can move away, but if its first step is into another hex adjacent to an enemy, it stops there.
 
@@ -491,13 +496,25 @@ North's **1st Guns** (artillery, Ready) is at **F2 facing S**. At the start of t
 
 If 4th Horse had not been there, it would be 3 vs 2, margin 1: a hit, putting 3rd Foot at half strength. Either way, 1st Guns can still carry out its own written order later in the turn.
 
-### EX-8: Safe route
+### EX-8: The step rule (Two Towns map)
 
-South's **2nd Foot** (infantry, Move 4) is at **F9** with a Move order to **F4**. North's **1st Foot** is at **G6**.
+All three units are infantry (Move 4) with Move orders, on open ground.
 
-- The plain shortest route, F8, F7, F6, F5, F4, passes F6 and F5, which are next to 1st Foot. It would stop at F6 and be ambushed.
-- The safe route is F8, F7, E7, E6, E5, F4: one hex longer, but never next to an enemy. 2nd Foot takes it.
-- With Move 4, it ends this turn at **E6**, safe, and carries on next turn if ordered.
+**Dodging an enemy.** South's **2nd Foot** at **D9** is ordered to **K9**. North's **1st Foot** is at **H7**.
+
+- Steps 1 and 2: E9 or E10, then F8 or F9. Both are ties with nothing to choose between them, so it keeps left: **E9**, then **F8**.
+- Step 3: G8 or G9. G8 is next to the enemy, so it takes **G9**.
+- Step 4: H8 or H9. Again it avoids the enemy: **H9**, where this turn's Move runs out.
+
+**Contact on a straight line.** South's **3rd Foot** at **G13** is ordered to **G3**, straight up the column. North's **2nd Foot** is at **H8**.
+
+- Each step has only one closer hex: G12, G11, G10, then **G9**, which is next to the enemy. With no choice, it takes it: contact, and 3rd Foot is ambushed (7.4).
+
+**A friend in the way.** North's **4th Foot** at **E14** is ordered to **E6**. A friendly unit stands at **E11**.
+
+- Steps 1 and 2: E13, E12, the only closer hexes.
+- Step 3: the only closer hex, E11, is occupied, so it slides. D11 and F11 are both the same distance and nearer as the crow flies. It keeps left: **D11**.
+- Step 4: **D10**, and on up the D column on later turns.
 
 ### EX-9: Overrun
 
@@ -511,7 +528,7 @@ North's **1st Guns** (artillery, Ready, Def 4) is at **F3 facing S**, with no fr
 North's **2nd Foot** (infantry, Move 4) is at **K7**, on the road, with a Move order to **S5**, further along the same road. Both hexes are road, so this is a road march with Move 4 + 2 = **6**.
 
 - It follows the road: L6, M7, across the bridge to N6, then O6, P5, Q5. Six steps, ending at **Q5**.
-- Cross-country, it would have taken the safe route with Move 4 and could not have crossed the river except by the bridge anyway.
+- The road gives it only one hex each step, so there is nothing to decide until it reaches a junction.
 - Had a friendly unit been standing on N6 when this order ran, 2nd Foot would have stopped at M7.
 
 ### EX-11: Fording (Two Towns map)
@@ -519,7 +536,7 @@ North's **2nd Foot** (infantry, Move 4) is at **K7**, on the road, with a Move o
 North's **3rd Foot** (infantry) starts the turn at **K6**, on the river bank: the edge between K6 and L5 is river. Its order is Move to **L5**.
 
 - It fords: it moves the one hex across the river into L5 and stops.
-- An order from K6 to **M4** instead would not ford: the pathfinder never fords on its own, so 3rd Foot would head for the bridge.
+- An order from K6 to **M4** instead would not ford: units never ford on their own. 3rd Foot steps to K5, the only closer hex, and stops there on the bank, because nothing on its side of the river gets any closer.
 - An enemy standing at **L5** would not be in contact with 3rd Foot at K6: they are across a river edge. (3rd Foot couldn't ford into L5 while it is occupied.)
 - An enemy at **L4** is next to L5, so if 3rd Foot fords into L5, that is contact as usual.
 
@@ -527,9 +544,10 @@ North's **3rd Foot** (infantry) starts the turn at **K6**, on the river bank: th
 
 South's **1st Guns** (artillery, Mobilised, Move 4) is at **Q11** with a Move order to **S9**. No enemies are near.
 
-- Two routes are three hexes long. Through the forest, **Q10, R9, S9** costs 2 + 2 + 1 = **5**: more than Move 4, so the guns would stop in the forest.
-- Round the edge, **R10, S10, S9** costs 1 + 1 + 1 = **3**.
-- The guns take the cheapest route and reach S9 this turn.
+- Step 1: Q10 or R10. Q10 is forest, so it takes **R10**.
+- Step 2: R9 or S10. R9 is forest, so it takes **S10**.
+- Step 3: **S9**, the only closer hex. It has spent 3 Move and arrived.
+- Had it gone through Q10 and R9, it would have paid 2 + 2 and stopped in the forest.
 
 ## 12. Provisional rules and open questions
 
@@ -539,12 +557,12 @@ These rules were filled in to make the game playable and need confirming in play
 2. **Ready and Mobilise orders can set facing.**
 3. **A Close order that doesn't move turns the unit toward its target.**
 4. **Deploying into or next to an enemy fails.**
-5. **Unreachable destinations:** the unit heads for the closest reachable hex.
-6. **Ambush by several enemies:** each attacks in turn, clockwise from N.
-7. **Half strength and range:** only the maximum range drops (artillery becomes 3–4).
-8. **Barrage strength:** firing at every target plus a normal order is deliberately strong. If it dominates, the first levers to try are artillery Cost, or a limit on barrage targets.
-9. **Terrain numbers:** road march +2 Move, forest costs 2 Move and gives +1 Def, cavalry −1 in forest, towns +1 Def (not dug in), bridge attacker −1.
-10. **Fording** takes a whole turn and can't be done by the pathfinder on its own.
+5. **Ambush by several enemies:** each attacks in turn, clockwise from N.
+6. **Half strength and range:** only the maximum range drops (artillery becomes 3–4).
+7. **Barrage strength:** firing at every target plus a normal order is deliberately strong. If it dominates, the first levers to try are artillery Cost, or a limit on barrage targets.
+8. **Terrain numbers:** road march +2 Move, forest costs 2 Move and gives +1 Def, cavalry −1 in forest, towns +1 Def (not dug in), bridge attacker −1.
+9. **Fording** takes a whole turn and is never done by the step rule on its own.
+10. **The step rule** (7.2): keep left, never away, and road marches that follow the road are new as of playtest round 7. Watch for moves that feel wrong.
 
 Open design questions:
 
@@ -583,6 +601,7 @@ New units use the standard stat block. A unit entry has:
 | Half strength | A unit that has taken one hit. −1 to all stats. |
 | Hit | One step of damage: full to half strength, or half strength to destroyed. |
 | Initiative | Whose first order is carried out first. |
+| Keep left | The last tie-break of the step rule: of two hexes, take the one on the left as the unit faces its destination. |
 | Knockback | The loser of a melee retreating one hex directly away from the winner. |
 | Margin | Attacker's total minus defender's total. 0 or less: repelled or miss. 1–2: one hit. 3+: destroyed. |
 | No man's land | The gap that always remains between enemy units after every order. Two enemy units adjacent means a rule was missed. |
@@ -591,9 +610,10 @@ New units use the standard stat block. A unit entry has:
 | Range band | The distances between a unit's minimum and maximum range. |
 | Rear | The three edges behind a unit. |
 | River | Edge terrain. Can't be crossed except at a bridge or by fording. No contact or support across it. |
-| Road march | A Move from a road hex to a road hex. Follows the road with +2 Move and ignores the safe route rule. |
-| Safe route | The shortest path that never passes next to an enemy. Units take it whenever one exists. |
+| Road march | A Move from a road hex to a road hex. Follows the road, even round bends, with +2 Move. |
+| Slide | A sideways step, taken only when no closer hex is open, and only if it gets nearer as the crow flies. |
 | Starting limit | The most a player may spend on units before the game. The rest of the capacity goes in the bank. |
+| Step rule | How units move: one step at a time, always to a hex closer to the destination (7.2). |
 | Support | +1 to a unit's combat total for each adjacent friendly unit. Melee: both sides. Ranged: target only. |
 | Tie-break | The token deciding tied initiative. Passes to the other player each time it is used. |
 | Town / hamlet | Settlement hexes. Defender +1 Def. Often scenario objectives. |

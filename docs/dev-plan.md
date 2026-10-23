@@ -327,6 +327,28 @@ From `playtests/newMapTest.json` (analysis: all 7 kills were ranged; cavalry Clo
 - **Capture status**: show when a town is captured and must be held for one more turn.
 - Reach preview uses forest costs.
 
+### 7.11 Playtest round 7: the step rule replaces pathfinding (do next)
+
+Movement had become a route search no human could do at the table. It is now a **local step rule** that players can trace with a finger: core-rules.md 7.2 (rewritten), 2.3 (road march), 6.2, 6.3, 6.5, 7.1, 7.3, EX-8, EX-10, EX-11 and EX-12. **This replaces the safe route, the cheapest-path search (Dijkstra) and the unreachable-destination fallback** from 7.7 and 7.10; remove them from the engine.
+
+**Reference.** `docs/tools/movement_reference.py` is a small Python model of exactly these rules. `python3 docs/tools/movement_reference.py data/maps/two-towns.yaml` prints every step of eight example moves, with the options at each step and why one was chosen; it also drew `docs/images/movement-examples.png`. The Go engine must produce the same steps. Turn its printed examples into Go tests (expected hex sequences and stop reasons), alongside the rewritten EX-8, EX-10, EX-11 and EX-12.
+
+**Engine.**
+
+- One step at a time, from the positions at the moment the order runs. Options: open neighbours closer to the destination (hex distance); if none, open neighbours at the same distance that are nearer as the crow flies (hex-centre distance); none, stop. Ties: not next to an enemy (ignoring a Close order's named target), then not forest, then **keep left** (of two tied directions, the one anticlockwise of the other).
+- Closed hexes: off the map, any unit, across a river edge that isn't a bridge, or already entered this order.
+- Costs: forest 2, else 1; the first step is always allowed; stop when the next step can't be paid, at the destination, or on contact. Close orders: half Move budget, stop when next to the target.
+- Road march (start and destination both road hexes, Move orders only): follow road links, +2 Move; choose only where there's more than one road hex to step to (closer first, then the tie order); don't stop at bends; stop when the road ahead is blocked.
+- Fording unchanged.
+- Every executed move records, for each step: the options considered (with notes such as "forest", "next to enemy"), which kind of step it was (closer, slide, road) and why the chosen hex won ("only option", "avoids the enemy", "avoids the forest", "keep left"), plus why the move stopped. Put this in the event log.
+- Regenerate the golden replays (results will change) and note it in the changelog.
+
+**Interface.**
+
+- **Draw every executed move's path** on the map during turn replay (and for the selected unit's last move), using the same line styles as orders.
+- Each move event in the replay has an **expandable step-by-step breakdown**, e.g. "Step 3: options G8 (next to enemy), G9 → G9: avoids the enemy". It must come straight from the engine's record, so it shows exactly what the engine did.
+- Planning previews use the same step rule on terrain only (ignoring units), as now.
+
 ### 7.4 Parked (don't start without being asked)
 
 - **Map-first layout.** The map should be the main focus and fill the screen. All panels (orders, unit details, event playback, sandbox) become either docked strips around the map edges or floating, movable windows. A large layout change; do it as one piece of work when asked, not piecemeal.
