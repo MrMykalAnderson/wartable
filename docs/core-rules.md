@@ -128,20 +128,25 @@ A unit is either at **full strength** or **half strength**.
 
 Each unit is shown as a hex token:
 
-- **Symbol:** a box with a military-style symbol for the unit type. Infantry is a box with a cross (X), cavalry a box with a single diagonal line, artillery a box containing a rounded dot.
-- **Front edge** marked **red**, **flank edges** marked **green**, rear edges unmarked. This shows facing at a glance.
-- **Order markers:** **?** means the unit has special orders; **!** means it has passive orders.
-- A half-strength unit's token is turned over (or otherwise marked as damaged).
+Tokens follow the NATO military symbol standard (APP-6), so the battlefield reads at a glance:
 
-Example token art is in [docs/images](images/). The stat tables in those images are from an earlier draft (they still show Size); the tables in these rules take precedence.
+![Unit tokens](images/token-key.png)
+
+- **Colour:** the hex is the side's colour (North blue, South red).
+- **Type:** a white frame holding the NATO symbol. Infantry is a cross (X), cavalry a single diagonal (bottom left to top right), artillery a solid dot. Mobilised artillery adds NATO's "towed" mark under the frame: two wheels on an axle.
+- **Size:** the unit's echelon above the frame, set by the scenario (I company, II battalion, III regiment, X brigade).
+- **Number:** below the frame, in arabic numerals (roman numerals would be confused with the size marks). The symbol already says the type, so "1" is enough: North's 1st infantry and 1st cavalry are told apart by their symbols.
+- **Facing:** the front edge is marked **yellow** with a dark outline, the two flank edges thin **white**, rear edges unmarked. These read on both sides' colours.
+- **Half strength:** the hex is washed out, and the frame carries NATO's "reduced" mark (−) at its top right. On the table, turn the token over.
+- **Order markers:** **?** means the unit has special orders; **!** means it has passive orders.
+
+The original hand-drawn token art is in [docs/images](images/) for reference; these tokens replace it.
 
 ### 3.4 Standard units
 
 These are the three standard unit templates. Other units are usually variations on them.
 
 #### Infantry
-
-![Infantry token](images/infantry.png)
 
 The most basic unit: no ranged attack and a short move. On its own it can only damage an enemy by attacking a flank or the rear.
 
@@ -153,8 +158,6 @@ The most basic unit: no ranged attack and a short move. On its own it can only d
 
 #### Cavalry
 
-![Cavalry token](images/cavalry.png)
-
 Fast shock troops with both melee and a short-ranged attack.
 
 | Cost | Move | Def | Range | Attack |
@@ -164,8 +167,6 @@ Fast shock troops with both melee and a short-ranged attack.
 *"Move swiftly and unleash hell!"*
 
 #### Artillery
-
-![Artillery token](images/artillery.png)
 
 Long-ranged guns that must be set up before they can fire, and are vulnerable while moving.
 

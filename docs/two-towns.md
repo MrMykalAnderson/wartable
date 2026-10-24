@@ -17,6 +17,7 @@ Version 0.1 (draft for playtesting). A larger battle across a river, using the [
 | Units allowed | Infantry (10), Cavalry (20), Artillery (15) |
 | Turn limit | 16 turns |
 | Tie-break | North holds it at the start of the game |
+| Unit size shown | II (battalion): "Musket n5" in the scale draft |
 
 ## The map
 

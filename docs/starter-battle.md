@@ -14,6 +14,7 @@ Version 0.1 (draft). A small head-to-head battle for learning Wartable and testi
 | Units allowed | Infantry (10), Cavalry (20), Artillery (15) |
 | Turn limit | 12 turns |
 | Tie-break | North holds it at the start of the game |
+| Unit size shown | II (battalion) |
 
 ## Map
 

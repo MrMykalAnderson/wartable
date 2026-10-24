@@ -164,7 +164,7 @@ Each milestone ends with passing tests, a short note in `docs/CHANGELOG.md`, and
 | M7 | Web play and sandbox | Enter orders for both players in the browser (hot-seat) **by clicking on the map**, and edit rules data in the browser to replay a turn under different values. See 7.1. |
 | M8 | Online two-player play | Games stored on the server; each player gets a private link and sees only their own orders until both have submitted. See 7.2. |
 
-For M6 onward, draw units as described in core-rules.md 3.3 and shown in `docs/images/`: a type symbol in a box, the front edge red, the flank edges green, half-strength units visibly marked. Draw them as SVG (don't embed the PNGs) so tokens can rotate to any facing and scale cleanly.
+For M6 onward, draw units as described in core-rules.md 3.3 (NATO-style tokens; see 7.12). Draw them as SVG (don't embed the PNGs) so tokens can rotate to any facing and scale cleanly.
 
 ### 7.1 M7: click-to-order
 
@@ -348,6 +348,19 @@ Movement had become a route search no human could do at the table. It is now a *
 - **Draw every executed move's path** on the map during turn replay (and for the selected unit's last move), using the same line styles as orders.
 - Each move event in the replay has an **expandable step-by-step breakdown**, e.g. "Step 3: options G8 (next to enemy), G9 → G9: avoids the enemy". It must come straight from the engine's record, so it shows exactly what the engine did.
 - Planning previews use the same step rule on terrain only (ignoring units), as now.
+
+### 7.12 NATO-style unit tokens (do next)
+
+The type-letter labels from 7.10 don't read at a glance. Replace them with NATO APP-6 style tokens: core-rules.md 3.3 (rewritten), shown in `docs/images/token-key.png` and `docs/images/token-mockup.png`. **Reference drawing code:** `token()` in `docs/tools/token_mockup.py` (SVG; match its proportions and colours).
+
+- Hex body in the side colour (washed out at half strength); white NATO frame with the type symbol: infantry X, cavalry one diagonal, artillery dot, plus the towed mark (two wheels on an axle) when Mobilised.
+- Echelon above the frame (from a new scenario field, e.g. `echelon: II`; both current scenarios use II); designation number below in arabic numerals (the unit's ordinal: "1", "2" …); NATO reduced mark (−) at half strength.
+- Facing: front edge yellow (#ffd23f) over a dark casing, flanks thin white, rear unmarked. Replaces red/green everywhere tokens or ghosts show facing.
+- **Levels of detail by zoom:** far (small hexes) shows body, frame, symbol and front edge only; mid adds echelon, number, flanks and the reduced mark; close adds state text (READY / MOBILISED). Pick the thresholds from the on-screen hex size.
+- Keep the full unit name in the hover tooltip and unit card.
+- Purely visual: saves, rules and the engine don't change, and existing saves must load and display with the new tokens.
+
+**Parked for M8:** NATO viewer-relative frames (your units in rectangles, the enemy's in diamonds) once each player has their own view.
 
 ### 7.4 Parked (don't start without being asked)
 
