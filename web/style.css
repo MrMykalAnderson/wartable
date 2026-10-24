@@ -536,6 +536,28 @@ button {
   stroke: #fff;
   stroke-width: 1;
 }
+/* An earlier move this same turn, shown as context behind the step
+   currently being viewed (dev-plan.md section 7.11: "draw every
+   executed move's path", not just the current one). */
+.taken-path-faded {
+  opacity: 0.35;
+  stroke-width: 2;
+}
+
+/* The step rule's own step-by-step breakdown (dev-plan.md section
+   7.11), collapsed by default underneath a "moved" event's summary. */
+.step-breakdown {
+  margin-top: 0.3rem;
+  font-size: 0.82rem;
+  color: #554;
+}
+.step-breakdown summary {
+  cursor: pointer;
+  font-weight: bold;
+}
+.step-breakdown div {
+  margin: 0.15rem 0 0 0.9rem;
+}
 
 /* Unit detail card (docs/dev-plan.md section 7.3, interface item 3). */
 .unit-card {

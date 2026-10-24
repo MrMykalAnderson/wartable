@@ -1430,40 +1430,84 @@ function renderStepDetail(e) {
     div.textContent = line;
     detail.appendChild(div);
   });
+  renderStepBreakdown(detail, e);
 }
 
-// priorBoardForStep returns the board exactly as it stood right before
-// the currently-viewed step, for finding where a "moved" event's unit
-// started from (events only snapshot the board right after themselves).
-function priorBoardForStep() {
-  const entry = currentTurnEntry();
-  if (!entry) return null;
-  if (state.stepIndex <= 0) return entry.boardBefore;
-  return entry.events[state.stepIndex - 1].board;
+// describeStepRuleStep renders one engine-recorded step of the step rule
+// (docs/core-rules.md section 7.2) as a line such as "Step 3: closer
+// options G8 (next to enemy), G9 → G9: avoids the enemy" — straight from
+// the engine's own record (dev-plan.md section 7.11), never recomputed
+// here.
+function describeStepRuleStep(s, i) {
+  const opts = s.options
+    .map((o) => {
+      const name = hexName(o.hex.col, o.hex.row);
+      return o.notes && o.notes.length ? `${name} (${o.notes.join(", ")})` : name;
+    })
+    .join(", ");
+  return `Step ${i + 1}: ${s.kind} options ${opts} → ${hexName(s.hex.col, s.hex.row)}: ${s.reason}`;
 }
 
-// renderPathOverlay draws the route a "moved" event's unit actually took
-// (docs/dev-plan.md section 7.3, latest interface pass), as a solid line
-// from its pre-event position through every hex in event.path.
-function renderPathOverlay(e) {
+// renderStepBreakdown appends an expandable, collapsed-by-default
+// breakdown of a "moved" event's steps (dev-plan.md section 7.11's
+// interface requirement), built directly from the engine's Steps/
+// StopReason fields.
+function renderStepBreakdown(container, e) {
+  if (!e.steps || e.steps.length === 0) return;
+  const details = document.createElement("details");
+  details.className = "step-breakdown";
+  const summary = document.createElement("summary");
+  summary.textContent = `Step-by-step (${e.steps.length} step${e.steps.length === 1 ? "" : "s"})`;
+  details.appendChild(summary);
+  e.steps.forEach((s, i) => {
+    const div = document.createElement("div");
+    div.textContent = describeStepRuleStep(s, i);
+    details.appendChild(div);
+  });
+  if (e.stopReason) {
+    const div = document.createElement("div");
+    div.textContent = `Stopped: ${e.stopReason}`;
+    details.appendChild(div);
+  }
+  container.appendChild(details);
+}
+
+// renderPathOverlay draws every executed move's path up to and including
+// the step being viewed (docs/dev-plan.md section 7.11: "draw every
+// executed move's path on the map during turn replay"), each as a solid
+// line from its pre-event position through every hex in event.path. The
+// step currently being viewed is drawn full-strength with dots at each
+// hex entered; earlier moves this turn are drawn faded, as context.
+function renderPathOverlay() {
   const svg = document.getElementById("map");
   const old = document.getElementById("path-layer");
   if (old) old.remove();
-  if (!e || !e.path || e.path.length === 0) return;
-  const prior = priorBoardForStep();
-  const startUnit = prior && prior.units.find((u) => u.id === e.unit);
-  if (!startUnit) return;
+  const events = currentEvents();
+  const upTo = Math.min(state.stepIndex, events.length - 1);
+  if (upTo < 0) return;
 
   const layer = svgEl("g", { id: "path-layer" });
   svg.appendChild(layer);
-  const points = [hexCenter(startUnit.col, startUnit.row), ...e.path.map((h) => hexCenter(h.col, h.row))];
-  for (let i = 0; i < points.length - 1; i++) {
-    layer.appendChild(
-      svgEl("line", { x1: points[i].x, y1: points[i].y, x2: points[i + 1].x, y2: points[i + 1].y, class: "taken-path" })
-    );
-  }
-  for (let i = 1; i < points.length - 1; i++) {
-    layer.appendChild(svgEl("circle", { cx: points[i].x, cy: points[i].y, r: 3, class: "taken-path-dot" }));
+  for (let i = 0; i <= upTo; i++) {
+    const e = events[i];
+    if (!e.path || e.path.length === 0) continue;
+    const prior = i === 0 ? currentTurnEntry().boardBefore : events[i - 1].board;
+    const startUnit = prior && prior.units.find((u) => u.id === e.unit);
+    if (!startUnit) continue;
+
+    const current = i === upTo;
+    const points = [hexCenter(startUnit.col, startUnit.row), ...e.path.map((h) => hexCenter(h.col, h.row))];
+    const lineClass = current ? "taken-path" : "taken-path taken-path-faded";
+    for (let j = 0; j < points.length - 1; j++) {
+      layer.appendChild(
+        svgEl("line", { x1: points[j].x, y1: points[j].y, x2: points[j + 1].x, y2: points[j + 1].y, class: lineClass })
+      );
+    }
+    if (current) {
+      for (let j = 1; j < points.length - 1; j++) {
+        layer.appendChild(svgEl("circle", { cx: points[j].x, cy: points[j].y, r: 3, class: "taken-path-dot" }));
+      }
+    }
   }
 }
 
@@ -1500,13 +1544,13 @@ function renderStep() {
     const e = events[state.stepIndex];
     summary.textContent = e.summary;
     renderStepDetail(e);
-    renderPathOverlay(e);
+    renderPathOverlay();
     highlightUnit(e.unit);
   } else {
     const entry = currentTurnEntry();
     summary.textContent = entry ? "(start of turn)" : "";
     renderStartOfTurnOrders(entry);
-    renderPathOverlay(null);
+    renderPathOverlay();
     highlightUnit(null);
   }
   renderEventList();

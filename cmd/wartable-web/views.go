@@ -380,19 +380,56 @@ func newRangedView(r *game.RangedResult) *RangedView {
 	}
 }
 
+// StepOptionView is one option a step of the step rule considered
+// (docs/core-rules.md section 7.2), with Notes such as "forest" or
+// "next to enemy" explaining why it might lose the tie.
+type StepOptionView struct {
+	Hex   HexView  `json:"hex"`
+	Notes []string `json:"notes,omitempty"`
+}
+
+// StepView is one step of an executed move, straight from the engine's
+// own record (dev-plan.md section 7.11), for the replay's expandable
+// step-by-step breakdown: Hex is where it stepped to, Kind is "closer",
+// "slide" or "road", Options is what it chose from, and Reason is why
+// the chosen hex won the tie.
+type StepView struct {
+	Hex     HexView          `json:"hex"`
+	Kind    string           `json:"kind"`
+	Reason  string           `json:"reason"`
+	Options []StepOptionView `json:"options"`
+}
+
+func newStepView(s game.MoveStep) StepView {
+	options := make([]StepOptionView, len(s.Options))
+	for i, o := range s.Options {
+		options[i] = StepOptionView{Hex: HexView{Col: o.Hex.Col, Row: o.Hex.Row}, Notes: o.Notes}
+	}
+	return StepView{
+		Hex:     HexView{Col: s.Hex.Col, Row: s.Hex.Row},
+		Kind:    s.Kind,
+		Reason:  s.Reason,
+		Options: options,
+	}
+}
+
 // EventView is one turn-execution event as seen by the web viewer: Kind
 // and Unit for programmatic use (e.g. highlighting Unit on the map),
 // Summary for a one-line display, Board for replaying the map at this
 // exact step, Path for the route a "moved" event's unit actually took,
-// and Melee/Ranged for a full calculation breakdown.
+// Steps/StopReason for its step-by-step breakdown (empty for a ford,
+// which the step rule never takes on its own), and Melee/Ranged for a
+// full calculation breakdown.
 type EventView struct {
-	Kind    string      `json:"kind"`
-	Unit    string      `json:"unit"`
-	Summary string      `json:"summary"`
-	Board   BoardView   `json:"board"`
-	Path    []HexView   `json:"path,omitempty"`
-	Melee   *MeleeView  `json:"melee,omitempty"`
-	Ranged  *RangedView `json:"ranged,omitempty"`
+	Kind       string      `json:"kind"`
+	Unit       string      `json:"unit"`
+	Summary    string      `json:"summary"`
+	Board      BoardView   `json:"board"`
+	Path       []HexView   `json:"path,omitempty"`
+	Steps      []StepView  `json:"steps,omitempty"`
+	StopReason string      `json:"stopReason,omitempty"`
+	Melee      *MeleeView  `json:"melee,omitempty"`
+	Ranged     *RangedView `json:"ranged,omitempty"`
 }
 
 func newEventView(e game.Event, core rules.CoreRules) EventView {
@@ -403,14 +440,23 @@ func newEventView(e game.Event, core rules.CoreRules) EventView {
 			path[i] = HexView{Col: h.Col, Row: h.Row}
 		}
 	}
+	var steps []StepView
+	if len(e.Steps) > 0 {
+		steps = make([]StepView, len(e.Steps))
+		for i, s := range e.Steps {
+			steps[i] = newStepView(s)
+		}
+	}
 	return EventView{
-		Kind:    e.Kind,
-		Unit:    e.Unit,
-		Summary: e.Summary(),
-		Board:   newBoardView(e.Board, core),
-		Path:    path,
-		Melee:   newMeleeView(e.Melee),
-		Ranged:  newRangedView(e.Ranged),
+		Kind:       e.Kind,
+		Unit:       e.Unit,
+		Summary:    e.Summary(),
+		Board:      newBoardView(e.Board, core),
+		Path:       path,
+		Steps:      steps,
+		StopReason: e.StopReason,
+		Melee:      newMeleeView(e.Melee),
+		Ranged:     newRangedView(e.Ranged),
 	}
 }
 

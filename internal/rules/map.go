@@ -42,6 +42,7 @@ type TerrainMap struct {
 	Towns         map[string][]hex.Offset
 	Hamlets       map[string][]hex.Offset
 	Roads         map[string][]hex.Offset // road chains, in map order, for road-march routing.
+	RoadLink      map[hex.Edge]bool       // consecutive pairs within a road chain (docs/core-rules.md 2.3/7.2's road march).
 }
 
 // IsForest reports whether h is forest (never true for a road hex: core-
@@ -53,6 +54,14 @@ func (m *TerrainMap) IsForest(h hex.Offset) bool {
 // IsRoad reports whether h is a road hex.
 func (m *TerrainMap) IsRoad(h hex.Offset) bool {
 	return m != nil && m.RoadAt[h]
+}
+
+// IsRoadLink reports whether a and b are consecutive hexes within some
+// named road chain (docs/core-rules.md section 2.3/7.2): a road march
+// follows these links only, not just any two adjacent road hexes, since
+// two chains can cross at a shared hex without actually joining there.
+func (m *TerrainMap) IsRoadLink(a, b hex.Offset) bool {
+	return m != nil && m.RoadLink[hex.NewEdge(a, b)]
 }
 
 // Objective returns the name of the town or hamlet at h, if any.
@@ -132,6 +141,7 @@ func LoadTerrainMap(path string) (*TerrainMap, error) {
 		Forest: map[hex.Offset]bool{}, TownAt: map[hex.Offset]string{}, HamletAt: map[hex.Offset]string{},
 		RoadAt: map[hex.Offset]bool{}, River: map[hex.Edge]bool{}, Bridge: map[hex.Edge]bool{},
 		Towns: map[string][]hex.Offset{}, Hamlets: map[string][]hex.Offset{}, Roads: map[string][]hex.Offset{},
+		RoadLink: map[hex.Edge]bool{},
 	}
 	inBounds := func(h hex.Offset) bool {
 		return h.Col >= 0 && h.Col < m.Columns && h.Row >= 0 && h.Row < m.Rows
@@ -154,6 +164,7 @@ func LoadTerrainMap(path string) (*TerrainMap, error) {
 			if _, ok := hex.AdjacentDirection(hexes[i-1], hexes[i]); !ok {
 				return nil, fmt.Errorf("rules: %s: road %q: %s and %s are not adjacent", path, name, hexes[i-1], hexes[i])
 			}
+			m.RoadLink[hex.NewEdge(hexes[i-1], hexes[i])] = true
 		}
 		m.Roads[name] = hexes
 	}

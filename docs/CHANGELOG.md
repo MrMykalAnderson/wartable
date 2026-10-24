@@ -1,5 +1,28 @@
 # Changelog
 
+## Playtest round 7: the step rule replaces pathfinding (dev-plan.md section 7.11)
+
+Movement had become a route search no human could do at the table. Replaced with a local **step rule**: each step is decided fresh from the hexes next to the unit, matching `docs/tools/movement_reference.py`, the new reference model CD cross-checked it against.
+
+**Rules.**
+
+- **The step rule** (core-rules.md 7.2): options are open neighbours closer to the destination (hex distance); if none, open neighbours the same distance away but nearer as the crow flies (a slide — new `hex.CenterDistance`, pixel-space hex centres). No options: stop. One: take it. A tie: not next to an enemy (ignoring a Close order's own named target), then not forest, then **keep left** (of the tied directions, the one anticlockwise of all the others). Closed hexes: off the map, any unit, an unbridged river edge, or already entered this order.
+- **This replaces the safe route, the cheapest-path search (Dijkstra) and the unreachable-destination fallback** from 7.7/7.10: `internal/hex/cheapest_path.go` (`CheapestPath`/`ReachCost`) and `internal/hex.ShortestPath`/`FloodFill`'s pathfinding wrapper are deleted; `internal/game`'s `safePassable`/`safeShortestPath`/`roadPassable`/`roadMarchPath`/`moveTravelPath`/`moveTowards` are replaced by `internal/game/step_move.go`'s `StepMove` (the full walk, used by Move and Close and Attack) and `nextMoveStep` (one step, used directly by Close and Fire's own loop, which stops on range/arc rather than target adjacency). `hex.FloodFill` stays, for the road reach guide only.
+- **Road march** (2.3) now follows only the explicit **links** between consecutive hexes of a named road chain (`rules.TerrainMap.RoadLink`/`IsRoadLink`), not just any two adjacent road hexes — two chains can cross at a shared hex without joining there. A choice of road hex (a junction) uses closer-first, then the same tie order.
+- Fording (2.3) is unchanged: still a separate one-hex special case the step rule never takes on its own, checked first by `executeMove`/`PreviewMovePath`.
+- **Event logging**: `Event` gained `Steps []MoveStep` and `StopReason string` — every step's options (each with "forest"/"next to enemy" notes), its kind ("closer"/"slide"/"road") and why it won the tie, plus why the move stopped. Reaching the destination on a hex that's also adjacent to an enemy still ambushes (`Contact` is set regardless of which stop reason is reported — `TestExecuteMoveAmbush`, pre-existing, caught this).
+- The reach guide (`hexesWithin`) is now driven by the real step rule itself (`game.StepMove` on an empty board, as `PreviewMovePath` already did), not a separate cost search: a hex the greedy rule can't actually walk to within budget isn't shown, even if some other route could reach it.
+- **Regenerated the Starter Battle's golden replays** (`cmd/wartable/testdata/{annihilation,turnlimit}/golden.txt`): results changed, as warned — different ties resolve to different hexes under the new rule, same outcomes.
+- New `internal/game/step_move_test.go` ports all 8 of `movement_reference.py`'s worked examples against the real Two Towns map (exact hex sequences, step kinds and reasons, stop reasons), plus the rewritten EX-8 end to end through `executeMove`.
+
+**Interface.**
+
+- Turn replay draws every executed move's path so far this turn, not just the one being viewed: the current step full-strength with dots, earlier ones faded (`taken-path-faded`), from `renderPathOverlay` in `web/app.js`.
+- Each "moved" event gets a collapsed-by-default **step-by-step breakdown** (`<details>`), e.g. "Step 3: closer options G8 (next to enemy), G9 → G9: avoids the enemy", built straight from the engine's `Steps`/`StopReason` (`StepView` in `cmd/wartable-web/views.go`) — never recomputed in JavaScript.
+- Planning previews (`PreviewMovePath`) and the reach guide both run the real step rule on terrain only, ignoring units, as before.
+
+`go vet ./...` and `go test ./...` pass.
+
 ## M1: `hex` package
 
 Implemented `internal/hex`: offset/cube coordinate conversion, neighbours,

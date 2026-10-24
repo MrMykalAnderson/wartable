@@ -30,7 +30,9 @@ func applyAmbush(board Board, core rules.CoreRules, moverID string) (Board, []Ev
 }
 
 // executeMove executes a Move order (docs/core-rules.md section 6.2): up
-// to its full Move, stopping on contact with any enemy, which ambushes it.
+// to its full Move, by the step rule (7.2), stopping on contact with any
+// enemy, which ambushes it. Fording (2.3) is checked first, since it's a
+// one-hex whole order the step rule never takes on its own.
 func executeMove(state GameState, core rules.CoreRules, mover UnitInstance, o orders.Order) (GameState, []Event) {
 	if !mover.CanMove() {
 		return state, []Event{{Kind: "order-skipped", Unit: mover.ID, Detail: "cannot move in its current state", Board: state.Board}}
@@ -41,19 +43,28 @@ func executeMove(state GameState, core rules.CoreRules, mover UnitInstance, o or
 	}
 
 	startPos, startFacing := mover.Pos, mover.Facing
-	outcome := moveTowards(core, state.Board, mover, dest, mover.Stats(core).Move, "")
+	var path []hex.Offset
+	var steps []MoveStep
+	stopReason := ""
+	contact := false
+	if p, ok := fordPath(state.Board, mover, dest); ok {
+		path, stopReason = p, "forded the river"
+	} else {
+		result := StepMove(core, state.Board, mover, dest, mover.Stats(core).Move, "")
+		path, steps, stopReason, contact = result.Path, result.Steps, result.StopReason, result.Contact
+	}
 
-	mover.Pos = currentPos(startPos, outcome.Path)
+	mover.Pos = currentPos(startPos, path)
 	mover.Facing = startFacing
 	if o.HasFacing {
 		mover.Facing = o.Facing
-	} else if d, ok := directionOfLastStep(startPos, outcome.Path); ok {
+	} else if d, ok := directionOfLastStep(startPos, path); ok {
 		mover.Facing = d
 	}
 	state.Board = state.Board.WithUnit(mover)
 
-	events := []Event{{Kind: "moved", Unit: mover.ID, Detail: fmt.Sprintf("moved to %s", mover.Pos), Board: state.Board, Path: outcome.Path}}
-	if outcome.Contact {
+	events := []Event{{Kind: "moved", Unit: mover.ID, Detail: fmt.Sprintf("moved to %s", mover.Pos), Board: state.Board, Path: path, Steps: steps, StopReason: stopReason}}
+	if contact {
 		var ambushEvents []Event
 		state.Board, ambushEvents = applyAmbush(state.Board, core, mover.ID)
 		events = append(events, ambushEvents...)
@@ -92,10 +103,10 @@ func executeCloseAndAttack(state GameState, core rules.CoreRules, mover UnitInst
 
 	startPos := mover.Pos
 	half := mover.Stats(core).Move / 2
-	outcome := moveTowards(core, state.Board, mover, target.Pos, half, target.ID)
+	result := StepMove(core, state.Board, mover, target.Pos, half, target.ID)
 
-	mover.Pos = currentPos(startPos, outcome.Path)
-	if d, ok := directionOfLastStep(startPos, outcome.Path); ok {
+	mover.Pos = currentPos(startPos, result.Path)
+	if d, ok := directionOfLastStep(startPos, result.Path); ok {
 		mover.Facing = d
 	} else {
 		// Section 4.1 (provisional): a Close order that doesn't move turns
@@ -105,13 +116,15 @@ func executeCloseAndAttack(state GameState, core rules.CoreRules, mover UnitInst
 	state.Board = state.Board.WithUnit(mover)
 
 	events := []Event{}
-	if len(outcome.Path) > 0 {
+	if len(result.Path) > 0 {
 		events = append(events, Event{
-			Kind:   "moved",
-			Unit:   mover.ID,
-			Detail: fmt.Sprintf("closing on %s (now at %s)", target.ID, mover.Pos),
-			Board:  state.Board,
-			Path:   outcome.Path,
+			Kind:       "moved",
+			Unit:       mover.ID,
+			Detail:     fmt.Sprintf("closing on %s (now at %s)", target.ID, mover.Pos),
+			Board:      state.Board,
+			Path:       result.Path,
+			Steps:      result.Steps,
+			StopReason: result.StopReason,
 		})
 	}
 
@@ -119,7 +132,7 @@ func executeCloseAndAttack(state GameState, core rules.CoreRules, mover UnitInst
 		s, fightEvents := fight(state)
 		return s, append(events, fightEvents...)
 	}
-	if outcome.Contact {
+	if result.Contact {
 		var ambushEvents []Event
 		state.Board, ambushEvents = applyAmbush(state.Board, core, mover.ID)
 		events = append(events, ambushEvents...)
@@ -147,9 +160,12 @@ func executeFire(state GameState, core rules.CoreRules, shooter UnitInstance, o 
 }
 
 // executeCloseAndFire executes a Close and Fire order (docs/core-rules.md
-// section 6.5): closing up to half Move (rounded down), checking before
-// each step and after the last whether it can fire on the named target,
-// and firing as soon as it can. Artillery can never use this order.
+// section 6.5): closing up to half Move (rounded down) by the step rule
+// (7.2), checking before each step and after the last whether it can
+// fire on the named target, and firing as soon as it can. Artillery can
+// never use this order. Unlike Close and Attack, there's no "next to the
+// target" stop condition here — only range and arc decide when it stops
+// to fire — so this walks nextMoveStep itself rather than using StepMove.
 func executeCloseAndFire(state GameState, core rules.CoreRules, mover UnitInstance, o orders.Order) (GameState, []Event) {
 	if len(mover.Template.States) > 0 {
 		return state, []Event{{Kind: "order-skipped", Unit: mover.ID, Detail: "artillery cannot use Close and Fire", Board: state.Board}}
@@ -161,7 +177,6 @@ func executeCloseAndFire(state GameState, core rules.CoreRules, mover UnitInstan
 
 	startPos, startFacing := mover.Pos, mover.Facing
 	half := mover.Stats(core).Move / 2
-	full := safeShortestPath(core, state.Board, mover, target.Pos, target.ID)
 	cost := StepCostFor(core, state.Board)
 
 	facingFor := func(path []hex.Offset) hex.Direction {
@@ -178,24 +193,44 @@ func executeCloseAndFire(state GameState, core rules.CoreRules, mover UnitInstan
 	}
 
 	var path []hex.Offset
+	var steps []MoveStep
+	stopReason := ""
 	pos := mover.Pos
 	result, fired := tryFire(pos, path)
 	contact := false
 	if !fired {
-		spent := 0
-		for i := 0; i < len(full); i++ {
-			stepCost := cost(full[i])
-			if spent > 0 && spent+stepCost > half {
+		cur := pos
+		visited := map[hex.Offset]bool{cur: true}
+		used := 0
+		for {
+			step, ok := nextMoveStep(state.Board, mover, cur, target.Pos, visited, target.ID, false)
+			if !ok {
+				stopReason = "no open hex gets any closer"
 				break
 			}
-			pos = full[i]
-			path = append(path, pos)
-			spent += stepCost
+			stepCost := cost(step.Hex)
+			if len(path) > 0 && used+stepCost > half {
+				stopReason = fmt.Sprintf("can't pay %d for %s (%d Move left)", stepCost, step.Hex, half-used)
+				break
+			}
+			used += stepCost
+			path = append(path, step.Hex)
+			steps = append(steps, step)
+			visited[step.Hex] = true
+			cur = step.Hex
+			pos = cur
+
 			if state.Board.AdjacentEnemy(mover.Side, pos) {
 				contact = true
+				stopReason = fmt.Sprintf("contact at %s", pos)
 				break
 			}
 			if result, fired = tryFire(pos, path); fired {
+				stopReason = "in range and arc to fire"
+				break
+			}
+			if used >= half {
+				stopReason = "used all its Move"
 				break
 			}
 		}
@@ -208,11 +243,13 @@ func executeCloseAndFire(state GameState, core rules.CoreRules, mover UnitInstan
 	var events []Event
 	if len(path) > 0 {
 		events = append(events, Event{
-			Kind:   "moved",
-			Unit:   mover.ID,
-			Detail: fmt.Sprintf("closing on %s to fire (now at %s)", target.ID, mover.Pos),
-			Board:  state.Board,
-			Path:   path,
+			Kind:       "moved",
+			Unit:       mover.ID,
+			Detail:     fmt.Sprintf("closing on %s to fire (now at %s)", target.ID, mover.Pos),
+			Board:      state.Board,
+			Path:       path,
+			Steps:      steps,
+			StopReason: stopReason,
 		})
 	}
 	if fired {
