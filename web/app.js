@@ -22,25 +22,26 @@ const MARGIN = HEX_SIZE * 2;
 // Direction order matches internal/hex.Directions: clockwise from N.
 const DIRECTIONS = ["N", "NE", "SE", "S", "SW", "NW"];
 
+// NATO APP-6 style tokens (docs/core-rules.md section 3.3, dev-plan.md
+// section 7.12): the hex body is the side's colour (washed out at half
+// strength), matching docs/tools/token_mockup.py's reference palette.
 const SIDE_COLORS = {
-  north: "#6f93c9",
-  south: "#c97b6f",
+  north: "#2f5fa8",
+  south: "#b83a2e",
+};
+const SIDE_COLORS_HALF = {
+  north: "#9db6dc",
+  south: "#e2a59e",
 };
 
-// TYPE_LETTERS label a token with its type + number (docs/dev-plan.md
-// section 7.10: "I1", "C2", "A1"), read off the unit's own ID (e.g.
-// "North 1st Infantry" -> "I1") rather than recomputed — the ID's own
-// ordinal is already the source of truth.
-const TYPE_LETTERS = {
-  infantry: "I",
-  cavalry: "C",
-  artillery: "A",
-};
-
-function shortLabel(unit) {
-  const letter = TYPE_LETTERS[unit.type] || unit.type.charAt(0).toUpperCase();
+// unitNumber reads a token's designation (arabic numeral) off the
+// unit's own ID (e.g. "North 1st Infantry" -> "1") rather than
+// recomputed — the ID's own ordinal is already the source of truth. The
+// NATO symbol in the frame already says the type, so this is all a
+// token needs (core-rules.md 3.3).
+function unitNumber(unit) {
   const m = unit.id.match(/(\d+)(?:st|nd|rd|th)/i);
-  return letter + (m ? m[1] : "?");
+  return m ? m[1] : "?";
 }
 
 let state = {
@@ -243,9 +244,22 @@ function renderTerrain(svg, game) {
 // only reset when a different game is loaded.
 let view = null;
 
+// currentTokenLod is the level of detail tokens were last drawn at (set
+// by renderMap), so zoom handlers can tell whether a zoom change actually
+// crossed a tokenLodFor threshold before paying for a full redraw —
+// panning and small zoom steps within the same bucket are otherwise
+// cheap (viewBox-only), same as before dev-plan.md section 7.12.
+let currentTokenLod = null;
+
 function resetView(width, height) {
   view = { x: 0, y: 0, w: width, h: height };
   applyView();
+}
+
+// syncTokenLod redraws the map only if zooming has moved tokens into a
+// different level of detail bucket (docs/dev-plan.md section 7.12).
+function syncTokenLod() {
+  if (tokenLodFor() !== currentTokenLod) renderStep();
 }
 
 function applyView() {
@@ -269,6 +283,25 @@ function zoomBy(factor, anchorClientX, anchorClientY) {
   view.w = newW;
   view.h = newH;
   applyView();
+}
+
+// tokenLodFor picks a token's level of detail from the current zoom
+// level (docs/dev-plan.md section 7.12): "far" shows body/frame/symbol/
+// front edge only, so the battlefield reads at a glance when zoomed
+// out; "mid" adds echelon/number/flanks/the reduced mark; "close" adds
+// state text. Computed from the hex's actual on-screen radius (the
+// SVG's rendered size divided by its viewBox, since the viewBox — not
+// HEX_SIZE itself — is what zoom/pan change), falling back to "close"
+// before the map has been laid out (e.g. the very first render).
+function tokenLodFor() {
+  const svg = document.getElementById("map");
+  const rect = svg.getBoundingClientRect();
+  if (!view || !rect.width || !rect.height) return "close";
+  const scale = Math.min(rect.width / view.w, rect.height / view.h);
+  const radiusPx = HEX_SIZE * scale;
+  if (radiusPx < 22) return "far";
+  if (radiusPx < 38) return "mid";
+  return "close";
 }
 
 // renderMap draws board (either the live game, or a historical
@@ -322,21 +355,26 @@ function renderMap(board) {
     }
   }
 
+  const lod = tokenLodFor();
+  currentTokenLod = lod;
+  const echelon = (state.game && state.game.echelon) || "";
   for (const unit of board.units) {
-    drawUnit(svg, unit);
+    drawUnit(svg, unit, lod, echelon);
   }
 }
 
-function drawUnit(svg, unit) {
+function drawUnit(svg, unit, lod, echelon) {
   const { x, y } = hexCenter(unit.col, unit.row);
   const radius = HEX_SIZE * 0.72;
   const pts = hexVertices(x, y, radius);
   const facingIndex = DIRECTIONS.indexOf(unit.facing);
+  const half = unit.strength === "half";
 
-  const group = svgEl("g", { "data-unit-id": unit.id, class: "unit" + (unit.strength === "half" ? " unit-half" : "") });
+  const group = svgEl("g", { "data-unit-id": unit.id, class: "unit" + (half ? " unit-half" : "") });
 
   // A native tooltip, as a lightweight hover summary (see the unit card
-  // for the full detail, shown on selection).
+  // for the full detail, shown on selection) — always the full detail,
+  // regardless of the token's own level of detail at the current zoom.
   const range = unit.stats.maxRange > 0 ? `${unit.stats.minRange}-${unit.stats.maxRange}` : "-";
   const title = svgEl("title", {});
   title.textContent =
@@ -345,9 +383,7 @@ function drawUnit(svg, unit) {
     `Def ${unit.stats.def} · Move ${unit.stats.move} · Range ${range} · Attack ${unit.stats.attack}`;
   group.appendChild(title);
 
-  // A ring just outside the token, shown only while targetable: the
-  // token's own border is fully covered by the facing-indicator lines
-  // below, so the "can be targeted" highlight needs its own element.
+  // A ring just outside the token, shown only while targetable.
   const ringPts = hexVertices(x, y, radius * 1.22);
   group.appendChild(
     svgEl("polygon", {
@@ -357,52 +393,79 @@ function drawUnit(svg, unit) {
     })
   );
 
+  // Hex body in the side's colour, washed out at half strength
+  // (docs/core-rules.md section 3.3).
   group.appendChild(
     svgEl("polygon", {
       points: pts.map((p) => p.join(",")).join(" "),
-      fill: SIDE_COLORS[unit.side] || "#999",
-      "fill-opacity": "0.85",
-      stroke: "#222",
-      "stroke-width": "1",
+      fill: (half ? SIDE_COLORS_HALF : SIDE_COLORS)[unit.side] || "#999",
       class: "token-body",
     })
   );
 
-  // Edge markers: front (red), the two flanks (green), rear (gray),
-  // per docs/core-rules.md section 3.3's token convention.
+  // Facing edges: front (yellow, over a dark casing so it reads on
+  // either body colour) always; the two flanks (white) from "mid" zoom
+  // up; the rear is left unmarked (core-rules.md 3.3).
   for (let d = 0; d < 6; d++) {
     const diff = (((d - facingIndex) % 6) + 6) % 6;
-    let cls = "unit-rear";
-    if (diff === 0) cls = "unit-front";
-    else if (diff === 1 || diff === 5) cls = "unit-flank";
+    if (diff !== 0 && !((diff === 1 || diff === 5) && lod !== "far")) continue;
     const [ai, bi] = edgeVertexIndices(d);
-    group.appendChild(
-      svgEl("line", {
-        x1: pts[ai][0],
-        y1: pts[ai][1],
-        x2: pts[bi][0],
-        y2: pts[bi][1],
-        class: cls,
-        "stroke-width": "3",
-      })
-    );
+    const line = { x1: pts[ai][0], y1: pts[ai][1], x2: pts[bi][0], y2: pts[bi][1] };
+    if (diff === 0) {
+      group.appendChild(svgEl("line", { ...line, class: "unit-front-casing" }));
+      group.appendChild(svgEl("line", { ...line, class: "unit-front" }));
+    } else {
+      group.appendChild(svgEl("line", { ...line, class: "unit-flank" }));
+    }
   }
 
-  group.appendChild(
-    svgEl("text", {
-      x,
-      y: y + radius * 0.33,
-      "text-anchor": "middle",
-      "font-size": Math.round(radius * 0.62),
-      "font-weight": "bold",
-      class: "unit-label",
-    })
-  ).textContent = shortLabel(unit);
+  // The white NATO frame, holding the type symbol (core-rules.md 3.3:
+  // infantry X, cavalry one diagonal, artillery a dot, with the towed
+  // mark added when Mobilised).
+  const fw = radius * 0.98,
+    fh = radius * 0.62;
+  const fx = x - fw / 2,
+    fy = y - fh / 2 - radius * 0.04;
+  group.appendChild(svgEl("rect", { x: fx, y: fy, width: fw, height: fh, class: "unit-frame" }));
+  if (unit.type === "infantry") {
+    group.appendChild(svgEl("line", { x1: fx, y1: fy, x2: fx + fw, y2: fy + fh, class: "unit-symbol" }));
+    group.appendChild(svgEl("line", { x1: fx, y1: fy + fh, x2: fx + fw, y2: fy, class: "unit-symbol" }));
+  } else if (unit.type === "cavalry") {
+    group.appendChild(svgEl("line", { x1: fx, y1: fy + fh, x2: fx + fw, y2: fy, class: "unit-symbol" }));
+  } else if (unit.type === "artillery") {
+    group.appendChild(svgEl("circle", { cx: x, cy: fy + fh / 2, r: fh * 0.2, class: "unit-symbol-fill" }));
+    if (unit.state === "mobilised") {
+      const wy = fy + fh + radius * 0.1;
+      group.appendChild(svgEl("line", { x1: x - fw * 0.3, y1: wy, x2: x + fw * 0.3, y2: wy, class: "unit-towed-axle" }));
+      for (const dx of [-fw * 0.3, fw * 0.3]) {
+        group.appendChild(svgEl("circle", { cx: x + dx, cy: wy, r: radius * 0.07, class: "unit-towed-wheel" }));
+      }
+    }
+  }
 
-  if (unit.state) {
+  if (lod !== "far") {
+    // Echelon above the frame, designation number below — white on the
+    // coloured body, with a dark halo (paint-order: stroke, in CSS) for
+    // contrast on either side's colour.
+    if (echelon) {
+      group.appendChild(
+        svgEl("text", { x, y: fy - radius * 0.08, "text-anchor": "middle", class: "unit-echelon" })
+      ).textContent = echelon;
+    }
+    const numberY = fy + fh + (unit.type === "artillery" && unit.state === "mobilised" ? radius * 0.42 : radius * 0.33);
     group.appendChild(
-      svgEl("text", { x: x, y: y + radius + 11, "text-anchor": "middle", "font-size": "9" })
-    ).textContent = unit.state;
+      svgEl("text", { x, y: numberY, "text-anchor": "middle", class: "unit-number" })
+    ).textContent = unitNumber(unit);
+    if (half) {
+      // NATO's "reduced" mark, top right of the frame.
+      group.appendChild(svgEl("text", { x: fx + fw + 2, y: fy + radius * 0.1, class: "unit-reduced-mark" })).textContent = "−";
+    }
+  }
+
+  if (lod === "close" && unit.state) {
+    group.appendChild(
+      svgEl("text", { x, y: y + radius * 1.15, "text-anchor": "middle", class: "unit-state-text" })
+    ).textContent = unit.state.toUpperCase();
   }
 
   svg.appendChild(group);
@@ -540,6 +603,7 @@ mapSvgEl.addEventListener("wheel", (e) => {
   if (!view) return;
   e.preventDefault();
   zoomBy(e.deltaY > 0 ? 1.12 : 1 / 1.12, e.clientX, e.clientY);
+  syncTokenLod();
 }, { passive: false });
 
 mapSvgEl.addEventListener("mousedown", (e) => {
@@ -568,10 +632,17 @@ window.addEventListener("mouseup", () => {
   mapSvgEl.classList.remove("panning");
 });
 
-document.getElementById("zoom-in").addEventListener("click", () => zoomBy(1 / 1.3));
-document.getElementById("zoom-out").addEventListener("click", () => zoomBy(1.3));
+document.getElementById("zoom-in").addEventListener("click", () => {
+  zoomBy(1 / 1.3);
+  syncTokenLod();
+});
+document.getElementById("zoom-out").addEventListener("click", () => {
+  zoomBy(1.3);
+  syncTokenLod();
+});
 document.getElementById("zoom-reset").addEventListener("click", () => {
   if (state.mapContentSize) resetView(state.mapContentSize.width, state.mapContentSize.height);
+  syncTokenLod();
 });
 
 // ---- unit detail card (docs/dev-plan.md section 7.3, interface item 3) --
@@ -1323,11 +1394,7 @@ function highlightUnit(unitId) {
   document.querySelectorAll("#map .unit").forEach((g) => g.classList.remove("selected"));
   if (!unitId) return;
   const g = document.querySelector(`#map .unit[data-unit-id="${CSS.escape(unitId)}"]`);
-  if (g) {
-    g.classList.add("selected");
-    const poly = g.querySelector(".token-body");
-    if (poly) poly.setAttribute("stroke-width", "4");
-  }
+  if (g) g.classList.add("selected");
 }
 
 function renderEventList() {

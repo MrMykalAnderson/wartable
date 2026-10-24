@@ -1,5 +1,16 @@
 # Changelog
 
+## NATO-style unit tokens (dev-plan.md section 7.12)
+
+The type-letter labels ("I1", "C2") from 7.10 didn't read at a glance. Replaced with NATO APP-6 style tokens (core-rules.md 3.3, rewritten), matching `docs/tools/token_mockup.py`'s reference drawing and `docs/images/token-key.png`/`token-mockup.png`. Purely visual — no rules, save format, or engine change; existing saves display with the new tokens automatically.
+
+- Hex body in the side colour (`#2f5fa8`/`#b83a2e`), washed out at half strength via a second palette (`SIDE_COLORS_HALF`) rather than opacity, so the frame/symbol/text stay crisp; white NATO frame with the type symbol (infantry X, cavalry one diagonal, artillery a dot), plus the towed mark (axle and two wheels) when Mobilised. Front edge yellow over a dark casing, flanks thin white, rear unmarked — replaces the old red/green scheme everywhere a token shows facing.
+- Echelon above the frame, from a new `rules.Scenario.Echelon` field (optional — empty shows no mark, so other scenario files/test fixtures don't need to change); both Two Towns and the Starter Battle set `echelon: II`. Designation number below (the unit's own ordinal, read off its ID, same as before). NATO reduced mark (−) at half strength.
+- **Levels of detail by zoom** (`web/app.js`'s `tokenLodFor`): far (small on-screen hexes) shows body/frame/symbol/front edge only; mid adds echelon/number/flanks/the reduced mark; close adds state text (READY/MOBILISED). Computed from the hex's actual on-screen radius (the SVG's rendered size over its viewBox — the viewBox is what zoom/pan actually change, not `HEX_SIZE`), re-evaluated after every zoom action (`syncTokenLod`, called from the wheel handler and the zoom in/out/reset buttons) but skipped on a plain pan, and only triggers a redraw when the zoom has actually crossed a detail-level threshold.
+- Full unit name/strength/facing/stats stay in the hover tooltip and unit card, unaffected by level of detail.
+
+`go vet ./...` and `go test ./...` pass; verified in a real browser against both a fresh game and an existing multi-turn save (`movementAndBuyTest.json`) — all three zoom levels, half-strength washing, and Mobilised artillery's towed mark all confirmed via direct DOM inspection, not just a screenshot.
+
 ## Playtest round 7: the step rule replaces pathfinding (dev-plan.md section 7.11)
 
 Movement had become a route search no human could do at the table. Replaced with a local **step rule**: each step is decided fresh from the hexes next to the unit, matching `docs/tools/movement_reference.py`, the new reference model CD cross-checked it against.

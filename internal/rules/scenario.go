@@ -89,10 +89,16 @@ type Scenario struct {
 	// 0 means unset, which StartingLimitOrCapacity treats as no
 	// separate limit (the whole Capacity is the starting army, as for
 	// the Starter Battle).
-	StartingLimit  int      `yaml:"starting_limit,omitempty"`
-	UnitsAllowed   []string `yaml:"units_allowed"`
-	TurnLimit      int      `yaml:"turn_limit"`
-	TieBreakHolder string   `yaml:"tie_break_holder"`
+	StartingLimit int      `yaml:"starting_limit,omitempty"`
+	UnitsAllowed  []string `yaml:"units_allowed"`
+	TurnLimit     int      `yaml:"turn_limit"`
+	// Echelon is the NATO APP-6 unit-size mark shown above every token's
+	// frame (docs/core-rules.md section 3.3, dev-plan.md section 7.12),
+	// e.g. "II" for a battalion. Purely visual: optional, and empty
+	// shows no echelon mark, so existing scenario files and saves don't
+	// need to change.
+	Echelon        string `yaml:"echelon,omitempty"`
+	TieBreakHolder string `yaml:"tie_break_holder"`
 }
 
 // StartingLimitOrCapacity is the actual limit on a starting army's
