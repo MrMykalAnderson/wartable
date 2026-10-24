@@ -162,18 +162,97 @@ button {
   color: #a33;
 }
 
-.unit-front { stroke: #c0392b; }
-.unit-flank { stroke: #27ae60; }
-.unit-rear { stroke: #555; }
-.unit-half { opacity: 0.55; }
-
-/* Unit labels (docs/dev-plan.md section 7.10): type letter + number
-   (e.g. "I1"), readable at normal zoom against the token's own fill. */
-.unit-label {
+/* NATO APP-6 style unit tokens (docs/core-rules.md section 3.3, dev-
+   plan.md section 7.12): hex body in the side colour (washed out at
+   half strength, via SIDE_COLORS_HALF in app.js — not opacity, so the
+   frame/symbol/text stay crisp), white NATO frame with the type
+   symbol, front edge yellow over a dark casing, flanks thin white. */
+.token-body {
+  stroke: #1d1d1d;
+  stroke-width: 1;
+}
+#map .unit.selected .token-body {
+  stroke: #000;
+  stroke-width: 4;
+}
+.unit-front-casing {
+  stroke: #111;
+  stroke-width: 6.2;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+.unit-front {
+  stroke: #ffd23f;
+  stroke-width: 4;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+.unit-flank {
+  stroke: #fff;
+  stroke-width: 2;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+.unit-frame {
   fill: #fff;
-  stroke: #222;
-  stroke-width: 0.4;
+  stroke: #111;
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+.unit-symbol {
+  stroke: #111;
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+.unit-symbol-fill {
+  fill: #111;
+  pointer-events: none;
+}
+.unit-towed-axle {
+  stroke: #111;
+  stroke-width: 1.2;
+  pointer-events: none;
+}
+.unit-towed-wheel {
+  fill: #fff;
+  stroke: #111;
+  stroke-width: 1.2;
+  pointer-events: none;
+}
+/* Echelon (above the frame) and designation number (below): white on
+   the coloured body, with a dark halo for contrast on either side's
+   colour. */
+.unit-echelon,
+.unit-number {
+  fill: #fff;
+  stroke: #111;
   paint-order: stroke;
+  font-family: Arial, sans-serif;
+  font-weight: 700;
+  text-anchor: middle;
+  pointer-events: none;
+}
+.unit-echelon {
+  font-size: 9px;
+  stroke-width: 1.2;
+}
+.unit-number {
+  font-size: 11px;
+  stroke-width: 1.4;
+}
+/* NATO's "reduced" mark at half strength. */
+.unit-reduced-mark {
+  fill: #111;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: Arial, sans-serif;
+  pointer-events: none;
+}
+.unit-state-text {
+  fill: #333;
+  font-size: 8px;
+  font-family: Arial, sans-serif;
+  text-anchor: middle;
   pointer-events: none;
 }
 

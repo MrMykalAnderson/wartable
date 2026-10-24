@@ -205,6 +205,10 @@ type GameView struct {
 	// for a scenario with no bank concept, which always has it at 0.
 	Bank      map[string]int `json:"bank,omitempty"`
 	UnitTypes []UnitTypeView `json:"unitTypes"`
+	// Echelon is the scenario's NATO unit-size mark for every token
+	// (docs/core-rules.md section 3.3, dev-plan.md section 7.12), e.g.
+	// "II"; empty for a scenario that doesn't set one.
+	Echelon string `json:"echelon,omitempty"`
 }
 
 // UnitTypeView is one unit type a Deploy order may buy (docs/core-
@@ -251,6 +255,7 @@ func newGameView(f save.File, units map[string]rules.Unit, core rules.CoreRules,
 		DefaultFacing:  scenario.DefaultFacing,
 		Bank:           f.State.Bank,
 		UnitTypes:      unitTypes,
+		Echelon:        scenario.Echelon,
 	}
 }
 

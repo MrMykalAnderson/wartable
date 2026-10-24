@@ -7,6 +7,7 @@ deployment_zones:
   south: { rows: [9, 10] }
 default_facing: { north: S, south: N }
 capacity: 60
+echelon: II
 units_allowed: [infantry, cavalry, artillery]
 turn_limit: 12
 tie_break_holder: north
