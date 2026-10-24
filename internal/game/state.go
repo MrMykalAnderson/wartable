@@ -27,18 +27,23 @@ type GameState struct {
 // Event is one auditable step of turn execution (docs/dev-plan.md section
 // 4): Melee/Ranged carry the exact numbers used when set, Board is the
 // board exactly as it stood immediately after this event, for replaying
-// a turn step by step (docs/dev-plan.md section 7.3), and Path is the
-// hexes a "moved" event's unit actually entered, in order (excluding
-// where it started), for showing the route it took rather than just
-// where it ended up.
+// a turn step by step (docs/dev-plan.md section 7.3), Path is the hexes
+// a "moved" event's unit actually entered, in order (excluding where it
+// started), for showing the route it took rather than just where it
+// ended up, and Steps/StopReason are the step rule's own record of that
+// route — each step's options and why one won the tie, plus why the
+// move stopped (dev-plan.md section 7.11) — for the replay's expandable
+// step-by-step breakdown.
 type Event struct {
-	Kind   string
-	Unit   string
-	Detail string
-	Board  Board
-	Path   []hex.Offset
-	Melee  *MeleeResult
-	Ranged *RangedResult
+	Kind       string
+	Unit       string
+	Detail     string
+	Board      Board
+	Path       []hex.Offset
+	Steps      []MoveStep
+	StopReason string
+	Melee      *MeleeResult
+	Ranged     *RangedResult
 }
 
 func (s GameState) withReserve(side string, units []UnitInstance) GameState {
@@ -76,29 +81,6 @@ func PassableFor(board Board, moverID string) hex.PassableFunc {
 	}
 }
 
-// edgeBlockedFor is the hex.EdgeBlockedFunc for board's terrain: a river
-// edge with no bridge blocks movement directly across it (docs/core-
-// rules.md section 7.1 and 2.3), regardless of whether either hex is
-// itself passable. Safe to use even when board.Terrain is nil (open
-// ground: nothing is ever blocked).
-func edgeBlockedFor(board Board) hex.EdgeBlockedFunc {
-	return board.Terrain.RiverBlocks
-}
-
-// roadPassable is the hex.PassableFunc for finding a road march's route
-// (docs/core-rules.md section 2.3): on the map, and on a road. It
-// deliberately ignores unit occupancy — the road network is a sparse
-// graph, so routing around a blocking unit the way the safe route does
-// could send a road march far out of its way, by some entirely
-// different road, instead of simply stopping at the blockage (EX-10's
-// note). moveTowards's own stepping loop is what actually stops a road
-// march one hex short of a unit in its way.
-func roadPassable(board Board) hex.PassableFunc {
-	return func(o hex.Offset) bool {
-		return board.InBounds(o) && board.Terrain.IsRoad(o)
-	}
-}
-
 // resolveHexTarget resolves a Move order's detail (a hex, or a unit's
 // current hex) to a hex.
 func resolveHexTarget(board Board, o orders.Order) (hex.Offset, bool) {
@@ -126,72 +108,19 @@ func directionOfLastStep(startPos hex.Offset, path []hex.Offset) (hex.Direction,
 	return hex.AdjacentDirection(from, path[len(path)-1])
 }
 
-// MoveOutcome is how far a unit got toward a destination.
-type MoveOutcome struct {
-	Path    []hex.Offset // hexes entered, in order; excludes the start.
-	Contact bool         // stopped because it entered a hex adjacent to an enemy.
-}
-
-// StepCostFor is the hex.CostFunc for terrain movement cost (docs/core-
-// rules.md section 2.3): a forest hex costs core.Terrain.ForestMoveCost
-// to enter, everything else costs 1. Safe to use even when
-// board.Terrain is nil (open ground: nothing ever costs more than 1).
-// Exported for the web viewer's reach-guide API (dev-plan.md section
-// 7.10, interface item "Reach preview uses forest costs").
-func StepCostFor(core rules.CoreRules, board Board) hex.CostFunc {
+// StepCostFor returns the movement cost to enter a hex (docs/core-
+// rules.md section 2.3): a forest hex costs core.Terrain.ForestMoveCost,
+// everything else costs 1. Safe to use even when board.Terrain is nil
+// (open ground: nothing ever costs more than 1). Exported for the web
+// viewer's reach-guide API (dev-plan.md section 7.10, interface item
+// "Reach preview uses forest costs").
+func StepCostFor(core rules.CoreRules, board Board) func(hex.Offset) int {
 	return func(o hex.Offset) int {
 		if board.Terrain.IsForest(o) {
 			return core.Terrain.ForestMoveCost
 		}
 		return 1
 	}
-}
-
-// safePassable is the hex.PassableFunc for the safe route (docs/core-
-// rules.md section 7.2): passable, and never adjacent to an enemy
-// (ignoring any pair separated by a river edge, same as contact itself),
-// except dest itself (which may be next to an enemy) and, for a Close
-// order, any hex next to closeTarget (empty for a plain Move — the
-// unit is trying to get there, so that adjacency doesn't make a hex
-// unsafe).
-func safePassable(board Board, mover UnitInstance, dest hex.Offset, closeTarget string) hex.PassableFunc {
-	base := PassableFor(board, mover.ID)
-	return func(o hex.Offset) bool {
-		if !base(o) {
-			return false
-		}
-		if o == dest {
-			return true
-		}
-		for _, nb := range board.adjacentHexes(o) {
-			u, ok := board.UnitAt(nb)
-			if !ok || u.Side == mover.Side {
-				continue
-			}
-			if closeTarget != "" && u.ID == closeTarget {
-				continue
-			}
-			return false
-		}
-		return true
-	}
-}
-
-// safeShortestPath finds the route mover actually takes to dest
-// (docs/core-rules.md section 7.2): the cheapest safe route if one
-// reaches dest (judged the whole way there, regardless of how much of
-// it mover can cover this turn), else the plain cheapest path (with its
-// own unreachable-destination fallback). Both respect river edges and
-// terrain movement cost (dev-plan.md section 7.10: Dijkstra, tied by
-// fewer hexes then clockwise order — see hex.CheapestPath).
-func safeShortestPath(core rules.CoreRules, board Board, mover UnitInstance, dest hex.Offset, closeTarget string) []hex.Offset {
-	edgeBlocked := edgeBlockedFor(board)
-	cost := StepCostFor(core, board)
-	if path, reached := hex.CheapestPath(mover.Pos, dest, safePassable(board, mover, dest, closeTarget), cost, edgeBlocked); reached {
-		return path
-	}
-	path, _ := hex.CheapestPath(mover.Pos, dest, PassableFor(board, mover.ID), cost, edgeBlocked)
-	return path
 }
 
 // fordPath checks whether dest is directly across a river edge (with no
@@ -212,75 +141,6 @@ func fordPath(board Board, mover UnitInstance, dest hex.Offset) (path []hex.Offs
 		return nil, false
 	}
 	return []hex.Offset{dest}, true
-}
-
-// roadMarchPath finds the route a road march takes (docs/core-rules.md
-// section 2.3): only along road hexes, switching roads where they meet,
-// ignoring the safe route rule. ok is false unless mover's own hex and
-// dest are both road hexes.
-func roadMarchPath(board Board, mover UnitInstance, dest hex.Offset) (path []hex.Offset, ok bool) {
-	if !board.Terrain.IsRoad(mover.Pos) || !board.Terrain.IsRoad(dest) {
-		return nil, false
-	}
-	path, _ = hex.ShortestPath(mover.Pos, dest, roadPassable(board), edgeBlockedFor(board))
-	return path, true
-}
-
-// moveTravelPath picks which of core-rules.md section 2.3's route rules
-// applies to a plain Move from mover's position to dest — fording, a
-// road march, or (the normal case, and always for a Close order's own
-// approach, closeTarget != "") the safe route — and the extra Move it
-// grants (a road march's +2; 0 otherwise).
-func moveTravelPath(core rules.CoreRules, board Board, mover UnitInstance, dest hex.Offset, closeTarget string) (path []hex.Offset, extraMove int) {
-	if closeTarget == "" {
-		if p, ok := fordPath(board, mover, dest); ok {
-			return p, 0
-		}
-		if p, ok := roadMarchPath(board, mover, dest); ok {
-			return p, core.Terrain.RoadMarchMoveBonus
-		}
-	}
-	return safeShortestPath(core, board, mover, dest, closeTarget), 0
-}
-
-// moveTowards advances mover toward dest, up to maxSteps worth of
-// movement cost (before any road-march bonus), following fording, a
-// road march or the safe route as appropriate (falling back to the
-// plain cheapest path if no safe route exists), and stopping on contact
-// with any enemy (docs/core-rules.md section 7.3). Entering a forest
-// hex costs core.Terrain.ForestMoveCost, everything else costs 1; a
-// unit stops when it can't pay for its next step, but always gets at
-// least one hex regardless of cost (section 2.3). closeTarget is the
-// named target of a Close order (empty for a plain Move), which only
-// ever takes the safe route.
-func moveTowards(core rules.CoreRules, board Board, mover UnitInstance, dest hex.Offset, maxSteps int, closeTarget string) MoveOutcome {
-	full, extraMove := moveTravelPath(core, board, mover, dest, closeTarget)
-	maxSteps += extraMove
-	cost := StepCostFor(core, board)
-
-	var out MoveOutcome
-	spent := 0
-	for i := 0; i < len(full); i++ {
-		if u, occupied := board.UnitAt(full[i]); occupied && u.ID != mover.ID {
-			// A road march's route ignores occupancy when found (see
-			// roadPassable), so this is where it actually stops behind
-			// a blocking unit (EX-10's note); a no-op for every other
-			// route, whose own pathfinding already avoids occupied
-			// hexes.
-			break
-		}
-		stepCost := cost(full[i])
-		if spent > 0 && spent+stepCost > maxSteps {
-			break
-		}
-		out.Path = append(out.Path, full[i])
-		spent += stepCost
-		if board.AdjacentEnemy(mover.Side, full[i]) {
-			out.Contact = true
-			break
-		}
-	}
-	return out
 }
 
 func currentPos(start hex.Offset, path []hex.Offset) hex.Offset {

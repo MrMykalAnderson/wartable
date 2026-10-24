@@ -133,10 +133,10 @@ func deployedUnitOptions(board game.Board, core rules.CoreRules, unit game.UnitI
 
 	stats := unit.Stats(core)
 	if unit.CanMove() {
-		view.MoveHexes = hexesWithin(unit.Pos, stats.Move, core, scenario)
+		view.MoveHexes = hexesWithin(unit, stats.Move, core, scenario)
 		if unit.Template.Melee || len(unit.Template.States) == 0 {
 			view.CloseMove = stats.Move / 2
-			view.CloseMoveHexes = hexesWithin(unit.Pos, view.CloseMove, core, scenario)
+			view.CloseMoveHexes = hexesWithin(unit, view.CloseMove, core, scenario)
 		}
 		view.RoadMarchHexes = roadMarchHexesWithin(unit.Pos, stats.Move+core.Terrain.RoadMarchMoveBonus, scenario.Terrain)
 		view.FordHexes = fordHexes(unit.Pos, scenario.Terrain)
@@ -179,32 +179,34 @@ func deployedUnitOptions(board game.Board, core rules.CoreRules, unit game.UnitI
 	return view
 }
 
-// hexesWithin returns every hex on scenario's map reachable from pos
-// for movement cost up to budget (exclusive of pos itself), ignoring
-// every unit on the board (docs/dev-plan.md section 7.6: a reach guide,
-// not a pathfinding result) but counting terrain movement cost —
-// forest costs more to enter — and river edges, which block it
-// entirely except at a bridge (section 7.10's "reach preview uses
-// forest costs"; fording is a separate, explicitly marked exception —
-// see fordHexes — since it's a special one-hex whole order, not normal
-// movement).
-func hexesWithin(pos hex.Offset, budget int, core rules.CoreRules, scenario rules.Scenario) []HexView {
+// hexesWithin returns every hex on scenario's map that unit's own step
+// rule (docs/core-rules.md section 7.2) would actually arrive at, given
+// budget worth of movement cost and an otherwise empty board — a reach
+// guide, not a pathfinding result (dev-plan.md section 7.6), and, since
+// 7.11, run live on the real step rule (dev-plan.md section 7.11's
+// "planning previews use the same step rule on terrain only, as now")
+// rather than a separate cost search: a hex the greedy step rule can't
+// actually walk to within budget isn't shown, even if some other route
+// could reach it. Ignores every unit on the board, including unit
+// itself; fording is a separate, explicitly marked exception (see
+// fordHexes), since it's a special one-hex whole order, not normal
+// movement, so the step rule (and this guide) never takes it on its own.
+func hexesWithin(unit game.UnitInstance, budget int, core rules.CoreRules, scenario rules.Scenario) []HexView {
 	var hexes []HexView
 	if budget <= 0 {
 		return hexes
 	}
-	passable := func(o hex.Offset) bool {
-		return o.Col >= 0 && o.Col < scenario.Map.Columns && o.Row >= 0 && o.Row < scenario.Map.Rows
-	}
-	cost := func(o hex.Offset) int {
-		if scenario.Terrain.IsForest(o) {
-			return core.Terrain.ForestMoveCost
-		}
-		return 1
-	}
-	for h, d := range hex.ReachCost(pos, passable, cost, scenario.Terrain.RiverBlocks) {
-		if d.Cost > 0 && d.Cost <= budget {
-			hexes = append(hexes, HexView{Col: h.Col, Row: h.Row})
+	empty := game.Board{Columns: scenario.Map.Columns, Rows: scenario.Map.Rows, Terrain: scenario.Terrain, Units: []game.UnitInstance{unit}}
+	for col := 0; col < scenario.Map.Columns; col++ {
+		for row := 0; row < scenario.Map.Rows; row++ {
+			h := hex.Offset{Col: col, Row: row}
+			if h == unit.Pos || hex.Distance(unit.Pos, h) > budget {
+				continue
+			}
+			result := game.StepMove(core, empty, unit, h, budget, "")
+			if n := len(result.Path); n > 0 && result.Path[n-1] == h {
+				hexes = append(hexes, HexView{Col: h.Col, Row: h.Row})
+			}
 		}
 	}
 	return hexes

@@ -138,9 +138,9 @@ func TestFordingNeverAutomatic(t *testing.T) {
 	if _, ok := fordPath(board, mover, mustParse(t, "M4")); ok {
 		t.Errorf("fordPath(K6, M4) = ok, want false (M4 is not directly across a river edge from K6)")
 	}
-	path := safeShortestPath(core, board, mover, mustParse(t, "M4"), "")
+	path := StepMove(core, board, mover, mustParse(t, "M4"), mover.Stats(core).Move, "").Path
 	if len(path) > 0 && path[0] == mustParse(t, "L5") {
-		t.Errorf("safeShortestPath(K6, M4) = %v, want it not to cross the unbridged K6|L5 river edge", path)
+		t.Errorf("StepMove(K6, M4) = %v, want it not to cross the unbridged K6|L5 river edge", path)
 	}
 }
 

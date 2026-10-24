@@ -182,6 +182,26 @@ func Distance(a, b Offset) int {
 	return CubeDistance(a.ToCube(), b.ToCube())
 }
 
+// center returns a hex's pixel-space centre, for measuring "nearer as the
+// crow flies" (docs/core-rules.md section 7.2's slide rule), using the
+// same odd-q flat-top layout as the web viewer's own hexCenter.
+func center(o Offset) (x, y float64) {
+	x = 1.5 * float64(o.Col)
+	y = math.Sqrt(3) * (float64(o.Row) + 0.5*float64(o.Col&1))
+	return x, y
+}
+
+// CenterDistance returns the straight-line ("crow flies") distance
+// between two hexes' pixel centres, in hex-width units (docs/core-rules.md
+// section 7.2: a slide step must be strictly nearer the destination this
+// way, since hex distance alone ties).
+func CenterDistance(a, b Offset) float64 {
+	ax, ay := center(a)
+	bx, by := center(b)
+	dx, dy := ax-bx, ay-by
+	return math.Sqrt(dx*dx + dy*dy)
+}
+
 // DirectionToward returns the direction whose step is most aligned with
 // the vector from "from" to "to": the edge pointing most directly at a
 // hex that may be distant and not on any single direction's exact line
